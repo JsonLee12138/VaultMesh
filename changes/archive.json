@@ -248,6 +248,15 @@
         "changes/CHG-2026-033-rewrite-public-history/change.md": "sha256:02aa3b7df304737ce07d014fe8570680d73002c86fa3bd870feff631652a60e1",
         "changes/CHG-2026-033-rewrite-public-history/change.yaml": "sha256:0a026e089b054f1016bf63bbebbfea0cb24aa8a1cdbab13144b191a723312708"
       }
+    },
+    {
+      "work_id": "CHG-2026-034-recreate-github-repository",
+      "status": "Verified",
+      "archived_at": "2026-08-09T05:16:41.919Z",
+      "files": {
+        "changes/CHG-2026-034-recreate-github-repository/change.md": "sha256:ba18471a718b1aa25508a57ac0eb11c6db82ba9059bad1527a1036b3d9fe6ae4",
+        "changes/CHG-2026-034-recreate-github-repository/change.yaml": "sha256:4d12b72fb13e41c5509a18675634c2e7238229d28e7df5c2286a6d50ae81a057"
+      }
     }
   ]
 }

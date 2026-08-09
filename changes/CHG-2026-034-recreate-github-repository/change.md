@@ -33,10 +33,10 @@
 
 | Task | Requirement | 可验证输出 | Test | 状态 |
 | --- | --- | --- | --- | --- |
-| `RECREATE-01` | N/A | 两个 Draft Release 元数据、资产与 SHA-256 本地备份 | `CT-REPOSITORY-001` | In Progress |
-| `RECREATE-02` | N/A | 旧仓库删除、同名 Public 仓库创建 | `CT-REPOSITORY-001` | Pending |
-| `RECREATE-03` | N/A | 只推送当前 PolyForm main 并恢复安全/展示设置 | `CT-REPOSITORY-001` | Pending |
-| `RECREATE-04` | N/A | 远端核验、证据与 Work 封存 | `pnpm docs:check` | Pending |
+| `RECREATE-01` | N/A | 两个 Draft Release 元数据、资产与 SHA-256 本地备份 | `CT-REPOSITORY-001` | Complete |
+| `RECREATE-02` | N/A | 旧仓库删除、同名 Public 仓库创建 | `CT-REPOSITORY-001` | Complete |
+| `RECREATE-03` | N/A | 只推送当前 PolyForm main 并恢复安全/展示设置 | `CT-REPOSITORY-001` | Complete |
+| `RECREATE-04` | N/A | 远端核验、证据与 Work 封存 | `pnpm docs:check` | Complete |
 
 ## 验收与证据
 
@@ -45,6 +45,17 @@
 - `git ls-remote --heads --tags origin` 必须只显示预期的新 `main`（收尾 PR 临时分支在合并后删除），且不得存在旧 tag。
 - `CT-HISTORY-001`、`pnpm scripts:test`、`pnpm docs:check` 必须通过。
 - GitHub API 必须证明 secret scanning、push protection、private vulnerability reporting 已启用，description/topics 正确，Release/Issue/旧 PR 数量为 0。
+
+实施中证据（`2026-08-09`）：
+
+- `/Users/atlan/Documents/VaultMesh-github-backup-20260809/` 保存旧仓库元数据、两份 Draft Release 元数据和 12 个资产，总大小约 67 MiB；`SHA256SUMS` 与 GitHub API digest 逐项一致，`verify-backup.mjs` 通过。资产未上传到新仓库。
+- `/Users/atlan/Documents/VaultMesh-history-before-rewrite-20260809.bundle` 再次通过 `git bundle verify`，报告 36 refs 与完整历史；恢复 bundle 未上传。
+- 删除前旧仓库 ID 为 `1311999841`（`R_kgDOTjOHYQ`）；删除后 REST API 返回 404。新同名仓库 ID 为 `1328458129`（`R_kgDOTy6pkQ`），创建时间为 `2026-08-09T05:14:31Z`，证明是独立 repository identity。
+- 新仓库为 `PUBLIC`，默认分支 `main`；首次推送后 `git ls-remote --heads --tags origin` 只显示 `main`，无 tag。根许可证和 package metadata 保持 `PolyForm-Noncommercial-1.0.0`。
+- 新仓库 Release、PR、Issue 均为空；旧 PR `#2` API 返回 404，旧 merge SHA `210a7c1` API 返回 422 `No commit found`。新仓库首次 `Document governance` Actions run `31296273120` 通过。
+- description 为 `Source-available, noncommercial local-first password manager built with Rust, Tauri 2, and Chromium MV3`；topics 恢复为 `browser-extension`、`local-first`、`noncommercial`、`password-manager`、`rust`、`source-available`、`tauri`；Issues 启用，Discussions/Wiki 关闭。
+- GitHub API 证明 secret scanning、push protection、private vulnerability reporting 均已启用；Dependabot security updates、non-provider patterns 与 validity checks 继续保持旧仓库的 disabled 状态。
+- `CT-HISTORY-001`：3/3 通过；`pnpm scripts:test`：76/76 通过；`pnpm docs:check`：通过（95 Markdown、53 YAML、49 requirements、120 test IDs、16 ADRs、40 routed Changes、27 archived Changes）；`cargo metadata --no-deps --format-version 1`：通过。
 
 ## 安全与数据生命周期
 

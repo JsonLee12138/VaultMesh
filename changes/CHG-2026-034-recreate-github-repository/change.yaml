@@ -1,7 +1,7 @@
 id: "CHG-2026-034-recreate-github-repository"
 title: "删除并重建同名 GitHub 仓库"
 type: "governance"
-status: "Implementing"
+status: "Verified"
 spec_revision: "0.1.42-active"
 target_release: null
 requirements: []
