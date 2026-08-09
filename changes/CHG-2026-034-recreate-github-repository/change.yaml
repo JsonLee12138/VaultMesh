@@ -1,0 +1,29 @@
+id: "CHG-2026-034-recreate-github-repository"
+title: "删除并重建同名 GitHub 仓库"
+type: "governance"
+status: "Implementing"
+spec_revision: "0.1.42-active"
+target_release: null
+requirements: []
+tests:
+  - "CT-REPOSITORY-001"
+adrs: []
+context_refs:
+  - "docs/00-spec-index.md#当前基线"
+  - "docs/02-scope-matrix.md#发布状态"
+  - "docs/07-test-release-plan.md#测试 ID 定位"
+  - "docs/07-test-release-plan.md#GATE-1 规格与追踪"
+  - "docs/09-document-governance.md"
+related_changes:
+  - "CHG-2026-033-rewrite-public-history"
+affected_surfaces:
+  - "GitHub repository identity"
+  - "GitHub pull requests and Actions history"
+  - "GitHub draft releases and assets"
+  - "repository security and metadata settings"
+affected_formats: []
+affected_versions:
+  - "public source repository"
+security_impact: "Deleting the repository removes repository-scoped security configuration and audit context. The replacement must re-enable secret scanning, push protection, and private vulnerability reporting before completion. Draft release assets are backed up locally and are not uploaded to the replacement repository."
+migration: "The same atlantis-mk/VaultMesh URL is recreated with a new GitHub repository identity. Only the current clean PolyForm main history is pushed. Old PRs, Actions runs, releases, settings, and GitHub repository-scoped references are not migrated. Existing external clones and archives remain outside project control."
+supersedes: []

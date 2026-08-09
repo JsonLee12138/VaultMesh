@@ -67,6 +67,7 @@ pnpm typecheck
 | `CT-OSS-001` | 历史证据：`scripts/open-source-metadata.test.mjs` 保留原 AGPLv3-or-later 标准正文、首次公开 Work 封存记录和精确秘密扫描例外；该 ID 不再代表当前版本的许可元数据 |
 | `CT-LICENSE-001` | `scripts/source-license-metadata.test.mjs` 验证 PolyForm Noncommercial 1.0.0 标准正文、Rust/pnpm SPDX、source-available/非商业表述、商业授权入口、历史 AGPL 权利与第三方权利边界一致，并保持 workspace package `private: true` |
 | `CT-HISTORY-001` | `scripts/repository-history-policy.test.mjs` 验证当前 Git refs 不再包含已知 AGPL 发布提交、`main` 根快照使用 PolyForm Noncommercial，并保留当前许可证元数据 |
+| `CT-REPOSITORY-001` | GitHub API、`git ls-remote` 与本地 SHA-256 清单验证同名 Public 仓库使用新的 repository identity、只包含当前 PolyForm `main`、不迁移旧 PR/Actions/Draft Release，并恢复 secret scanning、push protection、private vulnerability reporting、description 与 topics |
 | `CT-TAURI-BROWSER-*` | Tauri broker/Rust native-host cross-process contract + RPC parity |
 | `CT-BROWSER-001`（development startup） | `scripts/tauri-browser-dev.test.mjs` 的 key→ID→Host origin、专用 profile、debug Host→Tauri dev→WXT 顺序与双进程清理 contract |
 | `CT-FEEDBACK-*` | Tauri renderer 与 extension popup 的 Toaster 位置、toast 触发和 Alert 静态合约测试 |

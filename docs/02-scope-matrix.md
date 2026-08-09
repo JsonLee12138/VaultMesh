@@ -79,3 +79,5 @@
 源码可见不等于产品已正式发布，也不表示安装包已通过安全或平台验收。正式产品公开发布仍受 `docs/07-test-release-plan.md` 中密码学审计、Windows 平台验证、签名/安装、依赖和升级完整性 Gate 约束，`OPEN-003` 不因源码可见而关闭。
 
 Public 默认分支以当前 PolyForm 工作树作为新的根历史，普通远端分支不得保留此前的 AGPL 提交链。该 Git 引用策略不删除 GitHub PR 隐藏引用、缓存、外部 clone 或存档，也不撤销任何已经合法取得的权利。
+
+Public GitHub 仓库使用重建后的独立 repository identity，只承载当前 PolyForm `main` 及其后续历史；旧仓库的 PR、Actions 和 Draft Release 不迁移。仓库级 secret scanning、push protection 与 private vulnerability reporting 必须保持启用。
