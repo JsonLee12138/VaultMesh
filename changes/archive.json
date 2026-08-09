@@ -239,6 +239,15 @@
         "changes/CHG-2026-032-noncommercial-dual-license/change.md": "sha256:d235ce087a98acfa92eace4d75f9b6583cef7f48c119aabbbea44efa8881364b",
         "changes/CHG-2026-032-noncommercial-dual-license/change.yaml": "sha256:dee019e35c2784d61ab8c079d417010e4f490f193be422db4cf6d85418ddca94"
       }
+    },
+    {
+      "work_id": "CHG-2026-033-rewrite-public-history",
+      "status": "Verified",
+      "archived_at": "2026-08-09T05:02:47.267Z",
+      "files": {
+        "changes/CHG-2026-033-rewrite-public-history/change.md": "sha256:02aa3b7df304737ce07d014fe8570680d73002c86fa3bd870feff631652a60e1",
+        "changes/CHG-2026-033-rewrite-public-history/change.yaml": "sha256:0a026e089b054f1016bf63bbebbfea0cb24aa8a1cdbab13144b191a723312708"
+      }
     }
   ]
 }

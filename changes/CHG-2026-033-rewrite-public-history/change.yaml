@@ -1,7 +1,7 @@
 id: "CHG-2026-033-rewrite-public-history"
 title: "重建 Public 仓库分支历史"
 type: "governance"
-status: "Implementing"
+status: "Verified"
 spec_revision: "0.1.41-active"
 target_release: null
 requirements: []

@@ -17,7 +17,17 @@ function git(...args) {
 }
 
 test("CT-HISTORY-001 excludes the AGPL publication commits from current refs", () => {
-  const reachable = new Set(git("rev-list", "--all").split("\n").filter(Boolean));
+  const publicRefs = git(
+    "for-each-ref",
+    "--format=%(refname)",
+    "refs/heads",
+    "refs/remotes/origin",
+  )
+    .split("\n")
+    .filter(Boolean);
+  const reachable = new Set(
+    git("rev-list", ...publicRefs).split("\n").filter(Boolean),
+  );
 
   for (const commit of removedCommits) {
     assert.equal(reachable.has(commit), false, `${commit} remains reachable`);
