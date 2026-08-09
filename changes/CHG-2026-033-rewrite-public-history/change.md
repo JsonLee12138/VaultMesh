@@ -32,10 +32,10 @@
 
 | Task | Requirement | 可验证输出 | Test | 状态 |
 | --- | --- | --- | --- | --- |
-| `HISTORY-01` | N/A | 仓库外完整 bundle 创建并验证 | `git bundle verify` | In Progress |
-| `HISTORY-02` | N/A | 当前树成为新根，旧 SHA 不再可达 | `CT-HISTORY-001` | Pending |
-| `HISTORY-03` | N/A | 两个含 AGPL 链的远端分支删除 | `git ls-remote` | Pending |
-| `HISTORY-04` | N/A | 远端核验、证据和 Work 封存 | `pnpm docs:check` | Pending |
+| `HISTORY-01` | N/A | 仓库外完整 bundle 创建并验证 | `git bundle verify` | Complete |
+| `HISTORY-02` | N/A | 当前树成为新根，旧 SHA 不再可达 | `CT-HISTORY-001` | Complete |
+| `HISTORY-03` | N/A | 两个含 AGPL 链的远端分支删除 | `git ls-remote` | Complete |
+| `HISTORY-04` | N/A | 远端核验、证据和 Work 封存 | `pnpm docs:check` | Complete |
 
 ## 验收与证据
 
@@ -45,6 +45,17 @@
 - `pnpm docs:check`
 - `git ls-remote --heads --tags origin` 不得包含两个删除目标；`main` 必须指向新提交链。
 - GitHub 元数据必须保持 `visibility: PUBLIC`、默认分支 `main`、fork 数 0、当前 PolyForm 根许可证存在。
+
+实施中证据（`2026-08-09`）：
+
+- 重写前 `CT-HISTORY-001` 为 1/3 通过：明确复现 `d4e6d9a` 仍可达且旧根提交不含 `LICENSE`；重写后为 3/3 通过。
+- `/Users/atlan/Documents/VaultMesh-history-before-rewrite-20260809.bundle` 通过 `git bundle verify`，包含 36 refs、完整历史，文件大小约 4.7 MB；该恢复文件未提交或上传。
+- 新根提交 `ffad26b441bb2a5b3605bc0596da7a9cb2cccae4` 无 parent，作者与提交者为 `atlantis-mk <atlanxg@gmail.com>`，根 `LICENSE` 为 PolyForm Noncommercial 1.0.0。
+- `git push --force-with-lease=refs/heads/main:ae0f7592e91cec5ba8e9c09495f8707882697c85` 成功把远端 `main` 更新为 `ffad26b`；未使用无租约强推。
+- 远端与本地 `codex/open-source-license`、`codex/finalize-open-source-work` 已删除。最终普通远端分支只有 `main`、`codex/agent-broker-and-autofill-qa`、`codex/windows-browser-completion`，后两者不包含 AGPL 发布提交链。
+- `pnpm scripts:test`：76/76 通过；`pnpm docs:check`：通过（94 Markdown、52 YAML、49 requirements、120 test IDs、16 ADRs、39 routed Changes、26 archived Changes）；`cargo metadata --no-deps --format-version 1`：通过。
+- GitHub 元数据显示 `visibility: PUBLIC`、默认分支 `main`、fork 数 0，根 `LICENSE` 存在且 topics 保持 `noncommercial`、`source-available`。
+- 按非目标保留的平台引用已核验：GitHub 仍通过 `refs/pull/2/head` 暴露 `d4e6d9a`，旧 merge commit `210a7c1` 仍可能通过 SHA 页面访问。普通分支重写不能删除这些 PR 隐藏 refs、缓存或外部副本；若需平台级删除必须另行联系 GitHub Support。
 
 ## 安全与数据生命周期
 
