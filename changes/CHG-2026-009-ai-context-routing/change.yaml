@@ -1,0 +1,27 @@
+id: "CHG-2026-009-ai-context-routing"
+title: "AI 文档声明式路由与受控检索"
+type: "governance"
+status: "Verified"
+spec_revision: "0.1.1-active"
+target_release: null
+requirements: []
+tests:
+  - "DOC-CONTEXT-001"
+adrs: []
+context_refs:
+  - "AGENTS.md#开始工作前"
+  - "AGENTS.md#文档检索与读取边界"
+  - "docs/00-spec-index.md#路由顺序"
+  - "docs/09-document-governance.md#上下文路由与受控检索"
+  - "docs/08-traceability.md#更新规则"
+  - "changes/_template/change.yaml"
+related_changes:
+  - "CHG-2026-001-ai-document-governance"
+affected_surfaces:
+  - "documentation"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Changes AI document discovery only; existing security requirements remain mandatory and can expand the read set."
+migration: "Existing Work Packages without routing fields use the legacy Requirement/ADR path until edited; new or materially updated Work Packages declare context_refs and related_changes."
+supersedes: []

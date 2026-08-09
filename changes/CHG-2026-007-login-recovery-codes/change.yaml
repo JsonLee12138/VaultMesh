@@ -1,0 +1,45 @@
+id: "CHG-2026-007-login-recovery-codes"
+title: "为 Login 保存并受控使用 2FA 恢复码"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.7-active"
+target_release: null
+requirements:
+  - "REQ-ITEM-001"
+  - "REQ-BROWSER-002"
+  - "NFR-REL-001"
+  - "NFR-COMPAT-001"
+  - "NFR-PRIV-001"
+tests:
+  - "CT-RECOVERY-CODES-001"
+  - "AT-RECOVERY-CODES-001"
+adrs:
+  - "ADR-0001"
+  - "ADR-0005"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-ITEM-001 Login"
+  - "docs/03-functional-requirements.md#REQ-BROWSER-002 RPC 策略"
+  - "specs/browser-integration.md#Recovery-code 文件导入"
+  - "specs/browser-integration.md#Recovery-code 查看与复制"
+  - "specs/tauri-desktop-migration.md#目标拓扑"
+  - "specs/tauri-desktop-migration.md#Tauri-only source Gate"
+  - "docs/06-security-privacy.md#Email、Import 与 SSH 临时状态"
+  - "docs/07-test-release-plan.md#CT-RECOVERY-CODES-*"
+  - "docs/08-traceability.md#REQ-ITEM-001"
+  - "docs/08-traceability.md#REQ-BROWSER-002"
+related_changes: []
+affected_surfaces:
+  - "vault-core encrypted Login payload"
+  - "Tauri-owned React desktop renderer and shared contracts"
+  - "Tauri typed desktop operation adapter"
+  - "Tauri Rust file-dialog and recovery-code file parser"
+  - "Chromium extension Login editor and Browser RPC"
+affected_formats:
+  - "Vault payload Login item (defaulted backward-compatible field; envelope format remains 1)"
+  - "Browser RPC v2 (additive items.recovery-codes, items.copy-recovery-code and items.recovery-codes.import-file operations)"
+affected_versions:
+  - "0.1.0-development"
+  - "extension 0.1.0-development"
+security_impact: "Stores recovery codes only inside the encrypted Login payload; every desktop or extension reveal/copy reauthenticates in core, extension reveal is current-popup-only, copy stays in the privileged expiring clipboard path, selected UTF-8 file content/path stay bounded to Rust, and source deletion requires native confirmation plus an unchanged-file check."
+migration: "Envelope format remains 1. Older payloads default recovery_codes to an empty list; rollback clients can unlock the Vault but cannot present or preserve the new field and may drop it on any subsequent Vault save. Browser RPC remains v2 with three additive recovery-code operations; older extensions keep existing workflows, while a newer extension connected to an older desktop receives unsupported-operation and must keep any edit draft without claiming disclosure, copy, or deletion."
+supersedes: []

@@ -1,0 +1,14 @@
+[[permission]]
+identifier = "allow-agent-authorization-status"
+description = "Allows the isolated authorization window to read its current non-secret pending action."
+commands.allow = ["agent_authorization_status"]
+
+[[permission]]
+identifier = "allow-agent-authorization-resolve-permission"
+description = "Allows the isolated authorization window to resolve its displayed typed permission request."
+commands.allow = ["agent_authorization_resolve_permission"]
+
+[[permission]]
+identifier = "allow-agent-authorization-resolve-confirmation"
+description = "Allows the isolated authorization window to resolve its displayed fresh confirmation."
+commands.allow = ["agent_authorization_resolve_confirmation"]

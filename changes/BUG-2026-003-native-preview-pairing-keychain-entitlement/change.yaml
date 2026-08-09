@@ -1,0 +1,22 @@
+id: "BUG-2026-003-native-preview-pairing-keychain-entitlement"
+title: "Native Preview ad-hoc 配对凭据回退"
+type: "bug"
+status: "Verified"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-BROWSER-001"
+tests:
+  - "CT-NATIVE-BROWSER-001"
+adrs:
+  - "ADR-0003"
+  - "ADR-0004"
+affected_surfaces:
+  - "macOS Native Preview"
+  - "browser native messaging host"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "The ad-hoc development build stores its random pairing key in a Native Preview container file with 0600 permissions and uses a 0600 short-path broker socket; release signing continues to require a shared OS credential entitlement between the app and bundled helper."
+migration: "Existing disabled or unavailable development pairing state is replaced on the next explicit Enable Pairing action; revoke removes the development credential."
+supersedes: []

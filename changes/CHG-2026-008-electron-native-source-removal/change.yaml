@@ -1,0 +1,33 @@
+id: "CHG-2026-008-electron-native-source-removal"
+title: "移除 Electron 与已停止的原生客户端源码"
+type: "migration"
+status: "Implementing"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-TAURI-002"
+  - "NFR-COMPAT-001"
+  - "NFR-PRIV-001"
+tests:
+  - "CT-TAURI-SOURCE-001"
+  - "CT-TAURI-SHELL-001"
+  - "CT-TAURI-COMMAND-001"
+  - "CT-TAURI-DESKTOP-001"
+  - "CT-TAURI-BROWSER-001"
+adrs:
+  - "ADR-0005"
+  - "ADR-0006"
+affected_surfaces:
+  - "Tauri desktop renderer and shared contracts"
+  - "Electron reference client"
+  - "SwiftUI/AppKit Native Preview"
+  - "WinUI reserved source root"
+  - "desktop workspace, scripts and CI"
+  - "legacy Node native host"
+affected_formats:
+  - "none"
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Removes inactive Electron and native presentation privilege surfaces while preserving the Rust/Tauri boundary; source-level rollback is intentionally unavailable after this change."
+migration: "Move the React renderer, typed API/contracts, tests and product assets into the Tauri app before deleting Electron and abandoned native presentation roots. Preserve encrypted Electron user data and migration receipts; do not treat source removal as platform release verification."
+supersedes: []

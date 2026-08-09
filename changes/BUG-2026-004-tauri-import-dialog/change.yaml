@@ -1,0 +1,27 @@
+id: "BUG-2026-004-tauri-import-dialog"
+title: "修复 Tauri 2 导入未调起系统文件选择器"
+type: "bug"
+status: "Implementing"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-IMPORT-001"
+  - "REQ-TAURI-001"
+  - "NFR-REL-001"
+  - "NFR-PRIV-001"
+tests:
+  - "CT-TAURI-DESKTOP-001"
+  - "AT-TAURI-MACOS-001"
+adrs:
+  - "ADR-0005"
+affected_surfaces:
+  - "Tauri 2 desktop shell"
+  - "Rust desktop runtime"
+  - "React desktop renderer"
+affected_formats:
+  - "Vault format 1"
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Restores the Rust-owned file-dialog and bounded in-memory import session without granting dialog or filesystem access to the renderer."
+migration: "none"
+supersedes: []

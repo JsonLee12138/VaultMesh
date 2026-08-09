@@ -1,0 +1,27 @@
+id: "BUG-2026-007-browser-dev-extension-identity"
+title: "browser:dev 使用一致的扩展与 Host 开发身份"
+type: "bug"
+status: "Verified"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-BROWSER-001"
+tests:
+  - "CT-BROWSER-001"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-BROWSER-001"
+  - "specs/browser-integration.md#开发身份与 host"
+related_changes:
+  - "CHG-2026-008-electron-native-source-removal"
+affected_surfaces:
+  - "browser development command"
+  - "WXT extension identity"
+  - "Tauri Rust native-host registration"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Restores exact extension-origin binding for the development native-host manifest; mismatched configured IDs fail before launching either process."
+migration: "none"
+supersedes: []

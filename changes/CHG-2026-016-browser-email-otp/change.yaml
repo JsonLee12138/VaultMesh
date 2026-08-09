@@ -1,0 +1,46 @@
+id: "CHG-2026-016-browser-email-otp"
+title: "插件显示并选择邮箱验证码"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.7-active"
+target_release: "0.1.0-development"
+requirements:
+  - "REQ-BROWSER-002"
+  - "REQ-AUTOFILL-001"
+  - "REQ-EMAIL-002"
+  - "REQ-EMAIL-003"
+tests:
+  - "CT-BROWSER-002"
+  - "CT-AUTOFILL-001"
+  - "CT-EMAIL-003"
+  - "AT-EMAIL-003"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/02-scope-matrix.md#Browser 能力"
+  - "docs/02-scope-matrix.md#Email OTP"
+  - "docs/03-functional-requirements.md#REQ-BROWSER-002 RPC 策略"
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-001 安全 discovery 与 fill"
+  - "docs/03-functional-requirements.md#REQ-EMAIL-002 候选生命周期"
+  - "docs/03-functional-requirements.md#REQ-EMAIL-003 浏览器候选与填充"
+  - "docs/06-security-privacy.md#Browser 与网页边界"
+  - "docs/06-security-privacy.md#Email、Import 与 SSH 临时状态"
+  - "specs/browser-integration.md#Email OTP 候选与填充"
+  - "specs/email-otp.md#Runtime 与数据生命周期"
+  - "specs/tauri-desktop-migration.md#目标拓扑"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/08-traceability.md#REQ-EMAIL-003"
+related_changes:
+  - "CHG-2026-004-tauri-desktop-migration"
+  - "CHG-2026-015-email-otp-alphanumeric-codes"
+affected_surfaces:
+  - "Tauri Rust Email OTP service"
+  - "Browser RPC v2 operation/policy"
+  - "Chromium extension background/content script/popup"
+affected_formats:
+  - "Browser RPC 2 append-only operations"
+affected_versions:
+  - "0.1.0-development"
+security_impact: "After independent extension unlock and explicit popup or OTP-field selection, all unexpired Email OTP codes are globally visible on any HTTP(S) site without domain filtering; fill remains expiry-checked and origin/tab/frame/document-bound, while provider credentials and message bodies remain Rust-owned."
+migration: "No Vault or settings migration. Browser RPC v2 receives append-only operations; older extension/desktop pairs fail closed on unsupported operations."
+supersedes: []

@@ -1,0 +1,51 @@
+{
+  "name": "vaultmesh",
+  "version": "0.0.2-review",
+  "description": "Local-first password manager for Tauri 2 desktop and Chromium browsers",
+  "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atlantis-mk/VaultMesh.git"
+  },
+  "homepage": "https://github.com/atlantis-mk/VaultMesh#readme",
+  "bugs": {
+    "url": "https://github.com/atlantis-mk/VaultMesh/issues"
+  },
+  "packageManager": "pnpm@11.1.1",
+  "scripts": {
+    "docs:check": "node scripts/docs-check.mjs",
+    "work:archive": "node scripts/archive-work.mjs",
+    "scripts:test": "node --test scripts/*.test.mjs",
+    "tauri:dev": "pnpm --filter @vaultmesh/tauri-desktop tauri dev",
+    "tauri:build": "node scripts/build-tauri.mjs",
+    "tauri:release:build": "node scripts/build-tauri.mjs --release-identity",
+    "tauri:test": "cargo test -p vaultmesh-tauri-desktop && cargo test -p vaultmesh-agent-mcp && pnpm --filter @vaultmesh/tauri-desktop test",
+    "tauri:typecheck": "pnpm --filter @vaultmesh/tauri-desktop typecheck",
+    "tauri:local:package": "node scripts/tauri-local-package.mjs",
+    "tauri:local:launch": "node scripts/tauri-local-launch.mjs",
+    "tauri:windows:browser-at": "node scripts/tauri-windows-browser-host-at.mjs",
+    "tauri:windows:browser-uninstall-at": "node scripts/tauri-windows-browser-host-at.mjs --uninstall-check",
+    "agent:client-probe": "node scripts/agent-client-config-probe.mjs",
+    "ffi:build": "cargo build -p vaultmesh-ffi",
+    "ffi:check": "cargo check -p vaultmesh-ffi",
+    "ffi:test": "cargo test -p vaultmesh-ffi",
+    "tauri:macos:browser-host:install": "node scripts/tauri-macos-browser-host.mjs",
+    "tauri:macos:browser-host:uninstall": "node scripts/tauri-macos-browser-host.mjs --uninstall",
+    "browser:dev": "node scripts/tauri-browser-dev.mjs",
+    "extension:dev": "pnpm --filter @vaultmesh/browser-extension dev",
+    "extension:build": "node scripts/build-browser-extension.mjs build",
+    "extension:zip": "node scripts/build-browser-extension.mjs zip",
+    "extension:release:zip": "node scripts/build-browser-extension.mjs zip --release-identity",
+    "extension:test": "pnpm --filter @vaultmesh/browser-extension test",
+    "extension:typecheck": "pnpm --filter @vaultmesh/browser-extension typecheck",
+    "local:package": "pnpm tauri:local:package",
+    "local:launch": "pnpm tauri:local:launch",
+    "verify:browser-parity": "pnpm --filter @vaultmesh/tauri-desktop test:browser-parity",
+    "verify:tauri-source": "node scripts/verify-tauri-source-ownership.mjs",
+    "desktop:dev": "pnpm tauri:dev",
+    "desktop:build": "pnpm tauri:build",
+    "test": "cargo test && pnpm --filter @vaultmesh/tauri-desktop test && pnpm extension:test",
+    "typecheck": "pnpm tauri:typecheck && pnpm extension:typecheck"
+  }
+}

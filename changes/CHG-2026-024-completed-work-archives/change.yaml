@@ -1,0 +1,33 @@
+id: "CHG-2026-024-completed-work-archives"
+title: "完成态 Work 文档不可变封存"
+type: "governance"
+status: "Verified"
+spec_revision: "0.1.33-active"
+target_release: null
+requirements: []
+tests:
+  - "DOC-ARCHIVE-001"
+adrs: []
+context_refs:
+  - "AGENTS.md#测试与完成定义"
+  - "AGENTS.md#Change 与 Release"
+  - "docs/00-spec-index.md#当前基线"
+  - "docs/07-test-release-plan.md#完成声明"
+  - "docs/09-document-governance.md#状态机"
+  - "docs/09-document-governance.md#完成门禁"
+  - "changes/_template/change.md"
+  - "releases/README.md"
+related_changes:
+  - "CHG-2026-001-ai-document-governance"
+  - "CHG-2026-009-ai-context-routing"
+affected_surfaces:
+  - "documentation"
+  - "governance tooling"
+  - "CI"
+affected_formats:
+  - "changes/archive.json@1"
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Adds integrity and append-only checks for completed Work documents; product security boundaries do not change."
+migration: "Create archive records for every existing Verified or Rejected Work; future completed Work must be archived before docs:check passes."
+supersedes: []

@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">VaultMesh application icon for Windows</title>
+  <desc id="desc">A secure vault dial connected to six mesh nodes on an indigo rounded-square field.</desc>
+  <defs>
+    <linearGradient id="background" x1="88" y1="42" x2="925" y2="984" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#312E81"/>
+      <stop offset="0.5" stop-color="#5B4FCE"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(286 207) rotate(47) scale(850)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A5B4FC" stop-opacity="0.48"/>
+      <stop offset="0.56" stop-color="#818CF8" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#1E1B4B" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="vaultFace" x1="363" y1="331" x2="677" y2="704" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#262268"/>
+      <stop offset="1" stop-color="#171441"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="345" y1="310" x2="695" y2="733" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#FFFFFF"/>
+      <stop offset="0.55" stop-color="#E0E7FF"/>
+      <stop offset="1" stop-color="#A5B4FC"/>
+    </linearGradient>
+    <linearGradient id="key" x1="474" y1="420" x2="556" y2="617" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#67E8F9"/>
+      <stop offset="1" stop-color="#38BDF8"/>
+    </linearGradient>
+    <clipPath id="appShape">
+      <rect x="32" y="32" width="960" height="960" rx="210"/>
+    </clipPath>
+  </defs>
+
+  <!-- Windows uses more of the canvas so the taskbar/start-menu icon does not look undersized. -->
+  <g clip-path="url(#appShape)">
+    <rect x="32" y="32" width="960" height="960" rx="210" fill="url(#background)"/>
+    <rect x="32" y="32" width="960" height="960" rx="210" fill="url(#glow)"/>
+    <path d="M32 734C213 646 288 776 457 735C646 690 754 533 992 561V992H32V734Z" fill="#11133F" opacity="0.13"/>
+
+    <g fill="none" stroke="#C7D2FE" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" opacity="0.34">
+      <path d="M512 202L782 358V670L512 826L242 670V358L512 202Z"/>
+      <path d="M512 202V512M782 358L512 512M782 670L512 512M512 826V512M242 670L512 512M242 358L512 512"/>
+      <path d="M242 358L782 670M782 358L242 670" opacity="0.48"/>
+    </g>
+
+    <g fill="#E0E7FF">
+      <circle cx="512" cy="202" r="26"/>
+      <circle cx="782" cy="358" r="26"/>
+      <circle cx="782" cy="670" r="26"/>
+      <circle cx="512" cy="826" r="26"/>
+      <circle cx="242" cy="670" r="26"/>
+      <circle cx="242" cy="358" r="26"/>
+    </g>
+
+    <circle cx="512" cy="512" r="237" fill="#131039" opacity="0.22"/>
+    <circle cx="512" cy="512" r="207" fill="url(#vaultFace)" stroke="url(#metal)" stroke-width="27"/>
+    <circle cx="512" cy="512" r="163" fill="none" stroke="#818CF8" stroke-width="9" opacity="0.42"/>
+
+    <g fill="#C7D2FE">
+      <circle cx="512" cy="358" r="17"/>
+      <circle cx="645" cy="589" r="17"/>
+      <circle cx="379" cy="589" r="17"/>
+    </g>
+
+    <path d="M512 420C465 420 427 458 427 505C427 539 447 568 476 582L458 660H566L548 582C577 568 597 539 597 505C597 458 559 420 512 420Z" fill="url(#key)"/>
+    <circle cx="512" cy="503" r="35" fill="#171441"/>
+    <path d="M512 531L492 618H532L512 531Z" fill="#171441"/>
+
+    <path d="M214 207C318 98 508 69 663 130" fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" opacity="0.13"/>
+  </g>
+  <rect x="43" y="43" width="938" height="938" rx="200" fill="none" stroke="#FFFFFF" stroke-width="5" opacity="0.15"/>
+</svg>

@@ -1,0 +1,28 @@
+id: "CHG-2026-001-ai-document-governance"
+title: "面向 AI 的规格、变更与版本治理"
+type: "governance"
+status: "Verified"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements: []
+tests:
+  - "DOC-GATE-001"
+adrs:
+  - "ADR-0001"
+  - "ADR-0002"
+  - "ADR-0003"
+  - "ADR-0004"
+affected_surfaces:
+  - "documentation"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Security rules are reorganized without changing product behavior."
+migration: "Replace the previous flat documentation set with indexed specs, ADRs, Work Packages, traceability, and release records."
+supersedes:
+  - "docs/architecture.md"
+  - "docs/browser-development.md"
+  - "docs/email-otp.md"
+  - "docs/native-desktop-migration.md"
+  - "docs/threat-model.md"
+  - "docs/vault-format.md"

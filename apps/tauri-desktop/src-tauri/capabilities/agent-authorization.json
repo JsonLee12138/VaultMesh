@@ -1,0 +1,14 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "agent-authorization-capability",
+  "description": "Minimum capability for the isolated global VaultMesh Agent authorization window.",
+  "windows": ["agent-authorization"],
+  "local": true,
+  "permissions": [
+    "core:event:default",
+    "core:window:allow-hide",
+    "allow-agent-authorization-status",
+    "allow-agent-authorization-resolve-permission",
+    "allow-agent-authorization-resolve-confirmation"
+  ]
+}

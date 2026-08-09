@@ -1,0 +1,383 @@
+name: Publish experimental Windows package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package SemVer"
+        required: true
+        type: string
+      channel:
+        description: "Updater channel embedded in the package"
+        required: true
+        default: test
+        type: choice
+        options:
+          - test
+          - review
+      source_ref:
+        description: "Source ref to package; use the frozen 0.0.1-review commit for the baseline"
+        required: false
+        default: ""
+        type: string
+      publish_review_platform:
+        description: "Append Windows x64 to the same-version staged Review manifest"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vaultmesh-r2-windows-experimental-package
+  cancel-in-progress: false
+
+jobs:
+  build_and_publish:
+    name: Build and publish Windows x64 on Windows
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, Windows, X64, vaultmesh-windows-native]
+    timeout-minutes: 90
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      UPDATER_CHANNEL: ${{ inputs.channel }}
+      PUBLISH_REVIEW_PLATFORM: ${{ inputs.publish_review_platform }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      VAULTMESH_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+      VAULTMESH_UPDATER_ENDPOINT: ${{ vars.R2_PUBLIC_BASE_URL }}/channels/${{ inputs.channel }}/latest.json
+      R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
+      WORKFLOW_SOURCE_SHA: ${{ github.sha }}
+    defaults:
+      run:
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -Command ". '{0}'"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.source_ref || github.sha }}
+      - name: Validate package source and updater channel
+        run: |
+          if (@("test", "review") -notcontains $env:UPDATER_CHANNEL) {
+            throw "Unsupported updater channel: $($env:UPDATER_CHANNEL)"
+          }
+          $sourceVersion = (Get-Content -LiteralPath "package.json" -Raw -Encoding utf8 | ConvertFrom-Json).version
+          if ($sourceVersion -ne $env:RELEASE_VERSION) {
+            throw "Requested version $($env:RELEASE_VERSION) does not match source metadata $sourceVersion."
+          }
+          if ($env:UPDATER_CHANNEL -eq "review" -and $env:RELEASE_VERSION -notmatch '^\d+\.\d+\.\d+-review(?:\.\d+)?$') {
+            throw "Review channel requires a review prerelease version."
+          }
+          if ($env:PUBLISH_REVIEW_PLATFORM -eq "true" -and $env:UPDATER_CHANNEL -ne "review") {
+            throw "Windows Review platform publication requires the review channel."
+          }
+      - name: Overlay reviewed MSI build compatibility on frozen source
+        if: inputs.source_ref != '' && inputs.channel == 'review'
+        run: |
+          & git fetch --no-tags --depth=1 origin $env:WORKFLOW_SOURCE_SHA
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & git checkout $env:WORKFLOW_SOURCE_SHA -- scripts/build-tauri.mjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $changed = @(& git diff --name-only HEAD)
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($changed.Count -ne 1 -or $changed[0] -ne "scripts/build-tauri.mjs") {
+            throw "Frozen Review source overlay changed an unexpected file."
+          }
+          if (-not (Select-String -LiteralPath "scripts/build-tauri.mjs" -SimpleMatch 'prerelease === "review"')) {
+            throw "The reviewed MSI compatibility mapping is missing."
+          }
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.1.1
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Select complete Perl for vendored OpenSSL
+        run: |
+          $perlDirectory = "C:\Strawberry\perl\bin"
+          $perlExecutable = Join-Path $perlDirectory "perl.exe"
+          if (-not (Test-Path $perlExecutable)) {
+            throw "The Windows runner does not provide Strawberry Perl."
+          }
+          & $perlExecutable -MLocale::Maketext::Simple -e "print qq(Perl modules ready\n)"
+          "OPENSSL_SRC_PERL=$perlExecutable" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Verify WiX ICE VBScript engine
+        run: |
+          $probe = Join-Path $env:RUNNER_TEMP "vaultmesh-wix-vbscript-probe.vbs"
+          Set-Content -LiteralPath $probe -Encoding ascii -Value "WScript.Quit 0"
+          & "$env:SystemRoot\System32\cscript.exe" //NoLogo $probe
+          if ($LASTEXITCODE -ne 0) {
+            throw "WiX MSI validation requires the Windows VBScript optional feature. Install VBScript on this self-hosted runner before packaging MSI."
+          }
+      - name: Install toolchain and dependencies
+        run: |
+          rustup target add x86_64-pc-windows-msvc
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          pnpm.cmd install --frozen-lockfile
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build signed updater artifact and unsigned NSIS/MSI installers
+        run: >-
+          node scripts/build-tauri.mjs
+          --verbose
+          --target x86_64-pc-windows-msvc
+          --bundles nsis,msi
+          --updater-version "$env:RELEASE_VERSION"
+      - name: Normalize Windows artifacts
+        run: >-
+          node scripts/collect-tauri-update-artifact.mjs
+          --workspace "$env:GITHUB_WORKSPACE"
+          --platform windows-x86_64
+          --version "$env:RELEASE_VERSION"
+          --output "$env:RUNNER_TEMP/vaultmesh-windows-experimental"
+      - name: Verify Windows x64 PE executable and MSI package
+        run: |
+          $executable = Join-Path $env:GITHUB_WORKSPACE "target\x86_64-pc-windows-msvc\release\vaultmesh-tauri-desktop.exe"
+          $bytes = [System.IO.File]::ReadAllBytes($executable)
+          if ($bytes.Length -lt 256 -or $bytes[0] -ne 0x4d -or $bytes[1] -ne 0x5a) {
+            throw "VaultMesh executable is not a valid DOS/PE image."
+          }
+          $peOffset = [BitConverter]::ToInt32($bytes, 0x3c)
+          if ($peOffset -lt 0 -or $peOffset + 26 -gt $bytes.Length) {
+            throw "VaultMesh executable has an invalid PE header offset."
+          }
+          if ([BitConverter]::ToUInt32($bytes, $peOffset) -ne 0x00004550) {
+            throw "VaultMesh executable is missing the PE signature."
+          }
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 4) -ne 0x8664) {
+            throw "VaultMesh executable is not Windows x86_64."
+          }
+          if ([BitConverter]::ToUInt16($bytes, $peOffset + 24) -ne 0x020b) {
+            throw "VaultMesh executable is not PE32+."
+          }
+          $msis = @(Get-ChildItem -LiteralPath "$env:RUNNER_TEMP/vaultmesh-windows-experimental" -Filter "*.msi" -File)
+          if ($msis.Count -ne 1) { throw "Expected exactly one normalized Windows MSI package." }
+          $msiBytes = [System.IO.File]::ReadAllBytes($msis[0].FullName)
+          $compoundFileHeader = @(0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1)
+          if ($msiBytes.Length -lt $compoundFileHeader.Count) { throw "Windows MSI package is truncated." }
+          for ($index = 0; $index -lt $compoundFileHeader.Count; $index += 1) {
+            if ($msiBytes[$index] -ne $compoundFileHeader[$index]) {
+              throw "Windows MSI package is not a valid compound file."
+            }
+          }
+      - name: Capture test and selected updater channels before publication
+        run: |
+          $testChannelUrl = "$($env:R2_PUBLIC_BASE_URL.TrimEnd('/'))/channels/test/latest.json"
+          $selectedChannelUrl = "$($env:R2_PUBLIC_BASE_URL.TrimEnd('/'))/channels/$($env:UPDATER_CHANNEL)/latest.json"
+          Invoke-WebRequest -UseBasicParsing -Uri $testChannelUrl -OutFile (Join-Path $env:RUNNER_TEMP "test-channel-before.json")
+          Invoke-WebRequest -UseBasicParsing -Uri $selectedChannelUrl -OutFile (Join-Path $env:RUNNER_TEMP "selected-channel-before.json")
+      - name: Create immutable experimental publication plan
+        run: >-
+          node scripts/create-windows-experimental-publication.mjs
+          --input "$env:RUNNER_TEMP/vaultmesh-windows-experimental"
+          --output "$env:RUNNER_TEMP/vaultmesh-windows-publication"
+          --version "$env:RELEASE_VERSION"
+          --base-url "$env:R2_PUBLIC_BASE_URL"
+      - name: Publish and verify immutable experimental objects
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+        run: |
+          $endpoint = "https://$($env:R2_ACCOUNT_ID).r2.cloudflarestorage.com"
+          $credentials = "$($env:AWS_ACCESS_KEY_ID):$($env:AWS_SECRET_ACCESS_KEY)"
+          $curlHelp = (& curl.exe --help all | Out-String)
+          if (-not $curlHelp.Contains("--aws-sigv4")) {
+            throw "The Windows runner curl.exe does not support AWS SigV4."
+          }
+          $plan = Join-Path $env:RUNNER_TEMP "vaultmesh-windows-publication\immutable.tsv"
+          foreach ($line in Get-Content -LiteralPath $plan -Encoding utf8) {
+            if ([string]::IsNullOrWhiteSpace($line)) { continue }
+            $columns = $line -split "`t", 4
+            if ($columns.Count -ne 4) { throw "Invalid experimental publication row." }
+            $source, $key, $contentType, $sha256 = $columns
+            if (-not $key.StartsWith("experimental/windows/")) {
+              throw "Refusing to publish outside the experimental Windows prefix."
+            }
+            $objectUrl = "$endpoint/$($env:R2_BUCKET)/$key"
+            $headers = Join-Path $env:RUNNER_TEMP "$([IO.Path]::GetFileName($key)).headers"
+            $httpStatus = (& curl.exe `
+              --silent `
+              --show-error `
+              --aws-sigv4 "aws:amz:auto:s3" `
+              --user $credentials `
+              --head `
+              --dump-header $headers `
+              --output NUL `
+              --write-out "%{http_code}" `
+              $objectUrl | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            if ($httpStatus -eq "200") {
+              $headerText = Get-Content -LiteralPath $headers -Raw -Encoding ascii
+              $metadataMatch = [regex]::Match($headerText, "(?im)^x-amz-meta-sha256:\s*([0-9a-f]{64})\s*$")
+              if (-not $metadataMatch.Success) {
+                throw "Refusing to overwrite experimental object without digest metadata: $key"
+              }
+              if ($metadataMatch.Groups[1].Value -ne $sha256) {
+                throw "Refusing to overwrite experimental object with different content: $key"
+              }
+            } elseif ($httpStatus -eq "404") {
+              & curl.exe `
+                --fail `
+                --silent `
+                --show-error `
+                --aws-sigv4 "aws:amz:auto:s3" `
+                --user $credentials `
+                --request PUT `
+                --upload-file $source `
+                --header "Content-Type: $contentType" `
+                --header "Cache-Control: public, max-age=31536000, immutable" `
+                --header "x-amz-meta-sha256: $sha256" `
+                $objectUrl
+              if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            } else {
+              throw "Unexpected R2 HEAD response for ${key}: $httpStatus"
+            }
+            $downloaded = Join-Path $env:RUNNER_TEMP "$([IO.Path]::GetFileName($key)).downloaded"
+            & curl.exe `
+              --fail `
+              --silent `
+              --show-error `
+              --aws-sigv4 "aws:amz:auto:s3" `
+              --user $credentials `
+              --output $downloaded `
+              $objectUrl
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $downloadedSha256 = (Get-FileHash -LiteralPath $downloaded -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($downloadedSha256 -ne $sha256) {
+              throw "R2 readback digest mismatch: $key"
+            }
+          }
+          $credentials = $null
+      - name: Append Windows x64 to staged Review manifest
+        if: inputs.publish_review_platform && inputs.channel == 'review'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          $packageDirectory = Join-Path $env:RUNNER_TEMP "vaultmesh-windows-experimental"
+          $descriptor = Join-Path $packageDirectory "windows-x86_64.update.json"
+          $descriptorJson = Get-Content -LiteralPath $descriptor -Raw -Encoding utf8 | ConvertFrom-Json
+          $signature = Join-Path $packageDirectory $descriptorJson.signatureFile
+          $current = Join-Path $env:RUNNER_TEMP "selected-channel-before.json"
+          $next = Join-Path $env:RUNNER_TEMP "review-channel-next.json"
+          node scripts/extend-review-windows-manifest.mjs `
+            --current $current `
+            --descriptor $descriptor `
+            --signature $signature `
+            --output $next `
+            --version $env:RELEASE_VERSION `
+            --base-url $env:R2_PUBLIC_BASE_URL
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $endpoint = "https://$($env:R2_ACCOUNT_ID).r2.cloudflarestorage.com"
+          $objectUrl = "$endpoint/$($env:R2_BUCKET)/channels/review/latest.json"
+          $credentials = "$($env:AWS_ACCESS_KEY_ID):$($env:AWS_SECRET_ACCESS_KEY)"
+          $authoritativeBefore = Join-Path $env:RUNNER_TEMP "review-channel-authoritative-before.json"
+          $httpStatus = (& curl.exe `
+            --silent `
+            --show-error `
+            --aws-sigv4 "aws:amz:auto:s3" `
+            --user $credentials `
+            --head `
+            --output NUL `
+            --write-out "%{http_code}" `
+            $objectUrl | Out-String).Trim()
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          if ($httpStatus -ne "200") { throw "The current Review channel is unavailable in R2: $httpStatus" }
+          & curl.exe `
+            --fail `
+            --silent `
+            --show-error `
+            --aws-sigv4 "aws:amz:auto:s3" `
+            --user $credentials `
+            --output $authoritativeBefore `
+            $objectUrl
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $publicBeforeSha256 = (Get-FileHash -LiteralPath $current -Algorithm SHA256).Hash
+          $authoritativeBeforeSha256 = (Get-FileHash -LiteralPath $authoritativeBefore -Algorithm SHA256).Hash
+          if ($publicBeforeSha256 -ne $authoritativeBeforeSha256) {
+            throw "Review channel state changed during Windows platform publication."
+          }
+          & curl.exe `
+            --fail `
+            --silent `
+            --show-error `
+            --aws-sigv4 "aws:amz:auto:s3" `
+            --user $credentials `
+            --request PUT `
+            --upload-file $next `
+            --header "Content-Type: application/json" `
+            --header "Cache-Control: no-store, max-age=0" `
+            $objectUrl
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $authoritativeAfter = Join-Path $env:RUNNER_TEMP "review-channel-authoritative-after.json"
+          & curl.exe `
+            --fail `
+            --silent `
+            --show-error `
+            --aws-sigv4 "aws:amz:auto:s3" `
+            --user $credentials `
+            --output $authoritativeAfter `
+            $objectUrl
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $nextSha256 = (Get-FileHash -LiteralPath $next -Algorithm SHA256).Hash
+          $authoritativeAfterSha256 = (Get-FileHash -LiteralPath $authoritativeAfter -Algorithm SHA256).Hash
+          if ($nextSha256 -ne $authoritativeAfterSha256) { throw "R2 Review channel readback digest mismatch." }
+          $credentials = $null
+
+          $publicUrl = "$($env:R2_PUBLIC_BASE_URL.TrimEnd('/'))/channels/review/latest.json"
+          $publicAfter = Join-Path $env:RUNNER_TEMP "review-channel-public-after.json"
+          $converged = $false
+          for ($attempt = 1; $attempt -le 12; $attempt += 1) {
+            Invoke-WebRequest -UseBasicParsing -Uri $publicUrl -OutFile $publicAfter
+            $publicAfterSha256 = (Get-FileHash -LiteralPath $publicAfter -Algorithm SHA256).Hash
+            if ($publicAfterSha256 -eq $nextSha256) {
+              $converged = $true
+              break
+            }
+            if ($attempt -lt 12) { Start-Sleep -Seconds 5 }
+          }
+          if (-not $converged) { throw "Public Review channel did not converge to the Windows manifest." }
+      - name: Prove channel isolation and write links
+        run: |
+          $testChannelUrl = "$($env:R2_PUBLIC_BASE_URL.TrimEnd('/'))/channels/test/latest.json"
+          $testChannelBefore = Join-Path $env:RUNNER_TEMP "test-channel-before.json"
+          $testChannelAfter = Join-Path $env:RUNNER_TEMP "test-channel-after.json"
+          Invoke-WebRequest -UseBasicParsing -Uri $testChannelUrl -OutFile $testChannelAfter
+          $testBeforeSha256 = (Get-FileHash -LiteralPath $testChannelBefore -Algorithm SHA256).Hash
+          $testAfterSha256 = (Get-FileHash -LiteralPath $testChannelAfter -Algorithm SHA256).Hash
+          if ($testBeforeSha256 -ne $testAfterSha256) { throw "The test update channel changed." }
+
+          $selectedChannelUrl = "$($env:R2_PUBLIC_BASE_URL.TrimEnd('/'))/channels/$($env:UPDATER_CHANNEL)/latest.json"
+          $selectedAfter = Join-Path $env:RUNNER_TEMP "selected-channel-after.json"
+          Invoke-WebRequest -UseBasicParsing -Uri $selectedChannelUrl -OutFile $selectedAfter
+          if ($env:PUBLISH_REVIEW_PLATFORM -eq "true") {
+            $expected = Join-Path $env:RUNNER_TEMP "review-channel-next.json"
+            $expectedSha256 = (Get-FileHash -LiteralPath $expected -Algorithm SHA256).Hash
+            $selectedAfterSha256 = (Get-FileHash -LiteralPath $selectedAfter -Algorithm SHA256).Hash
+            if ($expectedSha256 -ne $selectedAfterSha256) { throw "The public Review channel does not match the staged Windows manifest." }
+          } else {
+            $selectedBefore = Join-Path $env:RUNNER_TEMP "selected-channel-before.json"
+            $selectedBeforeSha256 = (Get-FileHash -LiteralPath $selectedBefore -Algorithm SHA256).Hash
+            $selectedAfterSha256 = (Get-FileHash -LiteralPath $selectedAfter -Algorithm SHA256).Hash
+            if ($selectedBeforeSha256 -ne $selectedAfterSha256) { throw "The selected updater channel changed." }
+          }
+          $linksPath = Join-Path $env:RUNNER_TEMP "vaultmesh-windows-publication\links.json"
+          $links = Get-Content -LiteralPath $linksPath -Raw -Encoding utf8 | ConvertFrom-Json
+          if (-not $links.msiInstaller) { throw "The Windows MSI direct link is missing." }
+          foreach ($url in @($links.installer, $links.msiInstaller, $links.updaterArtifact, $links.updaterSignature)) {
+            Invoke-WebRequest -UseBasicParsing -Method Head -Uri $url | Out-Null
+          }
+          @(
+            "## VaultMesh $($env:RELEASE_VERSION) experimental Windows package",
+            "",
+            "- [Windows x64 NSIS installer]($($links.installer))",
+            "- [Windows x64 MSI installer]($($links.msiInstaller))",
+            "- [Windows updater artifact]($($links.updaterArtifact))",
+            "- [Windows updater signature]($($links.updaterSignature))",
+            "",
+            "Updater channel: $($env:UPDATER_CHANNEL). Test channel unchanged. Review platform publication: $($env:PUBLISH_REVIEW_PLATFORM). This package is not Windows AT evidence."
+          ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append

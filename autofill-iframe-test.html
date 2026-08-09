@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>VaultMesh iframe 登录测试</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 18px; color: #17202a; font-family: ui-sans-serif, system-ui, sans-serif; background: #fafafa; }
+    h4 { margin: 0 0 5px; }
+    p { margin: 0 0 15px; color: #667085; font-size: 12px; }
+    .field { position: relative; margin-top: 12px; }
+    label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 730; }
+    input { width: 100%; height: 43px; padding: 0 42px 0 12px; border: 1px solid #cfd4dc; border-radius: 10px; outline: none; font: inherit; background: #fff; }
+    input:focus { border-color: #6558d3; box-shadow: 0 0 0 3px rgba(101, 88, 211, .13); }
+    .field-state { position: absolute; top: 33px; right: 10px; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; color: #667085; background: #eef0f3; font-size: 12px; font-style: normal; font-weight: 900; pointer-events: none; }
+    .field-state.pass { color: #087a55; background: #e7f7f0; }
+  </style>
+</head>
+<body>
+  <form data-test-form="iframe-login" autocomplete="on">
+    <h4>iframe 登录</h4>
+    <p>此页面通过 HTTP(S) URL 加载，并与父页同源。</p>
+    <div class="field">
+      <label for="frame-user">iframe 用户名</label>
+      <input id="frame-user" name="frame_username" autocomplete="username" data-vm-test="同源 iframe / 用户名" data-expect="fill">
+      <i class="field-state" aria-hidden="true">·</i>
+    </div>
+    <div class="field">
+      <label for="frame-pass">iframe 密码</label>
+      <input id="frame-pass" name="frame_password" type="password" autocomplete="current-password" data-vm-test="同源 iframe / 密码" data-expect="fill">
+      <i class="field-state" aria-hidden="true">·</i>
+    </div>
+  </form>
+  <script>document.addEventListener("submit", (event) => event.preventDefault());</script>
+</body>
+</html>

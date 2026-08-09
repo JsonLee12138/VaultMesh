@@ -1,0 +1,30 @@
+id: "CHG-2026-019-desktop-start-on-login"
+title: "桌面端登录时静默启动"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.11-active"
+target_release: null
+requirements:
+  - "REQ-DESKTOP-001"
+tests:
+  - "CT-DESKTOP-STARTUP-001"
+  - "AT-DESKTOP-STARTUP-MACOS-001"
+  - "AT-DESKTOP-STARTUP-WINDOWS-001"
+adrs: []
+context_refs:
+  - "docs/02-scope-matrix.md#客户端与平台"
+  - "docs/03-functional-requirements.md#REQ-DESKTOP-001 登录时静默启动"
+  - "specs/tauri-desktop-migration.md#Runtime 所有权"
+  - "docs/07-test-release-plan.md#测试 ID 定位"
+  - "docs/07-test-release-plan.md#GATE-3 Desktop runtime"
+related_changes: []
+affected_surfaces:
+  - "Tauri desktop macOS"
+  - "Tauri desktop Windows"
+affected_formats:
+  - "desktop non-secret startup preference marker"
+affected_versions:
+  - "Tauri desktop product behavior"
+security_impact: "登录项只携带固定的 --autostart 参数；启动后保持 Vault 锁定且不持久化或暴露 secret。"
+migration: "既有安装在首次运行该版本时默认注册登录项；用户关闭后由非秘密初始化标记阻止后续手动启动重新开启。"
+supersedes: []

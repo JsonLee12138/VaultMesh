@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-agent-pairing-status"
+description = "Allows the isolated pairing window to read its pending-client status."
+commands.allow = ["agent_pairing_status"]
+
+[[permission]]
+identifier = "allow-agent-pairing-resolve"
+description = "Allows the isolated pairing window to approve or deny its current pending Agent client."
+commands.allow = ["agent_pairing_resolve"]

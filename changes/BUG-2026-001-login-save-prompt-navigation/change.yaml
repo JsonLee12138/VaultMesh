@@ -1,0 +1,20 @@
+id: "BUG-2026-001-login-save-prompt-navigation"
+title: "登录整页跳转后恢复账号保存提示"
+type: "bug"
+status: "Verified"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-AUTOFILL-002"
+tests:
+  - "CT-AUTOFILL-002"
+adrs:
+  - "ADR-0003"
+affected_surfaces:
+  - "browser-extension"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Pending capture secrets remain only in the extension background worker; resumed pages receive bounded non-secret prompt metadata bound to the original tab and origin."
+migration: "none"
+supersedes: []

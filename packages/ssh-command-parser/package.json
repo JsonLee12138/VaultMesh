@@ -1,0 +1,16 @@
+{
+  "name": "@vaultmesh/ssh-command-parser",
+  "version": "0.0.2-review",
+  "description": "Shared SSH command parsing for VaultMesh",
+  "private": true,
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/atlantis-mk/VaultMesh.git",
+    "directory": "packages/ssh-command-parser"
+  },
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

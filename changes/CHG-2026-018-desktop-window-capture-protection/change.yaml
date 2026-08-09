@@ -1,0 +1,33 @@
+id: "CHG-2026-018-desktop-window-capture-protection"
+title: "桌面窗口内容捕获保护"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.10-active"
+target_release: null
+requirements:
+  - "REQ-SEC-003"
+tests:
+  - "CT-SEC-003"
+  - "AT-TAURI-MACOS-002"
+  - "AT-TAURI-WINDOWS-002"
+adrs:
+  - "ADR-0005"
+context_refs:
+  - "docs/02-scope-matrix.md#客户端与平台"
+  - "docs/03-functional-requirements.md#REQ-SEC-003 Desktop 窗口内容捕获保护"
+  - "docs/06-security-privacy.md#安全目标"
+  - "docs/06-security-privacy.md#Desktop WebView 边界"
+  - "docs/06-security-privacy.md#已接受安全决策"
+  - "docs/07-test-release-plan.md#GATE-3 Desktop runtime"
+  - "docs/07-test-release-plan.md#GATE-6 平台发布"
+  - "docs/08-traceability.md#REQ-SEC-003"
+  - "specs/tauri-desktop-migration.md#Runtime 所有权"
+related_changes: []
+affected_surfaces:
+  - "tauri-desktop-window"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Enables OS window-content protection from window creation without exposing a renderer toggle; Windows public capture exclusion is required, while macOS remains an explicitly documented best-effort hint because the platform provides no supported general screenshot-prevention guarantee."
+migration: "none"
+supersedes: []

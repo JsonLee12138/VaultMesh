@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-capability",
+  "description": "Minimum local capability for the VaultMesh main window.",
+  "windows": ["main"],
+  "local": true,
+  "permissions": [
+    "core:event:default",
+    "allow-desktop-invoke",
+    "allow-desktop-activity"
+  ]
+}

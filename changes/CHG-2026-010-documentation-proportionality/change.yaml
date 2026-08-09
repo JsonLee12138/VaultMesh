@@ -1,0 +1,25 @@
+id: "CHG-2026-010-documentation-proportionality"
+title: "低风险修改的文档比例原则"
+type: "governance"
+status: "Verified"
+spec_revision: "0.1.2-active"
+target_release: null
+requirements: []
+tests:
+  - "DOC-PROPORTIONALITY-001"
+adrs: []
+context_refs:
+  - "AGENTS.md#Work 与文档比例"
+  - "docs/00-spec-index.md#当前基线"
+  - "docs/09-document-governance.md#Work 比例与建立条件"
+  - "changes/_template/change.md"
+related_changes:
+  - "CHG-2026-009-ai-context-routing"
+affected_surfaces:
+  - "documentation"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Low-risk exceptions explicitly exclude security, secret, authorization, data, compatibility, and public contract changes."
+migration: "Future work uses direct, compact, or full documentation proportionally; existing Work Packages are unchanged."
+supersedes: []

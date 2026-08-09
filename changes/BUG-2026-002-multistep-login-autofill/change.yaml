@@ -1,0 +1,20 @@
+id: "BUG-2026-002-multistep-login-autofill"
+title: "分步登录账号框识别与后续密码填充"
+type: "bug"
+status: "Verified"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-AUTOFILL-001"
+tests:
+  - "CT-AUTOFILL-001"
+adrs:
+  - "ADR-0003"
+affected_surfaces:
+  - "browser-extension"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Discovery remains value-free. The fix recognizes username fields with a trailing webauthn token and excludes controls hidden by ancestor state before requesting assignments."
+migration: "none"
+supersedes: []

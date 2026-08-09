@@ -1,0 +1,22 @@
+[package]
+name = "vaultmesh-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Auditable local encrypted vault primitives for VaultMesh"
+
+[dependencies]
+argon2.workspace = true
+base64.workspace = true
+chacha20poly1305.workspace = true
+hmac.workspace = true
+rand_core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha1.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+url = "2.5.8"
+uuid.workspace = true
+zeroize.workspace = true

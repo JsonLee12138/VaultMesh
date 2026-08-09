@@ -1,0 +1,27 @@
+id: "CHG-2026-014-extension-preference-persistence"
+title: "浏览器插件非秘密偏好持久化"
+type: "feature"
+status: "Verified"
+spec_revision: "0.1.5-active"
+target_release: "0.1.0-development"
+requirements:
+  - "REQ-BROWSER-003"
+tests:
+  - "CT-BROWSER-003"
+adrs: []
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-BROWSER-003 插件非秘密偏好持久化"
+  - "specs/browser-integration.md#Extension 偏好与瞬态状态"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/08-traceability.md#REQ-BROWSER-003"
+related_changes: []
+affected_surfaces:
+  - "Chromium MV3 extension popup"
+  - "Chromium MV3 extension content scripts"
+affected_formats:
+  - "extension local non-secret settings"
+affected_versions:
+  - "extension 0.1.0-development"
+security_impact: "Only schema-validated non-secret preferences may enter extension local storage; generated values, secrets, drafts, search state, history and authorization/session material remain transient."
+migration: "Read the existing password/username generator v1 keys as fallback and dual-write them with the consolidated v2 generator preference record for rollback compatibility."
+supersedes: []

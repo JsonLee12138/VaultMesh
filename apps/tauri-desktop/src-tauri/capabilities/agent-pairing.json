@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "agent-pairing-capability",
+  "description": "Minimum capability for the isolated VaultMesh Agent pairing window.",
+  "windows": ["agent-pairing"],
+  "local": true,
+  "permissions": [
+    "core:event:default",
+    "core:window:allow-close",
+    "allow-agent-pairing-status",
+    "allow-agent-pairing-resolve"
+  ]
+}

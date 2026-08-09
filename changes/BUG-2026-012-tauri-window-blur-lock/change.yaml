@@ -1,0 +1,31 @@
+id: "BUG-2026-012-tauri-window-blur-lock"
+title: "Tauri 窗口失焦未按策略锁定"
+type: "bug"
+status: "Verified"
+spec_revision: "0.1.4-active"
+target_release: null
+requirements:
+  - "REQ-VAULT-001"
+  - "REQ-SEC-002"
+tests:
+  - "CT-SEC-002"
+  - "CT-TAURI-DESKTOP-001"
+adrs:
+  - "ADR-0005"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-VAULT-001 创建、解锁和锁定"
+  - "docs/03-functional-requirements.md#REQ-SEC-002 Quick unlock、锁定与剪贴板"
+  - "docs/06-security-privacy.md#安全目标"
+  - "docs/06-security-privacy.md#Vault 与文件边界"
+  - "docs/07-test-release-plan.md#GATE-3 Desktop runtime"
+  - "docs/08-traceability.md#REQ-SEC-002"
+  - "specs/tauri-desktop-migration.md#Runtime 所有权"
+related_changes: []
+affected_surfaces:
+  - "tauri-desktop-runtime"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Restores the accepted lock-on-blur policy so an unlocked desktop Vault session is cleared when the main window loses focus."
+migration: "none"
+supersedes: []

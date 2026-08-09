@@ -1,0 +1,26 @@
+id: "CHG-2026-011-risk-based-work-threshold"
+title: "基于持久决策与风险的 Work 阈值"
+type: "governance"
+status: "Verified"
+spec_revision: "0.1.3-active"
+target_release: null
+requirements: []
+tests:
+  - "DOC-WORK-THRESHOLD-001"
+adrs: []
+context_refs:
+  - "AGENTS.md#Work 与文档比例"
+  - "docs/00-spec-index.md#当前基线"
+  - "docs/09-document-governance.md#Work 比例与建立条件"
+  - "changes/_template/change.md"
+related_changes:
+  - "CHG-2026-010-documentation-proportionality"
+affected_surfaces:
+  - "documentation"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Direct changes remain forbidden across security, secret, trust, persistence, format, migration, and public contract boundaries."
+migration: "Replace the narrow change-type whitelist with a durable-decision, boundary, reversibility, and same-task verification threshold."
+supersedes:
+  - "CHG-2026-010-documentation-proportionality"

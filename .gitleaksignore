@@ -1,0 +1,17 @@
+# Exact historical false positives verified by CHG-2026-031.
+# Private-key hits are marker-only validation/test strings with no complete PEM
+# block. Generic-key hits are test references/vectors or the public development
+# extension identity key. Keep these fingerprints exact so new findings fail.
+2548dc29b83c257bec866fec31eb60960a94248a:crates/vault-core/src/model_validators.rs:private-key:131
+2548dc29b83c257bec866fec31eb60960a94248a:crates/vault-core/src/model_validators.rs:private-key:134
+2548dc29b83c257bec866fec31eb60960a94248a:crates/vault-core/tests/vault_session_part2.inc:private-key:310
+2548dc29b83c257bec866fec31eb60960a94248a:apps/tauri-desktop/tests/shared/contracts.test.ts:generic-api-key:398
+2548dc29b83c257bec866fec31eb60960a94248a:apps/tauri-desktop/tests/shared/contracts.test.ts:generic-api-key:399
+0389af4748d1e91efd9a604f9bc3eb75393dec4e:apps/tauri-desktop/src-tauri/src/ssh_scan.rs:private-key:427
+0389af4748d1e91efd9a604f9bc3eb75393dec4e:apps/browser-extension/src/lib/page-information-capture.test.ts:generic-api-key:118
+0389af4748d1e91efd9a604f9bc3eb75393dec4e:apps/browser-extension/src/lib/page-information-capture.test.ts:private-key:162
+0389af4748d1e91efd9a604f9bc3eb75393dec4e:crates/vault-core/src/totp.rs:generic-api-key:215
+0389af4748d1e91efd9a604f9bc3eb75393dec4e:crates/vault-core/tests/vault_session.rs:private-key:947
+0389af4748d1e91efd9a604f9bc3eb75393dec4e:scripts/browser-identity.mjs:generic-api-key:5
+0389af4748d1e91efd9a604f9bc3eb75393dec4e:crates/vault-core/src/model.rs:private-key:2391
+0389af4748d1e91efd9a604f9bc3eb75393dec4e:crates/vault-core/src/model.rs:private-key:2394

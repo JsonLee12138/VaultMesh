@@ -1,0 +1,44 @@
+id: "CHG-2026-021-unified-risk-aware-agent-permission"
+title: "统一风险感知 Agent 权限申请界面"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.24-active"
+target_release: null
+requirements:
+  - "REQ-AGENT-001"
+  - "REQ-AGENT-010"
+  - "REQ-AGENT-011"
+tests:
+  - "CT-AGENT-LIFECYCLE-001"
+  - "CT-AGENT-AUTHZ-003"
+  - "CT-AGENT-AUTHZ-002"
+  - "AT-AGENT-AUTHZ-002"
+adrs:
+  - "ADR-0008"
+  - "ADR-0009"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-AGENT-001 本地配对与连接 session"
+  - "docs/03-functional-requirements.md#REQ-AGENT-010 账号搜索与直接动作授权"
+  - "docs/03-functional-requirements.md#REQ-AGENT-011 类型化 Action Lease 与 SSH 命令范围"
+  - "docs/04-architecture.md#授权生命周期"
+  - "docs/06-security-privacy.md#Agent Capability Broker 边界"
+  - "docs/07-test-release-plan.md#测试 ID 定位"
+  - "docs/08-traceability.md#更新规则"
+  - "specs/agent-capability-broker.md#4.1 Pairing"
+  - "specs/agent-capability-broker.md#4.5 直接动作授权"
+  - "adr/0008-direct-agent-action-authorization.md"
+  - "adr/0009-unified-risk-aware-agent-permission.md"
+related_changes:
+  - "CHG-2026-020-agent-capability-broker"
+affected_surfaces:
+  - "Tauri Rust Agent broker permission payload and risk routing"
+  - "isolated Agent authorization window"
+  - "Security Center Agent permission cards"
+  - "desktop typed service contract and renderer tests"
+affected_formats:
+  - "Agent broker desktop status IPC v2 additive actionDisplay, duration-matrix, recommendation and fresh-confirmation fields"
+affected_versions:
+  - "macOS and Windows Tauri desktop"
+security_impact: "Separate action-confirmation challenges are removed. R2/R3 remembered permission no longer bypasses per-execution confirmation, R4 Allow is exact-once only, and canonical target, risk, account and structured action remain broker-owned."
+migration: "Existing persistent rules remain matchable as permission predicates, but R2/R3 still fresh-confirm and R4 never auto-executes. Pending in-memory confirmation challenges and connection grants are not restored across restart."
+supersedes: []

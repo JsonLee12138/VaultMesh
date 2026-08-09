@@ -1,0 +1,35 @@
+id: "CHG-2026-029-r2-desktop-updates"
+title: "通过 Cloudflare R2 分发 Tauri 测试更新"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.35-active"
+target_release: "0.1.0-development"
+requirements:
+  - "REQ-UPDATE-001"
+  - "REQ-TAURI-002"
+tests:
+  - "CT-UPDATE-001"
+  - "AT-UPDATE-MACOS-001"
+  - "AT-UPDATE-WINDOWS-001"
+adrs:
+  - "ADR-0005"
+context_refs:
+  - "docs/02-scope-matrix.md#客户端与平台"
+  - "docs/03-functional-requirements.md#REQ-UPDATE-001 桌面测试通道自动更新"
+  - "specs/tauri-desktop-migration.md#兼容与共存"
+  - "docs/07-test-release-plan.md#GATE-6 平台发布"
+  - "docs/08-traceability.md#REQ-UPDATE-001"
+related_changes:
+  - "CHG-2026-004-tauri-desktop-migration"
+affected_surfaces:
+  - "Tauri 2 desktop runtime"
+  - "macOS and Windows packaging"
+  - "GitHub Actions release pipeline"
+  - "Cloudflare R2 update channel"
+affected_formats:
+  - "Tauri v2 updater static JSON"
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Adds a network-delivered executable update path. Rust owns update checks and installation; every update artifact must pass Tauri signature verification, and publication credentials/private signing keys remain outside the repository and application bundle."
+migration: "Existing installations do not gain updater configuration until installed from a build produced by the new test-update workflow. Downgrades are not enabled; rollback requires a newer signed build or manual reinstall."
+supersedes: []

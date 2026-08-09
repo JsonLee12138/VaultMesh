@@ -1,0 +1,28 @@
+id: "BUG-2026-018-browser-level-save-confirmation"
+title: "登录跳转后由浏览器级界面确认保存"
+type: "bug"
+status: "Implementing"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-AUTOFILL-002"
+tests:
+  - "CT-AUTOFILL-002"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-002 显式选择与捕获"
+  - "specs/browser-integration.md#Capture"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/08-traceability.md#REQ-AUTOFILL-002"
+related_changes:
+  - "BUG-2026-001-login-save-prompt-navigation"
+  - "BUG-2026-010-save-prompt-preparation-race"
+affected_surfaces:
+  - "browser-extension"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Pending secrets remain only in background memory; browser-action UI and system notifications receive bounded prompt metadata and an opaque capture ID, with background-owned expiry."
+migration: "none"
+supersedes: []

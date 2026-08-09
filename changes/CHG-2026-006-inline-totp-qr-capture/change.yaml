@@ -1,0 +1,27 @@
+id: "CHG-2026-006-inline-totp-qr-capture"
+title: "在网页内识别并保存 TOTP 二维码"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-ITEM-001"
+  - "REQ-AUTOFILL-001"
+  - "REQ-AUTOFILL-002"
+  - "NFR-REL-001"
+  - "NFR-PRIV-001"
+tests:
+  - "CT-AUTHENTICATOR-001"
+  - "AT-AUTOFILL-002"
+adrs:
+  - "ADR-0003"
+affected_surfaces:
+  - "Chromium extension content script"
+  - "Chromium extension background worker"
+  - "browser desktop broker"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Adds a user-gesture-bound page-to-Vault TOTP capture path; the scanned otpauth URI remains transient and is persisted only inside the selected encrypted Login item."
+migration: "No Vault format, Browser RPC, IPC or ABI migration; reuse the existing Login TOTP field and browser mutation operations."
+supersedes: []

@@ -1,0 +1,199 @@
+name: Publish R2 test update
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SemVer without a leading v (for example 0.1.1-test.1)"
+        required: true
+        type: string
+      notes:
+        description: "Short tester-facing release notes"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vaultmesh-r2-test-updates
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform_key }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            platform_key: darwin-aarch64
+            bundles: app,dmg
+            apple_signing_identity: "-"
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            platform_key: darwin-x86_64
+            bundles: app,dmg
+            apple_signing_identity: "-"
+          - runner: windows-2025
+            target: x86_64-pc-windows-msvc
+            platform_key: windows-x86_64
+            bundles: nsis
+            apple_signing_identity: ""
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    env:
+      APPLE_SIGNING_IDENTITY: ${{ matrix.apple_signing_identity }}
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      VAULTMESH_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+      VAULTMESH_UPDATER_ENDPOINT: ${{ vars.R2_PUBLIC_BASE_URL }}/channels/test/latest.json
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.1.1
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Select complete Perl for vendored OpenSSL
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $perlDirectory = "C:\Strawberry\perl\bin"
+          $perlExecutable = Join-Path $perlDirectory "perl.exe"
+          if (-not (Test-Path $perlExecutable)) {
+            throw "The Windows runner does not provide Strawberry Perl."
+          }
+          & $perlExecutable -MLocale::Maketext::Simple -e "print qq(Perl modules ready\n)"
+          "OPENSSL_SRC_PERL=$perlExecutable" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Install toolchains and dependencies
+        run: |
+          rustup target add "${{ matrix.target }}"
+          pnpm install --frozen-lockfile
+      - name: Build signed updater artifact and unsigned test installer
+        run: >-
+          node scripts/build-tauri.mjs
+          --target "${{ matrix.target }}"
+          --bundles "${{ matrix.bundles }}"
+          --updater-version "${{ inputs.version }}"
+      - name: Normalize platform artifacts
+        run: >-
+          node scripts/collect-tauri-update-artifact.mjs
+          --workspace "$GITHUB_WORKSPACE"
+          --platform "${{ matrix.platform_key }}"
+          --version "${{ inputs.version }}"
+          --output "$RUNNER_TEMP/vaultmesh-update"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vaultmesh-update-${{ matrix.platform_key }}
+          path: ${{ runner.temp }}/vaultmesh-update
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish immutable artifacts then test channel
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
+      RELEASE_NOTES: ${{ inputs.notes }}
+      RELEASE_VERSION: ${{ inputs.version }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: vaultmesh-update-*
+          path: ${{ runner.temp }}/vaultmesh-update
+          merge-multiple: true
+      - name: Validate channel and build publication
+        run: |
+          set -euo pipefail
+          current_manifest="$RUNNER_TEMP/current-latest.json"
+          current_status="$(curl --silent --show-error --output "$current_manifest" --write-out '%{http_code}' "${R2_PUBLIC_BASE_URL%/}/channels/test/latest.json")"
+          if [[ "$current_status" == "404" ]]; then
+            rm -f "$current_manifest"
+          elif [[ "$current_status" != "200" ]]; then
+            echo "Unable to read current test channel (HTTP $current_status)." >&2
+            exit 1
+          fi
+          arguments=(
+            --input "$RUNNER_TEMP/vaultmesh-update"
+            --output "$RUNNER_TEMP/vaultmesh-publication"
+            --version "$RELEASE_VERSION"
+            --base-url "$R2_PUBLIC_BASE_URL"
+            --notes "$RELEASE_NOTES"
+          )
+          if [[ -s "$current_manifest" ]]; then
+            arguments+=(--current "$current_manifest")
+          fi
+          node scripts/create-update-manifest.mjs "${arguments[@]}"
+      - name: Publish immutable version objects
+        run: |
+          set -euo pipefail
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          while IFS=$'\t' read -r source key content_type sha256; do
+            [[ -n "$source" && -n "$key" && -n "$content_type" && -n "$sha256" ]]
+            existing_sha256="$(aws s3api head-object --endpoint-url "$endpoint" --bucket "$R2_BUCKET" --key "$key" --query 'Metadata.sha256' --output text 2>/dev/null || true)"
+            if [[ "$existing_sha256" == "None" ]]; then
+              echo "Refusing to overwrite immutable R2 object without matching digest metadata: $key" >&2
+              exit 1
+            elif [[ -n "$existing_sha256" ]]; then
+              if [[ "$existing_sha256" != "$sha256" ]]; then
+                echo "Refusing to overwrite immutable R2 object with different content: $key" >&2
+                exit 1
+              fi
+              echo "Immutable object already matches; skipping: $key"
+              continue
+            fi
+            aws s3 cp "$source" "s3://${R2_BUCKET}/${key}" \
+              --endpoint-url "$endpoint" \
+              --content-type "$content_type" \
+              --cache-control "public, max-age=31536000, immutable" \
+              --metadata "sha256=$sha256" \
+              --no-progress
+          done < "$RUNNER_TEMP/vaultmesh-publication/immutable.tsv"
+      - name: Publish latest.json last and verify
+        run: |
+          set -euo pipefail
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          source="$RUNNER_TEMP/vaultmesh-publication/latest.json"
+          aws s3 cp "$source" "s3://${R2_BUCKET}/channels/test/latest.json" \
+            --endpoint-url "$endpoint" \
+            --content-type "application/json" \
+            --cache-control "no-store, max-age=0" \
+            --no-progress
+          downloaded="$RUNNER_TEMP/published-latest.json"
+          aws s3 cp "s3://${R2_BUCKET}/channels/test/latest.json" "$downloaded" \
+            --endpoint-url "$endpoint" \
+            --no-progress
+          cmp "$source" "$downloaded"
+      - name: Write tester download links
+        run: |
+          base="${R2_PUBLIC_BASE_URL%/}/releases/v${RELEASE_VERSION}"
+          {
+            echo "## VaultMesh ${RELEASE_VERSION} test update"
+            echo
+            echo "- [macOS Apple Silicon DMG](${base}/VaultMesh_${RELEASE_VERSION}_darwin-aarch64.dmg)"
+            echo "- [macOS Intel DMG](${base}/VaultMesh_${RELEASE_VERSION}_darwin-x86_64.dmg)"
+            echo "- [Windows x64 installer](${base}/VaultMesh_${RELEASE_VERSION}_windows-x86_64-setup.exe)"
+            echo "- [Updater manifest](${R2_PUBLIC_BASE_URL%/}/channels/test/latest.json)"
+          } >> "$GITHUB_STEP_SUMMARY"

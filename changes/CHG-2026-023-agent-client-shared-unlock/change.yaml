@@ -1,0 +1,42 @@
+id: "CHG-2026-023-agent-client-shared-unlock"
+title: "Agent 解锁支持按客户端共享"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.26-active"
+target_release: null
+requirements:
+  - "REQ-AGENT-001"
+  - "NFR-AGENT-002"
+tests:
+  - "CT-AGENT-UNLOCK-001"
+  - "CT-AGENT-LIFECYCLE-001"
+  - "AT-AGENT-UNLOCK-001"
+adrs:
+  - "ADR-0007"
+  - "ADR-0010"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-AGENT-001 本地配对与连接 session"
+  - "docs/03-functional-requirements.md#NFR-AGENT-002 Agent 资源终止清理"
+  - "docs/04-architecture.md#授权生命周期"
+  - "docs/06-security-privacy.md#Agent Capability Broker 边界"
+  - "docs/07-test-release-plan.md#测试 ID 定位"
+  - "docs/08-traceability.md#更新规则"
+  - "specs/agent-capability-broker.md#4.3 MCP 独立解锁与锁定"
+  - "adr/0007-agent-capability-broker.md"
+  - "adr/0010-agent-client-shared-unlock.md"
+related_changes:
+  - "CHG-2026-020-agent-capability-broker"
+  - "CHG-2026-022-agent-unlock-until-shutdown"
+affected_surfaces:
+  - "Tauri Rust Agent broker connection lifecycle"
+  - "Agent unlock lease ownership and access settings"
+  - "Security Center Agent automatic-lock UI"
+  - "isolated Agent unlock window scope control"
+  - "desktop typed service contract and tests"
+affected_formats:
+  - "Agent access settings v1 additive unlockScope field"
+affected_versions:
+  - "macOS and Windows Tauri desktop"
+security_impact: "An explicit setting may allow concurrently live transports with the same paired client identity to share one memory-only unlock lease. The default remains per-connection, and the last disconnect plus all existing lock events clear the shared lease."
+migration: "Existing settings default unlockScope to connection. New settings add connection/client; older builds reject the unknown field and safely fall back to default per-connection limits."
+supersedes: []

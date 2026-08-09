@@ -1,0 +1,27 @@
+id: "BUG-2026-011-http-content-uuid-fallback"
+title: "HTTP 页面捕获使用兼容 UUID 生成器"
+type: "bug"
+status: "Verified"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-AUTOFILL-002"
+tests:
+  - "CT-AUTOFILL-002"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-002 显式选择与捕获"
+  - "specs/browser-integration.md#Capture"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/08-traceability.md#REQ-AUTOFILL-002"
+related_changes:
+  - "BUG-2026-010-save-prompt-preparation-race"
+affected_surfaces:
+  - "browser-extension"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Content-script UUID fallback uses crypto.getRandomValues and preserves RFC 4122 v4 entropy; no credential value is persisted or logged."
+migration: "none"
+supersedes: []

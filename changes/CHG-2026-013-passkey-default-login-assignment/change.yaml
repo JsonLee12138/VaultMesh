@@ -1,0 +1,33 @@
+id: "CHG-2026-013-passkey-default-login-assignment"
+title: "Passkey 按网站默认登录账号归属"
+type: "feature"
+status: "Verified"
+spec_revision: "0.1.4-active"
+target_release: null
+requirements:
+  - "REQ-PASSKEY-001"
+tests:
+  - "CT-PASSKEY-001"
+  - "CT-BROWSER-002"
+  - "CT-NATIVE-BROWSER-001"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-PASSKEY-001 软件 Passkey"
+  - "docs/05-data-model.md#Passkey 表示"
+  - "docs/07-test-release-plan.md#测试层次"
+  - "docs/08-traceability.md#REQ-PASSKEY-001"
+  - "specs/browser-integration.md#Passkey"
+  - "adr/0003-browser-extension-remote-ui.md"
+related_changes: []
+affected_surfaces:
+  - "tauri-desktop"
+  - "browser-extension"
+  - "vault-core"
+  - "browser-rpc"
+affected_formats: []
+affected_versions:
+  - "Browser RPC v2"
+security_impact: "Extension 只发送 renderer-safe 的默认 Login opaque UUID；Tauri broker 必须按当前 RP/origin 重新验证该 Login，拒绝把 Passkey 关联到其他网站，私钥所有权和签名边界不变。"
+migration: "无需 Vault 格式迁移；既有 Passkey summary 会从已保存 scope 派生展示归属，既有未关联 Passkey 保持 Passkey-only Login。"
+supersedes: []

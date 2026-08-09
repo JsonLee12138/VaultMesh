@@ -1,0 +1,28 @@
+id: "BUG-2026-008-multistep-password-selection"
+title: "分步登录密码阶段保留已提交账号"
+type: "bug"
+status: "Verified"
+spec_revision: "0.1.3-active"
+target_release: null
+requirements:
+  - "REQ-AUTOFILL-001"
+tests:
+  - "CT-AUTOFILL-001"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-001 安全 discovery 与 fill"
+  - "specs/browser-integration.md#Discovery 与 fill"
+  - "docs/07-test-release-plan.md#测试 ID 定位"
+  - "docs/08-traceability.md#REQ-AUTOFILL-001"
+  - "adr/0003-browser-extension-remote-ui.md"
+related_changes:
+  - "BUG-2026-002-multistep-login-autofill"
+affected_surfaces:
+  - "browser-extension"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Content script 仅在本地比较页面账号与候选 username，并向受信扩展后台传递“保留现有账号”的布尔填充意图；不传输页面账号值，不扩大 assignment、secret disclosure 或站点权限。"
+migration: "none"
+supersedes: []

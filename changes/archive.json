@@ -1,0 +1,244 @@
+{
+  "version": 1,
+  "archives": [
+    {
+      "work_id": "BUG-2026-001-login-save-prompt-navigation",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/BUG-2026-001-login-save-prompt-navigation/change.md": "sha256:920f2abc9edfc27050a8a213866cc7af1444a52a27c61da2f53f4d59189f37cd",
+        "changes/BUG-2026-001-login-save-prompt-navigation/change.yaml": "sha256:5d644de685e307d78159766c4dff390ff1563779b20445b53a792aad5eeddb90"
+      }
+    },
+    {
+      "work_id": "BUG-2026-002-multistep-login-autofill",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/BUG-2026-002-multistep-login-autofill/change.md": "sha256:51d178e17bf82e7065a2c338cd118c33e468ab845045478ab896049ba76d8fc7",
+        "changes/BUG-2026-002-multistep-login-autofill/change.yaml": "sha256:3b97bf1cdf2065ca3e682f5aff87feca78d0c53956702da1e1f79e8aabc2a464"
+      }
+    },
+    {
+      "work_id": "BUG-2026-003-native-preview-pairing-keychain-entitlement",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/BUG-2026-003-native-preview-pairing-keychain-entitlement/change.md": "sha256:399e939ef087409da8bff1407bf6a9d1cd0296ef46ca4c843df740d7db0754dc",
+        "changes/BUG-2026-003-native-preview-pairing-keychain-entitlement/change.yaml": "sha256:898abfca03b06736651294f86560ac077fd9ab57067187e4f8b23adb00a6bcda"
+      }
+    },
+    {
+      "work_id": "BUG-2026-007-browser-dev-extension-identity",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/BUG-2026-007-browser-dev-extension-identity/change.md": "sha256:3d73fca8bd0ea40a56d1f6b29aa0ed68bccaf9b69732d8b3644b4bfe17aea55e",
+        "changes/BUG-2026-007-browser-dev-extension-identity/change.yaml": "sha256:d824700e8aceefad6218bb1007a096e2f921b0fbd85958799959b8faa7850968"
+      }
+    },
+    {
+      "work_id": "BUG-2026-008-multistep-password-selection",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/BUG-2026-008-multistep-password-selection/change.md": "sha256:46823fb05ff59e3c25bc4b93f77d6feb47ffc704b510e831596a69e9ed41ab45",
+        "changes/BUG-2026-008-multistep-password-selection/change.yaml": "sha256:e53be8d041be1d1b6bb6c440536e3bd83531ea98cdae55d08a46803e13a8eee0"
+      }
+    },
+    {
+      "work_id": "BUG-2026-009-password-entry-preserves-account",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/BUG-2026-009-password-entry-preserves-account/change.md": "sha256:0de92709eeeefe7edb604e87820cbfb635f7558bbaf2ae9f3863669ea103fa46",
+        "changes/BUG-2026-009-password-entry-preserves-account/change.yaml": "sha256:34088b467fd4edcc93f05ee16fde746bdb0a54e3e639686720e3e4c33cdd9426"
+      }
+    },
+    {
+      "work_id": "BUG-2026-010-save-prompt-preparation-race",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/BUG-2026-010-save-prompt-preparation-race/change.md": "sha256:36ed0a004bf8c19e2339ace1018076a6d66c34bd2a2899fcc1627cecdf4ce255",
+        "changes/BUG-2026-010-save-prompt-preparation-race/change.yaml": "sha256:0391af5ae04514edfc7fb33243bc40cf5f945b6fe810d4cc114705956d7d0646"
+      }
+    },
+    {
+      "work_id": "BUG-2026-011-http-content-uuid-fallback",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/BUG-2026-011-http-content-uuid-fallback/change.md": "sha256:4443b3ab7dbb9811e1375da6525c185c89a45044512c52aa282893b3ad056f9e",
+        "changes/BUG-2026-011-http-content-uuid-fallback/change.yaml": "sha256:d30050a0a6efcb7a9b8e2c50844ae2ec24a43862c9e9a314174dd6f9e3644c20"
+      }
+    },
+    {
+      "work_id": "BUG-2026-012-tauri-window-blur-lock",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/BUG-2026-012-tauri-window-blur-lock/change.md": "sha256:5245b58c05ac5100559a5d49dcefb4ab2b36c3e08b313caed39a9686256bea9a",
+        "changes/BUG-2026-012-tauri-window-blur-lock/change.yaml": "sha256:2a070d158b3644ec355bfe7fb4922ccacff0e208b8e1eb758627d6771eb8e4f4"
+      }
+    },
+    {
+      "work_id": "BUG-2026-013-native-dialog-blur-lock",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/BUG-2026-013-native-dialog-blur-lock/change.md": "sha256:599364d02441e754b7dfbeca584d1053e550e8749be1a2d8d06618165d11b295",
+        "changes/BUG-2026-013-native-dialog-blur-lock/change.yaml": "sha256:30a5b7da1597beaae71186c1ae1449e21bd8183504317d43912f5727077aec87"
+      }
+    },
+    {
+      "work_id": "CHG-2026-001-ai-document-governance",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-001-ai-document-governance/change.md": "sha256:738f436d6bb70a4a426f2d235a01bbfa7030f7c52473ff80dfc67b8449e9f0d8",
+        "changes/CHG-2026-001-ai-document-governance/change.yaml": "sha256:99d48b0550c1eded4a636cffe7679779a25cebb5f6bb3341d405c29c72e9b549"
+      }
+    },
+    {
+      "work_id": "CHG-2026-002-native-desktop-migration",
+      "status": "Rejected",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-002-native-desktop-migration/browser-slice-design.md": "sha256:31903b11c4c6681bfd4d3495a6479460b5516eb2607ed6a582245792acf981d1",
+        "changes/CHG-2026-002-native-desktop-migration/change.md": "sha256:8ba4ae1122c389f105ae3b8baf78071e1e0a8741cb1188ce1bb89bfd162ccae2",
+        "changes/CHG-2026-002-native-desktop-migration/change.yaml": "sha256:45b7d2ee6b75db045caed3dca2ad2f3ba6f24377398bb6af83e5f31098f74ea9",
+        "changes/CHG-2026-002-native-desktop-migration/design.md": "sha256:f7909d1fef983d2fc4836d9d1feadc6558533bd459d2f130c35ad3f97b0c190b",
+        "changes/CHG-2026-002-native-desktop-migration/item-metadata-slice-design.md": "sha256:5ec7598566e1978a75da6ca986dd8e51c64fe39cf87eb13177c644c29c9a65a9",
+        "changes/CHG-2026-002-native-desktop-migration/platform-security-slice-design.md": "sha256:397901d80f329e9b073ba70aa28bcf45d104836fabac1ba8bb08fab38eb3ef28",
+        "changes/CHG-2026-002-native-desktop-migration/vault-slice-design.md": "sha256:c6dff0bb36a2cdb0055e8b040c9f4e8d49e63b270ba0323512aee2a551f679d5"
+      }
+    },
+    {
+      "work_id": "CHG-2026-003-native-macos-desktop-workflows",
+      "status": "Rejected",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-003-native-macos-desktop-workflows/change.md": "sha256:cf4e2e8371c6efa9fb31f9be6aacc5b78b7f853fad32465fbe67966088e28b3a",
+        "changes/CHG-2026-003-native-macos-desktop-workflows/change.yaml": "sha256:bb3b8eb1fa8372d951cc1cfb80e30c724ac67c98c2e31bc931e5d307714bc260"
+      }
+    },
+    {
+      "work_id": "CHG-2026-005-sonner-feedback",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-005-sonner-feedback/change.md": "sha256:e2a674f9fddffbe503ea8ea38a0556288e1898c408e7afebbafd1194f51b76ba",
+        "changes/CHG-2026-005-sonner-feedback/change.yaml": "sha256:1166063382ad7e4cc623f504fe8340fbdef1eaa1b2c0a633c59091ecfe6830e7"
+      }
+    },
+    {
+      "work_id": "CHG-2026-009-ai-context-routing",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-009-ai-context-routing/change.md": "sha256:843f6fb12e45a5ffe3435d7ec4d74fb06160f4c0e0c86814610d10978d30b741",
+        "changes/CHG-2026-009-ai-context-routing/change.yaml": "sha256:4cfda5f70805bd7663c6af2c849497810e35ea5add5a794c61640318110b19ea"
+      }
+    },
+    {
+      "work_id": "CHG-2026-010-documentation-proportionality",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-010-documentation-proportionality/change.md": "sha256:7bd1ba998a8199775b228cc8a0075d20cd5b8469c059b47ef2c0f24f27c61987",
+        "changes/CHG-2026-010-documentation-proportionality/change.yaml": "sha256:5b37e33c94b11d28ac2407cf5d0de1eb7f8fd3095de15e1123b99174ea757e4a"
+      }
+    },
+    {
+      "work_id": "CHG-2026-011-risk-based-work-threshold",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-011-risk-based-work-threshold/change.md": "sha256:89992aae782515bfa765e45cb41a48a3c67015dd0fb37dd4312b46b20a5ed6db",
+        "changes/CHG-2026-011-risk-based-work-threshold/change.yaml": "sha256:8dc593f9fc5c3cdda03848c5b4a124b0eb2066c48632d53c3c466967466cbc16"
+      }
+    },
+    {
+      "work_id": "CHG-2026-012-browser-dev-tauri-runtime",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-012-browser-dev-tauri-runtime/change.md": "sha256:147f9a80c53b76180458eafb24bbeeaf205d2d53614b341902f71b18ee6363ad",
+        "changes/CHG-2026-012-browser-dev-tauri-runtime/change.yaml": "sha256:ea35f6350842c2bd12dde48076b7bdf5555387300566d52f9d84176cf52b06b1"
+      }
+    },
+    {
+      "work_id": "CHG-2026-013-passkey-default-login-assignment",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-013-passkey-default-login-assignment/change.md": "sha256:4a42281d7c09169d4b4d5a32aa7d33fe865996821d243130329237040ce0c8c6",
+        "changes/CHG-2026-013-passkey-default-login-assignment/change.yaml": "sha256:ac17b0d7bdd0c6b5ab805deda965ad6544730cc28a8c80f04a32369cddfa2504"
+      }
+    },
+    {
+      "work_id": "CHG-2026-014-extension-preference-persistence",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-014-extension-preference-persistence/change.md": "sha256:5bca48456a2e90def97e19c5cbc6eddfe9ce084438bd5935ad1c92e5e3b49d76",
+        "changes/CHG-2026-014-extension-preference-persistence/change.yaml": "sha256:c37649ed701befa77751c7d58c6b8cd5ae6d7a80e7279c3df999e4fbfab120c0"
+      }
+    },
+    {
+      "work_id": "CHG-2026-015-email-otp-alphanumeric-codes",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-015-email-otp-alphanumeric-codes/change.md": "sha256:9149af0bea9827274cc7394ab7287c3e3afbfe1edce7fde8647b346aab44e493",
+        "changes/CHG-2026-015-email-otp-alphanumeric-codes/change.yaml": "sha256:8912bed417ea42f1007e5f542a3b099c82d93784b7505856620025d76f7527e9"
+      }
+    },
+    {
+      "work_id": "CHG-2026-017-extension-captured-secret-reprompt-default",
+      "status": "Verified",
+      "archived_at": "2026-07-31T00:00:00.000Z",
+      "files": {
+        "changes/CHG-2026-017-extension-captured-secret-reprompt-default/change.md": "sha256:087c0f440ebda923f72ffbd157227654329ccf1fa126c9c6af09597e48ba3d96",
+        "changes/CHG-2026-017-extension-captured-secret-reprompt-default/change.yaml": "sha256:82bf90e968df5fe1bb9d63e2d5bc21950ded8d20158a62719404ee961f45a1c1"
+      }
+    },
+    {
+      "work_id": "CHG-2026-024-completed-work-archives",
+      "status": "Verified",
+      "archived_at": "2026-07-30T21:06:40.161Z",
+      "files": {
+        "changes/CHG-2026-024-completed-work-archives/change.md": "sha256:76c08edbaac581a9517af4d02d6252a58205e4365829c3b3c181103779fe44c2",
+        "changes/CHG-2026-024-completed-work-archives/change.yaml": "sha256:13f52f2c48c405ad04a785ead267491617eed3461864ab4f5c34674b94b657bf"
+      }
+    },
+    {
+      "work_id": "BUG-2026-019-windows-native-host-pipe-disconnect-race",
+      "status": "Verified",
+      "archived_at": "2026-08-04T04:30:29.555Z",
+      "files": {
+        "changes/BUG-2026-019-windows-native-host-pipe-disconnect-race/change.md": "sha256:3f7fa7d1bef9752b8633d3c73f87c63729608978728e8fe6315a43dbcbb98541",
+        "changes/BUG-2026-019-windows-native-host-pipe-disconnect-race/change.yaml": "sha256:af9cf48d3222da5282ee002587081a22765fcb1ff4c5e36fbe157d47c1d7df38"
+      }
+    },
+    {
+      "work_id": "CHG-2026-031-open-source-license",
+      "status": "Verified",
+      "archived_at": "2026-08-09T04:18:27.653Z",
+      "files": {
+        "changes/CHG-2026-031-open-source-license/change.md": "sha256:ddad62d3274736391a69c8904d7e15280cb7705bdaf377f3d675d2d67ad80d24",
+        "changes/CHG-2026-031-open-source-license/change.yaml": "sha256:ca7397357e8986f3045c53f78a2798777e2aeeba4d8060cbc71d6b5d77d9481f"
+      }
+    },
+    {
+      "work_id": "CHG-2026-032-noncommercial-dual-license",
+      "status": "Verified",
+      "archived_at": "2026-08-09T04:49:17.357Z",
+      "files": {
+        "changes/CHG-2026-032-noncommercial-dual-license/change.md": "sha256:d235ce087a98acfa92eace4d75f9b6583cef7f48c119aabbbea44efa8881364b",
+        "changes/CHG-2026-032-noncommercial-dual-license/change.yaml": "sha256:dee019e35c2784d61ab8c079d417010e4f490f193be422db4cf6d85418ddca94"
+      }
+    }
+  ]
+}

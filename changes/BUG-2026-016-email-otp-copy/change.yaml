@@ -1,0 +1,29 @@
+id: "BUG-2026-016-email-otp-copy"
+title: "邮件字母数字验证码复制静默失败"
+type: "bug"
+status: "Implementing"
+spec_revision: "0.1.5-active"
+target_release: "0.1.0-development"
+requirements:
+  - "REQ-EMAIL-002"
+tests:
+  - "CT-EMAIL-002"
+adrs: []
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-EMAIL-002 候选生命周期"
+  - "specs/email-otp.md#Runtime 与数据生命周期"
+  - "docs/07-test-release-plan.md#GATE-3 Desktop runtime"
+  - "docs/08-traceability.md#REQ-EMAIL-002"
+related_changes:
+  - "CHG-2026-015-email-otp-alphanumeric-codes"
+affected_surfaces:
+  - "Tauri Email OTP renderer"
+  - "Desktop typed contract"
+  - "Rust email.copy-code dispatcher"
+affected_formats:
+  - "none"
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Copy continues through the privileged Rust clipboard owner with configured expiry; the fix only admits the already accepted bounded alphanumeric candidate syntax and exposes redacted public errors."
+migration: "No Vault, settings, operation name, Browser RPC or ABI migration; the existing desktop input validation is widened from digits to the accepted ASCII alphanumeric OTP syntax."
+supersedes: []

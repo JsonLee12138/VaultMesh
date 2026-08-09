@@ -1,0 +1,29 @@
+id: "CHG-2026-033-rewrite-public-history"
+title: "重建 Public 仓库分支历史"
+type: "governance"
+status: "Implementing"
+spec_revision: "0.1.41-active"
+target_release: null
+requirements: []
+tests:
+  - "CT-HISTORY-001"
+adrs: []
+context_refs:
+  - "docs/00-spec-index.md#当前基线"
+  - "docs/02-scope-matrix.md#发布状态"
+  - "docs/07-test-release-plan.md#测试 ID 定位"
+  - "docs/07-test-release-plan.md#GATE-1 规格与追踪"
+  - "docs/09-document-governance.md"
+  - "scripts/repository-history-policy.test.mjs"
+related_changes:
+  - "CHG-2026-032-noncommercial-dual-license"
+affected_surfaces:
+  - "Git commit graph"
+  - "GitHub default branch and public branch refs"
+  - "repository governance"
+affected_formats: []
+affected_versions:
+  - "public source repository"
+security_impact: "No product security boundary changes. Force-pushing public history is destructive for branch consumers and cannot erase external clones, forks, GitHub pull-request refs, caches, or rights already obtained. A verified local Git bundle is required before the rewrite."
+migration: "The current PolyForm-licensed tree becomes a new root commit. Existing clones must fetch and reset or reclone; old commit IDs are no longer ancestors of main. Public branches containing the prior AGPL commit chain are deleted."
+supersedes: []

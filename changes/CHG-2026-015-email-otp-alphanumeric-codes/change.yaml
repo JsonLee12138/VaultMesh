@@ -1,0 +1,28 @@
+id: "CHG-2026-015-email-otp-alphanumeric-codes"
+title: "邮件字母数字验证码完整识别"
+type: "feature"
+status: "Verified"
+spec_revision: "0.1.5-active"
+target_release: "0.1.0-development"
+requirements:
+  - "REQ-EMAIL-002"
+tests:
+  - "CT-EMAIL-002"
+adrs: []
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-EMAIL-002 候选生命周期"
+  - "specs/email-otp.md#Runtime 与数据生命周期"
+  - "docs/07-test-release-plan.md#GATE-3 Desktop runtime"
+  - "docs/08-traceability.md#REQ-EMAIL-002"
+related_changes:
+  - "BUG-2026-014-gmail-otp-repeat-scan"
+affected_surfaces:
+  - "Tauri Rust Email OTP service"
+  - "Email OTP candidate extraction"
+affected_formats:
+  - "none"
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Mixed alphanumeric OTP remains short-lived Rust-owned candidate data; message bodies and codes do not enter logs, persistence or renderer storage."
+migration: "No Vault, settings, RPC, IPC or ABI migration."
+supersedes: []

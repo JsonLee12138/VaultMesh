@@ -1,0 +1,34 @@
+id: "CHG-2026-032-noncommercial-dual-license"
+title: "采用 PolyForm Noncommercial 与独立商业许可"
+type: "governance"
+status: "Verified"
+spec_revision: "0.1.40-active"
+target_release: null
+requirements: []
+tests:
+  - "CT-LICENSE-001"
+adrs: []
+context_refs:
+  - "docs/00-spec-index.md#当前基线"
+  - "docs/02-scope-matrix.md#发布状态"
+  - "docs/07-test-release-plan.md#测试 ID 定位"
+  - "docs/07-test-release-plan.md#GATE-1 规格与追踪"
+  - "docs/09-document-governance.md"
+  - "Cargo.toml"
+  - "package.json"
+  - "README.md"
+  - "CONTRIBUTING.md"
+related_changes:
+  - "CHG-2026-031-open-source-license"
+affected_surfaces:
+  - "repository governance"
+  - "Rust workspace metadata"
+  - "pnpm workspace metadata"
+  - "GitHub repository metadata"
+affected_formats: []
+affected_versions:
+  - "source repository revisions published from the relicensing commit onward"
+security_impact: "No cryptography, secret ownership, runtime trust boundary, dependency, binary distribution, or product release gate changes. The repository remains Public."
+migration: "Current and future revisions are offered under PolyForm-Noncommercial-1.0.0, with commercial rights available only through a separately executed written agreement. Rights already granted for historical AGPL-3.0-or-later revisions remain effective and are not revoked."
+supersedes:
+  - "CHG-2026-031-open-source-license"

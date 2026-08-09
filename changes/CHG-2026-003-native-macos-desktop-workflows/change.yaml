@@ -1,0 +1,36 @@
+id: "CHG-2026-003-native-macos-desktop-workflows"
+title: "macOS 原生桌面工作流补齐"
+type: "feature"
+status: "Rejected"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-NATIVE-001"
+  - "REQ-ITEM-001"
+  - "REQ-ITEM-002"
+  - "REQ-ITEM-003"
+  - "REQ-ITEM-004"
+  - "REQ-ITEM-005"
+  - "REQ-RECOVERY-001"
+  - "REQ-VAULT-003"
+  - "REQ-SEC-002"
+  - "REQ-IMPORT-001"
+  - "NFR-REL-001"
+  - "NFR-PRIV-001"
+tests:
+  - "CT-NATIVE-DESKTOP-001"
+  - "CT-NATIVE-IMPORT-001"
+  - "AT-NATIVE-MACOS-004"
+adrs:
+  - "ADR-0001"
+  - "ADR-0004"
+affected_surfaces:
+  - "macOS SwiftUI/AppKit client"
+  - "vault-ffi"
+affected_formats:
+  - "Native ABI 1"
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Adds native mutation, import, backup, recovery, health and settings presentation while preserving core-owned atomic persistence and bounded privileged-value access."
+migration: "No Vault format migration; the Native Preview continues to use its isolated default Vault and remains non-default until parity gates pass."
+supersedes: []

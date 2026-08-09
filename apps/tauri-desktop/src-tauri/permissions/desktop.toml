@@ -1,0 +1,9 @@
+[[permission]]
+identifier = "allow-desktop-invoke"
+description = "Allows the bundled main window to invoke the validated VaultMesh dispatcher."
+commands.allow = ["desktop_invoke"]
+
+[[permission]]
+identifier = "allow-desktop-activity"
+description = "Allows the bundled main window to refresh the idle-lock deadline."
+commands.allow = ["desktop_activity"]

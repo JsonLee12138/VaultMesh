@@ -1,0 +1,28 @@
+id: "BUG-2026-005-tauri-browser-large-response"
+title: "修复 Tauri Browser RPC 大响应被截断"
+type: "bug"
+status: "Implementing"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-BROWSER-002"
+  - "REQ-TAURI-001"
+  - "NFR-REL-001"
+  - "NFR-PRIV-001"
+tests:
+  - "CT-TAURI-BROWSER-001"
+  - "AT-BROWSER-001"
+adrs:
+  - "ADR-0003"
+  - "ADR-0005"
+affected_surfaces:
+  - "Tauri Rust browser broker Unix transport"
+  - "packaged Rust native messaging host"
+  - "Chromium extension popup"
+affected_formats:
+  - "Browser RPC 2"
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Keeps Browser RPC responses bounded while preventing non-blocking Unix socket partial writes; no protected value is logged or persisted."
+migration: "none"
+supersedes: []

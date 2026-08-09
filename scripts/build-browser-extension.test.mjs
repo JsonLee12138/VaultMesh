@@ -1,0 +1,57 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import { developmentExtensionId, developmentExtensionKey } from "./browser-identity.mjs";
+import {
+  browserExtensionBuildEnvironment,
+  browserExtensionBuildInvocation,
+} from "./build-browser-extension.mjs";
+
+test("Extension build invokes pnpm.cmd through the Windows command interpreter", () => {
+  assert.deepEqual(
+    browserExtensionBuildInvocation("zip", "win32", { ComSpec: "C:\\Windows\\System32\\cmd.exe" }),
+    {
+      command: "C:\\Windows\\System32\\cmd.exe",
+      arguments: ["/d", "/s", "/c", "pnpm.cmd", "--filter", "@vaultmesh/browser-extension", "zip"],
+    },
+  );
+  assert.deepEqual(browserExtensionBuildInvocation("build", "linux"), {
+    command: "pnpm",
+    arguments: ["--filter", "@vaultmesh/browser-extension", "build"],
+  });
+});
+
+test("Extension release build defaults to the same fixed development identity as the Host", () => {
+  const environment = browserExtensionBuildEnvironment({ PATH: "/usr/bin" });
+  assert.equal(environment.WXT_CHROME_EXTENSION_KEY, developmentExtensionKey);
+  assert.equal(environment.VAULTMESH_BROWSER_EXTENSION_ID, developmentExtensionId);
+  assert.equal(environment.WXT_NATIVE_HOST_NAME, "com.vaultmesh.browser");
+});
+
+test("Extension release build rejects mismatched identity or Host name", () => {
+  assert.throws(() => browserExtensionBuildEnvironment({
+    WXT_CHROME_EXTENSION_KEY: developmentExtensionKey,
+    VAULTMESH_BROWSER_EXTENSION_ID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  }), /manifest key 不匹配/);
+  assert.throws(() => browserExtensionBuildEnvironment({
+    WXT_NATIVE_HOST_NAME: "com.example.host",
+  }), /com\.vaultmesh\.browser/);
+});
+
+test("Explicit extension key derives one shared identity and release mode rejects the development key", () => {
+  const releaseKey = Buffer.from("vaultmesh-test-release-public-key").toString("base64");
+  const environment = browserExtensionBuildEnvironment({
+    WXT_CHROME_EXTENSION_KEY: releaseKey,
+  }, { requireRelease: true });
+  assert.notEqual(environment.VAULTMESH_BROWSER_EXTENSION_ID, developmentExtensionId);
+  assert.throws(
+    () => browserExtensionBuildEnvironment({}, { requireRelease: true }),
+    /正式发布必须显式提供非开发/,
+  );
+  assert.throws(
+    () => browserExtensionBuildEnvironment({
+      WXT_CHROME_EXTENSION_KEY: developmentExtensionKey,
+    }, { requireRelease: true }),
+    /正式发布必须显式提供非开发/,
+  );
+});

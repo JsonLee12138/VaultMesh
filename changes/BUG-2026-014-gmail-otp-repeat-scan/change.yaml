@@ -1,0 +1,36 @@
+id: "BUG-2026-014-gmail-otp-repeat-scan"
+title: "Gmail 首次成功后无法继续识别验证码"
+type: "bug"
+status: "Implementing"
+spec_revision: "0.1.4-active"
+target_release: null
+requirements:
+  - "REQ-EMAIL-001"
+  - "REQ-EMAIL-002"
+tests:
+  - "CT-EMAIL-001"
+  - "CT-EMAIL-002"
+  - "AT-EMAIL-001"
+  - "AT-EMAIL-002"
+adrs:
+  - "ADR-0005"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-EMAIL-001 Provider 授权与只读访问"
+  - "docs/03-functional-requirements.md#REQ-EMAIL-002 候选生命周期"
+  - "specs/email-otp.md"
+  - "docs/07-test-release-plan.md#GATE-3 Desktop runtime"
+  - "docs/08-traceability.md#REQ-EMAIL-001"
+  - "docs/08-traceability.md#REQ-EMAIL-002"
+related_changes:
+  - "CHG-2026-004-tauri-desktop-migration"
+  - "CHG-2026-015-email-otp-alphanumeric-codes"
+affected_surfaces:
+  - "Tauri Rust Email OTP service"
+  - "Gmail API message query and MIME parsing"
+affected_formats:
+  - "none"
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Keeps Gmail access read-only and secret ownership unchanged while making bounded in-memory MIME parsing and candidate dedup retry-safe."
+migration: "No Vault, settings, RPC, IPC or ABI migration."
+supersedes: []

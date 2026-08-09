@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36">
+  <title>VaultMesh macOS menu bar icon</title>
+  <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 3.5 30.5 10.7v14.6L18 32.5 5.5 25.3V10.7Z" stroke-width="2.4"/>
+    <path d="m18 3.5 12.5 21.8M30.5 10.7l-25 14.6M5.5 10.7l25 14.6M18 32.5 5.5 10.7" stroke-width="1.7" opacity=".72"/>
+  </g>
+  <path d="M18 8a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" fill="#000" fill-rule="evenodd"/>
+  <path d="M18 14.2a2.8 2.8 0 0 0-1.25 5.3l-.8 3.35h4.1l-.8-3.35A2.8 2.8 0 0 0 18 14.2Z" fill="#000"/>
+</svg>

@@ -1,0 +1,15 @@
+packages:
+  - apps/browser-extension
+  - apps/tauri-desktop
+  - packages/*
+
+nodeLinker: hoisted
+
+overrides:
+  "minimatch@10>brace-expansion": "5.0.8"
+  esbuild: "0.28.1"
+  "ajv>fast-uri": "3.1.4"
+
+allowBuilds:
+  esbuild: true
+  spawn-sync: false

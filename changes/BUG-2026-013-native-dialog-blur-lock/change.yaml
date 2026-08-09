@@ -1,0 +1,36 @@
+id: "BUG-2026-013-native-dialog-blur-lock"
+title: "原生文件对话框误触发失焦锁定"
+type: "bug"
+status: "Verified"
+spec_revision: "0.1.4-active"
+target_release: null
+requirements:
+  - "REQ-VAULT-001"
+  - "REQ-SEC-002"
+  - "REQ-IMPORT-001"
+tests:
+  - "CT-SEC-002"
+  - "CT-IMPORT-001"
+  - "CT-TAURI-DESKTOP-001"
+adrs:
+  - "ADR-0005"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-VAULT-001 创建、解锁和锁定"
+  - "docs/03-functional-requirements.md#REQ-SEC-002 Quick unlock、锁定与剪贴板"
+  - "docs/03-functional-requirements.md#REQ-IMPORT-001 Import 与本地 SSH scan"
+  - "docs/06-security-privacy.md#Desktop WebView 边界"
+  - "docs/07-test-release-plan.md#GATE-3 Desktop runtime"
+  - "docs/08-traceability.md#REQ-SEC-002"
+  - "docs/08-traceability.md#REQ-IMPORT-001"
+  - "specs/tauri-desktop-migration.md#Runtime 所有权"
+related_changes:
+  - "BUG-2026-012-tauri-window-blur-lock"
+affected_surfaces:
+  - "tauri-desktop-runtime"
+  - "desktop-import"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Distinguishes VaultMesh-owned native modal dialogs from leaving the application without weakening ordinary window-blur locking."
+migration: "none"
+supersedes: []

@@ -1,0 +1,27 @@
+id: "BUG-2026-010-save-prompt-preparation-race"
+title: "登录跳转时等待保存候选准备完成"
+type: "bug"
+status: "Verified"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-AUTOFILL-002"
+tests:
+  - "CT-AUTOFILL-002"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-002 显式选择与捕获"
+  - "specs/browser-integration.md#Capture"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/08-traceability.md#REQ-AUTOFILL-002"
+related_changes:
+  - "BUG-2026-001-login-save-prompt-navigation"
+affected_surfaces:
+  - "browser-extension"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Background records only capture ID, tab, origin and expiry while account verification is in progress; captured secrets remain background-only."
+migration: "none"
+supersedes: []

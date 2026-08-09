@@ -1,0 +1,265 @@
+name: Publish experimental macOS package
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "SemVer isolated from the channel (for example 0.1.1-test.5)"
+        required: true
+        type: string
+      platform:
+        description: "macOS target platform; ARM64 is cross-built on the Intel runner"
+        required: true
+        default: darwin-x86_64
+        type: choice
+        options:
+          - darwin-x86_64
+          - darwin-aarch64
+      channel:
+        description: "Updater channel embedded in the package; publication never modifies it"
+        required: true
+        default: test
+        type: choice
+        options:
+          - test
+          - review
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vaultmesh-r2-macos-experimental-package
+  cancel-in-progress: false
+
+jobs:
+  build_and_publish:
+    name: Build and publish ${{ inputs.platform }} on Intel macOS
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, macOS, X64, vaultmesh-macos-native]
+    timeout-minutes: 90
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      TARGET_PLATFORM: ${{ inputs.platform }}
+      UPDATER_CHANNEL: ${{ inputs.channel }}
+      TARGET_TRIPLE: ${{ inputs.platform == 'darwin-aarch64' && 'aarch64-apple-darwin' || 'x86_64-apple-darwin' }}
+      MACHO_ARCH: ${{ inputs.platform == 'darwin-aarch64' && 'arm64' || 'x86_64' }}
+      CROSS_BUILT: ${{ inputs.platform == 'darwin-aarch64' && 'true' || 'false' }}
+      APPLE_SIGNING_IDENTITY: "-"
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      VAULTMESH_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
+      VAULTMESH_UPDATER_ENDPOINT: ${{ vars.R2_PUBLIC_BASE_URL }}/channels/${{ inputs.channel }}/latest.json
+      R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate selected version and updater channel
+        run: |
+          set -euo pipefail
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const version = process.env.RELEASE_VERSION ?? "";
+            const channel = process.env.UPDATER_CHANNEL ?? "";
+            if (!["test", "review"].includes(channel)) {
+              throw new Error(`Unsupported updater channel: ${channel}`);
+            }
+            if (channel === "review") {
+              if (!/^\d+\.\d+\.\d+-review(?:\.\d+)?$/.test(version)) {
+                throw new Error(`Review channel requires a review prerelease version: ${version}`);
+              }
+              const sourceVersion = JSON.parse(readFileSync("package.json", "utf8")).version;
+              if (sourceVersion !== version) {
+                throw new Error(`Review version ${version} does not match source metadata ${sourceVersion}`);
+              }
+            }
+          '
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.1.1
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Verify Intel macOS build runner
+        run: |
+          set -euo pipefail
+          [[ "$(uname -s)" == "Darwin" ]]
+          [[ "$(uname -m)" == "x86_64" ]]
+          xcodebuild -version
+      - name: Install toolchain and dependencies
+        run: |
+          set -euo pipefail
+          rustup target add "$TARGET_TRIPLE"
+          pnpm install --frozen-lockfile
+      - name: Build signed updater artifact and ad-hoc signed DMG
+        run: >-
+          node scripts/build-tauri.mjs
+          --verbose
+          --target "$TARGET_TRIPLE"
+          --bundles app,dmg
+          --updater-version "$RELEASE_VERSION"
+      - name: Normalize macOS artifacts
+        run: >-
+          node scripts/collect-tauri-update-artifact.mjs
+          --workspace "$GITHUB_WORKSPACE"
+          --platform "$TARGET_PLATFORM"
+          --version "$RELEASE_VERSION"
+          --output "$RUNNER_TEMP/vaultmesh-macos-experimental"
+      - name: Verify target architecture app and DMG
+        run: |
+          set -euo pipefail
+          app="$GITHUB_WORKSPACE/target/$TARGET_TRIPLE/release/bundle/macos/VaultMesh.app"
+          binary="$app/Contents/MacOS/vaultmesh-tauri-desktop"
+          file "$binary" | grep -F "Mach-O 64-bit executable $MACHO_ARCH"
+          vtool -show-build "$binary" | grep -F "minos 12.0"
+          for sidecar in \
+            "$GITHUB_WORKSPACE/target/$TARGET_TRIPLE/release/vaultmesh-agent-mcp" \
+            "$GITHUB_WORKSPACE/target/$TARGET_TRIPLE/release/vaultmesh-native-host"; do
+            file "$sidecar" | grep -F "Mach-O 64-bit executable $MACHO_ARCH"
+            vtool -show-build "$sidecar" | grep -F "minos 12.0"
+          done
+          if [[ "$CROSS_BUILT" == "true" ]]; then
+            [[ "$TARGET_PLATFORM" == "darwin-aarch64" ]]
+            [[ "$(uname -m)" == "x86_64" ]]
+          fi
+          codesign --verify --deep --strict "$app"
+          shopt -s nullglob
+          dmgs=("$RUNNER_TEMP/vaultmesh-macos-experimental"/*.dmg)
+          [[ "${#dmgs[@]}" -eq 1 ]]
+          hdiutil imageinfo "${dmgs[0]}" >/dev/null
+      - name: Capture selected channel state before experimental publication
+        run: |
+          set -euo pipefail
+          channel_url="${R2_PUBLIC_BASE_URL%/}/channels/${UPDATER_CHANNEL}/latest.json"
+          status="$(curl --silent --show-error \
+            --output "$RUNNER_TEMP/channel-before.json" \
+            --write-out '%{http_code}' \
+            "$channel_url")"
+          printf '%s\n' "$status" > "$RUNNER_TEMP/channel-before.status"
+          if [[ "$status" == "404" ]]; then
+            rm -f "$RUNNER_TEMP/channel-before.json"
+          elif [[ "$status" != "200" ]]; then
+            echo "Unexpected ${UPDATER_CHANNEL} channel response before publication: $status" >&2
+            exit 1
+          fi
+      - name: Create immutable experimental publication plan
+        run: >-
+          node scripts/create-macos-experimental-publication.mjs
+          --input "$RUNNER_TEMP/vaultmesh-macos-experimental"
+          --output "$RUNNER_TEMP/vaultmesh-macos-publication"
+          --version "$RELEASE_VERSION"
+          --base-url "$R2_PUBLIC_BASE_URL"
+          --platform "$TARGET_PLATFORM"
+      - name: Publish and verify immutable experimental objects
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          credentials="${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}"
+          curl --help all | grep -F -- "--aws-sigv4" >/dev/null
+          while IFS=$'\t' read -r source key content_type sha256; do
+            [[ -n "$source" && -n "$key" && -n "$content_type" && -n "$sha256" ]]
+            [[ "$key" == experimental/macos/"$TARGET_PLATFORM"/* ]]
+            object_url="$endpoint/$R2_BUCKET/$key"
+            headers="$RUNNER_TEMP/$(basename "$key").headers"
+            http_status="$(curl \
+              --silent \
+              --show-error \
+              --aws-sigv4 "aws:amz:auto:s3" \
+              --user "$credentials" \
+              --head \
+              --dump-header "$headers" \
+              --output /dev/null \
+              --write-out '%{http_code}' \
+              "$object_url")"
+            if [[ "$http_status" == "200" ]]; then
+              existing_sha256="$(awk 'tolower($1) == "x-amz-meta-sha256:" {gsub("\\r", "", $2); print tolower($2)}' "$headers")"
+              if [[ -z "$existing_sha256" ]]; then
+                echo "Refusing to overwrite experimental object without digest metadata: $key" >&2
+                exit 1
+              fi
+              if [[ "$existing_sha256" != "$sha256" ]]; then
+                echo "Refusing to overwrite experimental object with different content: $key" >&2
+                exit 1
+              fi
+            elif [[ "$http_status" == "404" ]]; then
+              curl \
+                --fail \
+                --silent \
+                --show-error \
+                --aws-sigv4 "aws:amz:auto:s3" \
+                --user "$credentials" \
+                --request PUT \
+                --upload-file "$source" \
+                --header "Content-Type: $content_type" \
+                --header "Cache-Control: public, max-age=31536000, immutable" \
+                --header "x-amz-meta-sha256: $sha256" \
+                "$object_url"
+            else
+              echo "Unexpected R2 HEAD response for $key: $http_status" >&2
+              exit 1
+            fi
+            downloaded="$RUNNER_TEMP/$(basename "$key").downloaded"
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              --aws-sigv4 "aws:amz:auto:s3" \
+              --user "$credentials" \
+              --output "$downloaded" \
+              "$object_url"
+            downloaded_sha256="$(shasum -a 256 "$downloaded" | awk '{print $1}')"
+            [[ "$downloaded_sha256" == "$sha256" ]]
+          done < "$RUNNER_TEMP/vaultmesh-macos-publication/immutable.tsv"
+          credentials=""
+      - name: Prove selected channel is unchanged and write links
+        run: |
+          set -euo pipefail
+          channel_url="${R2_PUBLIC_BASE_URL%/}/channels/${UPDATER_CHANNEL}/latest.json"
+          status="$(curl --silent --show-error \
+            --output "$RUNNER_TEMP/channel-after.json" \
+            --write-out '%{http_code}' \
+            "$channel_url")"
+          printf '%s\n' "$status" > "$RUNNER_TEMP/channel-after.status"
+          if [[ "$status" == "404" ]]; then
+            rm -f "$RUNNER_TEMP/channel-after.json"
+          elif [[ "$status" != "200" ]]; then
+            echo "Unexpected ${UPDATER_CHANNEL} channel response after publication: $status" >&2
+            exit 1
+          fi
+          cmp "$RUNNER_TEMP/channel-before.status" "$RUNNER_TEMP/channel-after.status"
+          if [[ "$status" == "200" ]]; then
+            cmp "$RUNNER_TEMP/channel-before.json" "$RUNNER_TEMP/channel-after.json"
+          fi
+          links="$RUNNER_TEMP/vaultmesh-macos-publication/links.json"
+          installer="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).installer)' "$links")"
+          updater="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).updaterArtifact)' "$links")"
+          signature="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).updaterSignature)' "$links")"
+          descriptor="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).descriptor)' "$links")"
+          for url in "$installer" "$updater" "$signature" "$descriptor"; do
+            curl --fail --silent --show-error --head "$url" >/dev/null
+          done
+          {
+            if [[ "$CROSS_BUILT" == "true" ]]; then
+              build_label="macOS ARM64 cross-built on Intel"
+              evidence="Cross-built experimental package: not native Apple Silicon package or macOS ARM AT evidence."
+            else
+              build_label="macOS Intel native"
+              evidence="Native Intel experimental package: not macOS AT evidence."
+            fi
+            echo "## VaultMesh ${RELEASE_VERSION} experimental ${build_label} package"
+            echo
+            echo "- [${build_label} DMG]($installer)"
+            echo "- [${build_label} updater artifact]($updater)"
+            echo "- [${build_label} updater signature]($signature)"
+            echo "- [${build_label} descriptor]($descriptor)"
+            echo "- Embedded updater channel: channels/${UPDATER_CHANNEL}/latest.json"
+            echo
+            echo "The ${UPDATER_CHANNEL} update channel was not modified. $evidence"
+          } >> "$GITHUB_STEP_SUMMARY"

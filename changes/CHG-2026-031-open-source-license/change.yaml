@@ -1,0 +1,30 @@
+id: "CHG-2026-031-open-source-license"
+title: "以 AGPL-3.0-or-later 开源 VaultMesh 源码"
+type: "governance"
+status: "Verified"
+spec_revision: "0.1.39-active"
+target_release: null
+requirements: []
+tests:
+  - "CT-OSS-001"
+adrs: []
+context_refs:
+  - "docs/00-spec-index.md#当前基线"
+  - "docs/02-scope-matrix.md#发布状态"
+  - "docs/07-test-release-plan.md#测试 ID 定位"
+  - "docs/07-test-release-plan.md#GATE-5 安全与依赖"
+  - "docs/09-document-governance.md"
+  - "Cargo.toml"
+  - "package.json"
+related_changes: []
+affected_surfaces:
+  - "repository governance"
+  - "Rust workspace metadata"
+  - "pnpm workspace metadata"
+  - "GitHub repository visibility and metadata"
+affected_formats: []
+affected_versions:
+  - "source repository"
+security_impact: "Making source history public can expose accidentally committed secrets or unsafe deployment assumptions. Publication requires current-tree and Git-history secret screening; no cryptography, secret ownership, runtime trust boundary, or binary release gate changes."
+migration: "Existing source consumers receive AGPL-3.0-or-later terms from the first public licensed revision. Vault data, settings, format, RPC, IPC, ABI, installed builds, and update channels are unchanged."
+supersedes: []

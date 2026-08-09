@@ -1,0 +1,29 @@
+id: "CHG-2026-012-browser-dev-tauri-runtime"
+title: "browser:dev 编排 Tauri 开发运行时"
+type: "migration"
+status: "Verified"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-BROWSER-001"
+tests:
+  - "CT-BROWSER-001"
+adrs:
+  - "ADR-0003"
+  - "ADR-0005"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-BROWSER-001"
+  - "specs/browser-integration.md"
+related_changes:
+  - "BUG-2026-007-browser-dev-extension-identity"
+  - "CHG-2026-008-electron-native-source-removal"
+affected_surfaces:
+  - "browser development command"
+  - "Tauri development runtime"
+  - "Rust native host development registration"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Development registration remains origin-bound and uses only the debug Rust host; production packaging and pairing policy are unchanged."
+migration: "none"
+supersedes: []

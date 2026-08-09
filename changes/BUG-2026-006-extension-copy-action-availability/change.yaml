@@ -1,0 +1,23 @@
+id: "BUG-2026-006-extension-copy-action-availability"
+title: "扩展仅显示已有登录字段的复制操作"
+type: "bug"
+status: "Implementing"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-ITEM-001"
+tests:
+  - "CT-ITEM-001"
+adrs:
+  - "ADR-0003"
+affected_surfaces:
+  - "vault-core"
+  - "Tauri-owned shared contracts"
+  - "tauri-desktop"
+  - "browser-extension"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "Login summary adds only a non-secret hasPassword presence flag; protected password and TOTP values remain absent from list responses."
+migration: "none"
+supersedes: []

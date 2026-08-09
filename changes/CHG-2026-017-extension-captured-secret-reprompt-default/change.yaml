@@ -1,0 +1,25 @@
+id: "CHG-2026-017-extension-captured-secret-reprompt-default"
+title: "插件识别密钥默认关闭二次验证"
+type: "feature"
+status: "Verified"
+spec_revision: "0.1.8-active"
+target_release: "0.1.0-development"
+requirements:
+  - "REQ-AUTOFILL-002"
+tests:
+  - "CT-AUTOFILL-002"
+adrs: []
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-002 显式选择与捕获"
+  - "specs/browser-integration.md#Capture"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/08-traceability.md#REQ-AUTOFILL-002"
+related_changes: []
+affected_surfaces:
+  - "Chromium MV3 extension background capture"
+affected_formats: []
+affected_versions:
+  - "extension 0.1.0-development"
+security_impact: "A developer/service secret saved from extension recognition no longer opts into master-password re-prompt by default; the value remains encrypted in the Vault and the user can enable re-prompt later from the item editor."
+migration: "No Vault format, payload, Browser RPC, IPC, ABI or settings migration; existing items keep their saved re-prompt value."
+supersedes: []

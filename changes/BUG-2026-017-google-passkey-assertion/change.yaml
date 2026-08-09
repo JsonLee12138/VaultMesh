@@ -1,0 +1,34 @@
+id: "BUG-2026-017-google-passkey-assertion"
+title: "Google Passkey assertion 兼容性"
+type: "bug"
+status: "Implementing"
+spec_revision: "0.1.6-active"
+target_release: null
+requirements:
+  - "REQ-PASSKEY-001"
+tests:
+  - "CT-PASSKEY-001"
+  - "AT-PASSKEY-001"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-PASSKEY-001 软件 Passkey"
+  - "docs/05-data-model.md#Passkey 表示"
+  - "docs/07-test-release-plan.md#测试层次"
+  - "docs/08-traceability.md#REQ-PASSKEY-001"
+  - "specs/browser-integration.md#Passkey"
+  - "adr/0003-browser-extension-remote-ui.md"
+related_changes:
+  - "CHG-2026-013-passkey-default-login-assignment"
+affected_surfaces:
+  - "tauri-desktop"
+  - "browser-extension"
+  - "browser-rpc"
+affected_formats: []
+affected_versions:
+  - "Browser RPC v2"
+  - "extension 0.1.0-development"
+  - "tauri-desktop 0.1.0-development"
+security_impact: "Assertion 继续只在 Rust privileged process 使用加密私钥签名；修复必须保持 RP/origin、credential、userHandle、challenge、flags 与 client extension output 一致，且不得记录真实请求或受保护值。"
+migration: "No Vault format, payload, Browser RPC version, operation, IPC or ABI migration. Existing WebAuthn credentials remain usable after a compatible assertion response is produced."
+supersedes: []

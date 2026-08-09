@@ -1,0 +1,154 @@
+name: Publish existing Windows artifact as experimental
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Completed Publish R2 test update run containing a successful native Windows build"
+        required: true
+        type: string
+      version:
+        description: "Exact SemVer embedded in the source artifact"
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: vaultmesh-r2-windows-experimental-package
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish existing native Windows artifact
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, linux, x64, vaultmesh-windows-cross]
+    timeout-minutes: 20
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
+      RELEASE_VERSION: ${{ inputs.version }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Validate native Windows source run
+        env:
+          API_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN_ID" =~ ^[0-9]+$ ]]
+          api_headers=(
+            --header "Authorization: Bearer $API_TOKEN"
+            --header "Accept: application/vnd.github+json"
+            --header "X-GitHub-Api-Version: 2022-11-28"
+          )
+          source_run="$(curl --fail --silent --show-error "${api_headers[@]}" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID")"
+          jq -e '
+            .name == "Publish R2 test update" and
+            .event == "workflow_dispatch" and
+            .head_branch == "main" and
+            .status == "completed"
+          ' <<< "$source_run" >/dev/null
+          source_jobs="$(curl --fail --silent --show-error "${api_headers[@]}" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/runs/$SOURCE_RUN_ID/jobs?per_page=100")"
+          jq -e '
+            [.jobs[] | select(
+              .name == "Build windows-x86_64" and
+              .status == "completed" and
+              .conclusion == "success"
+            )] | length == 1
+          ' <<< "$source_jobs" >/dev/null
+      - uses: actions/download-artifact@v8
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.source_run_id }}
+          name: vaultmesh-update-windows-x86_64
+          path: ${{ runner.temp }}/vaultmesh-windows-experimental
+      - name: Capture test channel before experimental publication
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            "${R2_PUBLIC_BASE_URL%/}/channels/test/latest.json" \
+            --output "$RUNNER_TEMP/channel-before.json"
+      - name: Create immutable experimental publication plan
+        run: |
+          set -euo pipefail
+          node scripts/create-windows-experimental-publication.mjs \
+            --input "$RUNNER_TEMP/vaultmesh-windows-experimental" \
+            --output "$RUNNER_TEMP/vaultmesh-windows-publication" \
+            --version "$RELEASE_VERSION" \
+            --base-url "$R2_PUBLIC_BASE_URL"
+      - name: Install isolated R2 upload client
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/vaultmesh-awscli"
+          "$RUNNER_TEMP/vaultmesh-awscli/bin/pip" install \
+            --disable-pip-version-check \
+            --quiet \
+            awscli==1.44.87
+          echo "$RUNNER_TEMP/vaultmesh-awscli/bin" >> "$GITHUB_PATH"
+      - name: Publish and verify immutable experimental objects
+        run: |
+          set -euo pipefail
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          while IFS=$'\t' read -r source key content_type sha256; do
+            [[ -n "$source" && -n "$key" && -n "$content_type" && -n "$sha256" ]]
+            [[ "$key" == experimental/windows/* ]]
+            existing_sha256="$(aws s3api head-object --endpoint-url "$endpoint" --bucket "$R2_BUCKET" --key "$key" --query 'Metadata.sha256' --output text 2>/dev/null || true)"
+            if [[ "$existing_sha256" == "None" ]]; then
+              echo "Refusing to overwrite experimental object without digest metadata: $key" >&2
+              exit 1
+            elif [[ -n "$existing_sha256" ]]; then
+              [[ "$existing_sha256" == "$sha256" ]] || {
+                echo "Refusing to overwrite experimental object with different content: $key" >&2
+                exit 1
+              }
+            else
+              aws s3 cp "$source" "s3://${R2_BUCKET}/${key}" \
+                --endpoint-url "$endpoint" \
+                --content-type "$content_type" \
+                --cache-control "public, max-age=31536000, immutable" \
+                --metadata "sha256=$sha256" \
+                --no-progress
+            fi
+            downloaded="$RUNNER_TEMP/$(basename "$key").downloaded"
+            aws s3 cp "s3://${R2_BUCKET}/${key}" "$downloaded" \
+              --endpoint-url "$endpoint" \
+              --no-progress
+            cmp "$source" "$downloaded"
+          done < "$RUNNER_TEMP/vaultmesh-windows-publication/immutable.tsv"
+      - name: Prove test channel is unchanged and write links
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            "${R2_PUBLIC_BASE_URL%/}/channels/test/latest.json" \
+            --output "$RUNNER_TEMP/channel-after.json"
+          cmp "$RUNNER_TEMP/channel-before.json" "$RUNNER_TEMP/channel-after.json"
+          installer="$(node -e 'const links=require(process.argv[1]); process.stdout.write(links.installer)' "$RUNNER_TEMP/vaultmesh-windows-publication/links.json")"
+          updater="$(node -e 'const links=require(process.argv[1]); process.stdout.write(links.updaterArtifact)' "$RUNNER_TEMP/vaultmesh-windows-publication/links.json")"
+          signature="$(node -e 'const links=require(process.argv[1]); process.stdout.write(links.updaterSignature)' "$RUNNER_TEMP/vaultmesh-windows-publication/links.json")"
+          for url in "$installer" "$updater" "$signature"; do
+            curl --fail --silent --show-error --head "$url" >/dev/null
+          done
+          {
+            echo "## VaultMesh ${RELEASE_VERSION} experimental Windows package"
+            echo
+            echo "- [Windows x64 NSIS installer](${installer})"
+            echo "- [Windows updater artifact](${updater})"
+            echo "- [Windows updater signature](${signature})"
+            echo
+            echo "Source: native Windows build run ${SOURCE_RUN_ID}. The test channel was not modified."
+          } >> "$GITHUB_STEP_SUMMARY"

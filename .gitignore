@@ -1,0 +1,32 @@
+.DS_Store
+.build/
+target/
+DerivedData/
+node_modules/
+out/
+dist/
+.vite/
+apps/tauri-desktop/src-tauri/binaries/
+*.node
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+
+# Generated napi-rs desktop bindings.
+apps/desktop/native/index.js
+apps/desktop/native/index.d.ts
+
+# VaultMesh never keeps real vaults, exports, or recovery material in source control.
+*.vaultmesh
+*.vaultmesh-backup
+*.recovery-code
+
+# Local OAuth client configuration is injected at dev/build time. Never commit it.
+.env
+.env.*
+!.env.example
+
+# Local Codex and build artifacts.
+.codex/
+**/.output/
+**/.wxt/
+/artifacts/

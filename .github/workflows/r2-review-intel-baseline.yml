@@ -1,0 +1,173 @@
+name: Publish Intel macOS staged Review channel
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Strictly increasing Intel macOS Review SemVer"
+        required: true
+        default: "0.0.2-review"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vaultmesh-r2-review-intel-baseline
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish Intel-only staged Review manifest
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, macOS, X64, vaultmesh-macos-native]
+    timeout-minutes: 15
+    env:
+      RELEASE_VERSION: ${{ inputs.version }}
+      R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
+      R2_BUCKET: ${{ vars.R2_BUCKET }}
+      R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Validate Review source version
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-review(\.[0-9]+)?$ ]]
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const sourceVersion = JSON.parse(readFileSync("package.json", "utf8")).version;
+            if (sourceVersion !== process.env.RELEASE_VERSION) {
+              throw new Error(`Review version ${process.env.RELEASE_VERSION} does not match source ${sourceVersion}`);
+            }
+          '
+      - name: Capture test and current Review channels
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            --output "$RUNNER_TEMP/test-channel-before.json" \
+            "${R2_PUBLIC_BASE_URL%/}/channels/test/latest.json"
+          review_status="$(curl --silent --show-error \
+            --output "$RUNNER_TEMP/review-channel-before.json" \
+            --write-out '%{http_code}' \
+            "${R2_PUBLIC_BASE_URL%/}/channels/review/latest.json")"
+          printf '%s\n' "$review_status" > "$RUNNER_TEMP/review-channel-before.status"
+          if [[ "$review_status" == "404" ]]; then
+            rm -f "$RUNNER_TEMP/review-channel-before.json"
+          elif [[ "$review_status" != "200" ]]; then
+            echo "Unable to read the current Review channel (HTTP $review_status)." >&2
+            exit 1
+          fi
+      - name: Download and validate immutable Intel updater inputs
+        run: |
+          set -euo pipefail
+          prefix="${R2_PUBLIC_BASE_URL%/}/experimental/macos/darwin-x86_64/v${RELEASE_VERSION}"
+          descriptor="$RUNNER_TEMP/darwin-x86_64.update.json"
+          curl --fail --silent --show-error --output "$descriptor" "$prefix/darwin-x86_64.update.json"
+          update_file="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).updateFile)' "$descriptor")"
+          signature_file="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).signatureFile)' "$descriptor")"
+          [[ "$update_file" =~ ^[A-Za-z0-9._-]+\.app\.tar\.gz$ ]]
+          [[ "$signature_file" == "$update_file.sig" ]]
+          curl --fail --silent --show-error --head "$prefix/$update_file" >/dev/null
+          curl --fail --silent --show-error --output "$RUNNER_TEMP/update.sig" "$prefix/$signature_file"
+          arguments=(
+            --descriptor "$descriptor"
+            --signature "$RUNNER_TEMP/update.sig"
+            --output "$RUNNER_TEMP/review-latest.json"
+            --version "$RELEASE_VERSION"
+            --base-url "$R2_PUBLIC_BASE_URL"
+          )
+          if [[ -s "$RUNNER_TEMP/review-channel-before.json" ]]; then
+            arguments+=(--current "$RUNNER_TEMP/review-channel-before.json")
+          fi
+          node scripts/create-review-baseline-manifest.mjs "${arguments[@]}"
+      - name: Publish staged Review manifest and verify public endpoint
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          object_url="$endpoint/$R2_BUCKET/channels/review/latest.json"
+          credentials="${AWS_ACCESS_KEY_ID}:${AWS_SECRET_ACCESS_KEY}"
+          authoritative_status="$(curl \
+            --silent \
+            --show-error \
+            --aws-sigv4 "aws:amz:auto:s3" \
+            --user "$credentials" \
+            --head \
+            --output /dev/null \
+            --write-out '%{http_code}' \
+            "$object_url")"
+          expected_status="$(cat "$RUNNER_TEMP/review-channel-before.status")"
+          [[ "$authoritative_status" == "$expected_status" ]] || {
+            echo "Review channel state changed during publication ($expected_status -> $authoritative_status)." >&2
+            exit 1
+          }
+          if [[ "$authoritative_status" == "200" ]]; then
+            curl \
+              --fail \
+              --silent \
+              --show-error \
+              --aws-sigv4 "aws:amz:auto:s3" \
+              --user "$credentials" \
+              --output "$RUNNER_TEMP/review-channel-authoritative-before.json" \
+              "$object_url"
+            cmp "$RUNNER_TEMP/review-channel-before.json" "$RUNNER_TEMP/review-channel-authoritative-before.json"
+          fi
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --aws-sigv4 "aws:amz:auto:s3" \
+            --user "$credentials" \
+            --request PUT \
+            --upload-file "$RUNNER_TEMP/review-latest.json" \
+            --header "Content-Type: application/json" \
+            --header "Cache-Control: no-store, max-age=0" \
+            "$object_url"
+          curl \
+            --fail \
+            --silent \
+            --show-error \
+            --aws-sigv4 "aws:amz:auto:s3" \
+            --user "$credentials" \
+            --output "$RUNNER_TEMP/review-latest-authoritative.json" \
+            "$object_url"
+          cmp "$RUNNER_TEMP/review-latest.json" "$RUNNER_TEMP/review-latest-authoritative.json"
+          credentials=""
+          public_url="${R2_PUBLIC_BASE_URL%/}/channels/review/latest.json"
+          for attempt in {1..12}; do
+            public_status="$(curl --silent --show-error \
+              --output "$RUNNER_TEMP/review-latest-public.json" \
+              --write-out '%{http_code}' \
+              "$public_url")"
+            if [[ "$public_status" == "200" ]] \
+              && cmp -s "$RUNNER_TEMP/review-latest.json" "$RUNNER_TEMP/review-latest-public.json"; then
+              break
+            fi
+            if [[ "$attempt" == "12" ]]; then
+              echo "Public Review channel did not converge to the published manifest." >&2
+              exit 1
+            fi
+            sleep 5
+          done
+      - name: Prove test channel is unchanged and write summary
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error \
+            --output "$RUNNER_TEMP/test-channel-after.json" \
+            "${R2_PUBLIC_BASE_URL%/}/channels/test/latest.json"
+          cmp "$RUNNER_TEMP/test-channel-before.json" "$RUNNER_TEMP/test-channel-after.json"
+          {
+            echo "## VaultMesh ${RELEASE_VERSION} Intel macOS staged Review channel"
+            echo
+            echo "- [Review latest.json](${R2_PUBLIC_BASE_URL%/}/channels/review/latest.json)"
+            echo "- Only darwin-x86_64 is present; this is not a complete Review release or platform AT."
+            echo "- The test channel was not modified."
+          } >> "$GITHUB_STEP_SUMMARY"

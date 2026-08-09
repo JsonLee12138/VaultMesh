@@ -1,0 +1,38 @@
+id: "CHG-2026-022-agent-unlock-until-shutdown"
+title: "Agent 最长连续解锁支持直到关机"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.25-active"
+target_release: null
+requirements:
+  - "REQ-AGENT-001"
+  - "NFR-AGENT-002"
+tests:
+  - "CT-AGENT-UNLOCK-001"
+  - "CT-AGENT-LIFECYCLE-001"
+  - "AT-AGENT-UNLOCK-001"
+adrs:
+  - "ADR-0007"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-AGENT-001 本地配对与连接 session"
+  - "docs/03-functional-requirements.md#NFR-AGENT-002 Agent 资源终止清理"
+  - "docs/04-architecture.md#授权生命周期"
+  - "docs/06-security-privacy.md#Agent Capability Broker 边界"
+  - "docs/07-test-release-plan.md#测试 ID 定位"
+  - "docs/08-traceability.md#更新规则"
+  - "specs/agent-capability-broker.md#4.3 MCP 独立解锁与锁定"
+  - "adr/0007-agent-capability-broker.md"
+related_changes:
+  - "CHG-2026-020-agent-capability-broker"
+affected_surfaces:
+  - "Tauri Rust Agent unlock lease policy"
+  - "Agent access settings local JSON"
+  - "Security Center Agent automatic-lock UI"
+  - "desktop typed service contract and tests"
+affected_formats:
+  - "Agent access settings v1 additive null maxUnlockDurationMs value"
+affected_versions:
+  - "macOS and Windows Tauri desktop"
+security_impact: "Allows users to disable only the absolute Agent unlock deadline. Idle timeout and system lock, sleep, real disconnect, revoke, VaultMesh exit and shutdown cleanup remain mandatory."
+migration: "Existing numeric settings remain unchanged. null means no absolute deadline. Older builds reject null and safely fall back to the default 8-hour maximum."
+supersedes: []

@@ -1,0 +1,21 @@
+id: "CHG-2026-005-sonner-feedback"
+title: "统一 React 客户端反馈为顶部居中 Sonner toast"
+type: "feature"
+status: "Verified"
+spec_revision: "0.1.0-active"
+target_release: null
+requirements:
+  - "REQ-FEEDBACK-001"
+tests:
+  - "CT-FEEDBACK-001"
+adrs: []
+affected_surfaces:
+  - "Electron React renderer"
+  - "Chromium extension popup"
+  - "Tauri reused React renderer"
+affected_formats: []
+affected_versions:
+  - "0.1.0-development"
+security_impact: "No privilege or secret ownership change; toast content remains limited to the same renderer-safe feedback strings and must not persist protected values."
+migration: "none"
+supersedes: []
