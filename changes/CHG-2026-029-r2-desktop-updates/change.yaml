@@ -36,6 +36,6 @@ affected_formats:
   - "Tauri v2 updater static JSON"
 affected_versions:
   - "0.1.0-development"
-security_impact: "Adds a network-delivered executable update path. Rust owns update checks and installation; every update artifact must pass Tauri signature verification, and publication credentials/private signing keys remain outside the repository and application bundle. Gmail Desktop OAuth Client ID is injected from a CI Secret into the public-client binary without becoming an authentication boundary."
+security_impact: "Adds a network-delivered executable update path. Rust owns update checks and installation; every update artifact must pass Tauri signature verification, and publication credentials/private signing keys remain outside the repository and application bundle. Gmail Desktop OAuth Client ID and provider-issued Client Secret are injected from CI Secrets into the public-client binary; neither public-client credential replaces PKCE, state, or loopback callback validation as the OAuth authentication boundary."
 migration: "Existing installations do not gain updater configuration until installed from a build produced by the new test-update workflow. Downgrades are not enabled; rollback requires a newer signed build or manual reinstall."
 supersedes: []

@@ -209,6 +209,26 @@ fn oauth_callback_requires_matching_state_and_pkce_is_stable() {
 }
 
 #[test]
+fn oauth_provider_errors_are_actionable_without_exposing_provider_details() {
+    assert_eq!(
+        oauth_error_message("gmail", OAuthPhase::Exchange, 400, Some("invalid_request")),
+        "Google OAuth 构建凭据配置无效；请安装包含正确 Desktop OAuth 凭据的版本。"
+    );
+    assert_eq!(
+        oauth_error_message("outlook", OAuthPhase::Exchange, 400, Some("invalid_client")),
+        "Microsoft OAuth 构建凭据配置无效；请安装包含正确 Desktop OAuth 凭据的版本。"
+    );
+    assert_eq!(
+        oauth_error_message("gmail", OAuthPhase::Refresh, 400, Some("invalid_grant")),
+        "邮箱 OAuth 授权已失效，请删除账户后重新连接。"
+    );
+    assert_eq!(
+        oauth_error_message("gmail", OAuthPhase::Exchange, 429, Some("provider-secret")),
+        "邮箱 Provider 返回错误（HTTP 429）。"
+    );
+}
+
+#[test]
 fn gmail_payload_parsing_and_candidate_lifecycle_are_bounded() {
     let mut raw = concat!(
         "From: Security <security@example.test>\r\n",

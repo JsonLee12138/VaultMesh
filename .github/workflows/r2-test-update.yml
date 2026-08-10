@@ -56,6 +56,7 @@ jobs:
       VAULTMESH_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
       VAULTMESH_UPDATER_ENDPOINT: ${{ vars.R2_PUBLIC_BASE_URL }}/channels/test/latest.json
       VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.VAULTMESH_GOOGLE_OAUTH_CLIENT_ID }}
+      VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET }}
     defaults:
       run:
         shell: bash

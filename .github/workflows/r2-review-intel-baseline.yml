@@ -6,7 +6,7 @@ on:
       version:
         description: "Strictly increasing Intel macOS Review SemVer"
         required: true
-        default: "0.0.5-review"
+        default: "0.0.6-review"
         type: string
 
 permissions:

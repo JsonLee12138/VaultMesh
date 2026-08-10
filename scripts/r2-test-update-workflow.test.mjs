@@ -51,7 +51,7 @@ test("R2 updater installs pnpm before setup-node requests the pnpm cache", async
   assert.match(workflow, /cache: pnpm/);
 });
 
-test("R2 packages require the Gmail OAuth client ID from GitHub Secrets", async () => {
+test("R2 packages require the Gmail OAuth credential pair from GitHub Secrets", async () => {
   const workflows = await Promise.all([
     readFile(workflowUrl, "utf8"),
     readFile(windowsExperimentalWorkflowUrl, "utf8"),
@@ -60,6 +60,7 @@ test("R2 packages require the Gmail OAuth client ID from GitHub Secrets", async 
 
   for (const workflow of workflows) {
     assert.match(workflow, /VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: \$\{\{ secrets\.VAULTMESH_GOOGLE_OAUTH_CLIENT_ID \}\}/);
+    assert.match(workflow, /VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET: \$\{\{ secrets\.VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET \}\}/);
     assert.match(workflow, /name: Validate required desktop OAuth build configuration/);
     assert.match(workflow, /node scripts\/validate-desktop-oauth-build-config\.mjs/);
   }

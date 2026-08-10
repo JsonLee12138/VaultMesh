@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const workspace = new URL("../", import.meta.url);
-const expectedVersion = "0.0.5-review";
+const expectedVersion = "0.0.6-review";
 
 async function json(relativePath) {
   return JSON.parse(await readFile(new URL(relativePath, workspace), "utf8"));
@@ -27,7 +27,7 @@ test("Review product manifests use one prerelease version", async () => {
 test("Review publication is isolated from the existing test channel", async () => {
   const workflow = await readFile(new URL(".github/workflows/r2-review-release.yml", workspace), "utf8");
   assert.match(workflow, /name: Publish R2 review release/);
-  assert.match(workflow, /default: "0\.0\.5-review"/);
+  assert.match(workflow, /default: "0\.0\.6-review"/);
   assert.match(workflow, /channels\/review\/latest\.json/);
   assert.doesNotMatch(workflow, /channels\/test\/latest\.json/);
   assert.match(workflow, /Review version matches source metadata/);
@@ -56,6 +56,7 @@ test("Review publication is isolated from the existing test channel", async () =
   assert.match(workflow, /extension:\n\s+name: Build Chrome and Firefox extensions/);
   assert.match(workflow, /VAULTMESH_EXTENSION_DISTRIBUTION: sideload-review/);
   assert.match(workflow, /VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: \$\{\{ secrets\.VAULTMESH_GOOGLE_OAUTH_CLIENT_ID \}\}/);
+  assert.match(workflow, /VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET: \$\{\{ secrets\.VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET \}\}/);
   assert.match(workflow, /name: Validate required desktop OAuth build configuration/);
   assert.match(workflow, /node scripts\/validate-desktop-oauth-build-config\.mjs/);
   assert.doesNotMatch(workflow, /secrets\.WXT_CHROME_EXTENSION_KEY/);
@@ -91,6 +92,7 @@ test("native hosted macOS packages can embed Review without publishing the chann
   assert.match(workflow, /options:\n\s+- test\n\s+- review/);
   assert.match(workflow, /channels\/\$\{\{ inputs\.channel \}\}\/latest\.json/);
   assert.match(workflow, /VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: \$\{\{ secrets\.VAULTMESH_GOOGLE_OAUTH_CLIENT_ID \}\}/);
+  assert.match(workflow, /VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET: \$\{\{ secrets\.VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET \}\}/);
   assert.match(workflow, /name: Validate required desktop OAuth build configuration/);
   assert.match(workflow, /node scripts\/validate-desktop-oauth-build-config\.mjs/);
   assert.match(workflow, /Review channel requires a review prerelease version/);
@@ -106,7 +108,7 @@ test("Intel staged Review channel starts at the baseline and then advances stric
   );
 
   assert.match(workflow, /runs-on: ubuntu-24\.04/);
-  assert.match(workflow, /default: "0\.0\.5-review"/);
+  assert.match(workflow, /default: "0\.0\.6-review"/);
   assert.match(workflow, /RELEASE_VERSION.*-review/);
   assert.match(workflow, /create-review-baseline-manifest\.mjs/);
   assert.match(workflow, /arguments\+?=\(/);
@@ -131,6 +133,7 @@ test("Windows Review packages use a frozen source and append only a same-version
   assert.match(workflow, /ref: \$\{\{ inputs\.source_ref \|\| github\.sha \}\}/);
   assert.match(workflow, /channels\/\$\{\{ inputs\.channel \}\}\/latest\.json/);
   assert.match(workflow, /VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: \$\{\{ secrets\.VAULTMESH_GOOGLE_OAUTH_CLIENT_ID \}\}/);
+  assert.match(workflow, /VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET: \$\{\{ secrets\.VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET \}\}/);
   assert.match(workflow, /name: Validate required desktop OAuth build configuration/);
   assert.match(workflow, /node scripts\/validate-desktop-oauth-build-config\.mjs/);
   assert.match(workflow, /extend-review-windows-manifest\.mjs/);

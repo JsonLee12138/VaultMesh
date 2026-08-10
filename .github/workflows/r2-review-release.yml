@@ -6,7 +6,7 @@ on:
       version:
         description: "Review SemVer without a leading v (must start at 0.0.1-review)"
         required: true
-        default: "0.0.5-review"
+        default: "0.0.6-review"
         type: string
       notes:
         description: "Short reviewer-facing release notes"
@@ -89,6 +89,7 @@ jobs:
       VAULTMESH_EXTENSION_DISTRIBUTION: sideload-review
       VAULTMESH_FIREFOX_EXTENSION_ID: vaultmesh@atlantis-mk.github.io
       VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.VAULTMESH_GOOGLE_OAUTH_CLIENT_ID }}
+      VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET }}
     defaults:
       run:
         shell: bash

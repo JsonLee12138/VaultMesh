@@ -527,7 +527,7 @@ fn exchange_code(
     }
     let response = http_client()?.post(endpoint).form(&form).send();
     zeroize_form(&mut form);
-    checked(response)?
+    checked_oauth(response, provider, OAuthPhase::Exchange)?
         .json()
         .map_err(|_| "OAuth Token 响应无效。".to_owned())
 }
@@ -559,7 +559,7 @@ fn refresh_token(provider: &str, credential: &mut OAuthCredential, now: u64) -> 
     }
     let response = http_client()?.post(endpoint).form(&form).send();
     zeroize_form(&mut form);
-    let mut token: TokenResponse = checked(response)?
+    let mut token: TokenResponse = checked_oauth(response, provider, OAuthPhase::Refresh)?
         .json()
         .map_err(|_| "OAuth 刷新响应无效。".to_owned())?;
     credential.access_token.zeroize();
@@ -625,6 +625,58 @@ fn checked(
             "邮箱 Provider 返回错误（HTTP {}）。",
             response.status().as_u16()
         ))
+    }
+}
+
+#[derive(Clone, Copy)]
+enum OAuthPhase {
+    Exchange,
+    Refresh,
+}
+
+fn checked_oauth(
+    response: Result<reqwest::blocking::Response, reqwest::Error>,
+    provider: &str,
+    phase: OAuthPhase,
+) -> Result<reqwest::blocking::Response, String> {
+    let response = response.map_err(|_| "邮箱 Provider 网络请求失败。".to_owned())?;
+    if response.status().is_success() {
+        return Ok(response);
+    }
+    let status = response.status().as_u16();
+    let mut body = Zeroizing::new(Vec::with_capacity(16 * 1024 + 1));
+    let mut limited = std::io::Read::take(response, 16 * 1024 + 1);
+    let error_code = std::io::Read::read_to_end(&mut limited, &mut body)
+        .ok()
+        .filter(|_| body.len() <= 16 * 1024)
+        .and_then(|_| serde_json::from_slice::<Value>(&body).ok())
+        .and_then(|value| value.get("error").and_then(Value::as_str).map(ToOwned::to_owned));
+    Err(oauth_error_message(provider, phase, status, error_code.as_deref()))
+}
+
+fn oauth_error_message(
+    provider: &str,
+    phase: OAuthPhase,
+    status: u16,
+    error_code: Option<&str>,
+) -> String {
+    let provider_name = if provider == "gmail" {
+        "Google"
+    } else {
+        "Microsoft"
+    };
+    match (phase, status, error_code) {
+        (OAuthPhase::Exchange, 400, Some("invalid_request" | "invalid_client")) => format!(
+            "{provider_name} OAuth 构建凭据配置无效；请安装包含正确 Desktop OAuth 凭据的版本。"
+        ),
+        (OAuthPhase::Exchange, 400, Some("invalid_grant")) => {
+            "OAuth 授权码校验失败，请重新发起授权。".to_owned()
+        }
+        (OAuthPhase::Refresh, 400, Some("invalid_grant")) => {
+            "邮箱 OAuth 授权已失效，请删除账户后重新连接。".to_owned()
+        }
+        (_, 401, _) => "邮箱授权已失效，请重新连接。".to_owned(),
+        _ => format!("邮箱 Provider 返回错误（HTTP {status}）。"),
     }
 }
 

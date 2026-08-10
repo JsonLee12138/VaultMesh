@@ -6,9 +6,9 @@
 
 ## 预期行为
 
-- `REQ-UPDATE-002`：`0.0.1-review` 是 fresh-install 基线；当前 workspace、Tauri desktop、Chromium/Firefox extension 与 Rust package 必须统一为 `0.0.5-review`，并由 `.1 → .2 → .3 → .4 → .5` 严格递增。
+- `REQ-UPDATE-002`：`0.0.1-review` 是 fresh-install 基线；当前 workspace、Tauri desktop、Chromium/Firefox extension 与 Rust package 必须统一为 `0.0.6-review`，并由 `.1 → .2 → .3 → .4 → .5 → .6` 严格递增。
 - Review build 必须使用独立的 `channels/review/latest.json`；首次发布允许该通道没有现有清单，但后续版本仍必须严格递增。
-- Review desktop build 必须从 GitHub repository Secret 注入 Gmail Desktop OAuth Client ID；缺失或格式无效时必须在编译前失败，不得继续发布功能残缺的安装包。既有缺失该配置的 `0.0.4-review` immutable 版本不得覆盖，只能通过 `0.0.5-review` 补发。
+- Review desktop build 必须从 GitHub repository Secret 注入 Gmail Desktop OAuth Client ID 与 Provider 为该 Client 签发的 Client Secret；缺失、格式无效、Provider 不存在或 credential pair 不匹配时必须在编译前失败，不得继续发布功能残缺的安装包。既有缺失 ID 的 `.4` 和缺失 Client Secret 的 `.5` immutable 版本不得覆盖，只能通过更高 Review 版本补发。
 - 小规模验收可以先发布只含已验证目标平台的阶段性 Review manifest；同一 current version 可以在 immutable artifact 就绪后只追加一个缺失平台，同时保持全部既有字段不变。该路径不计为完整三平台 Review 发布或平台 AT。
 - 现有 `channels/test/latest.json` 和其中的 `0.1.1-test.*` 安装不得被覆盖、删除或降级。已有测试安装加入 Review 必须明确执行手动重装。
 - Review artifact 继续使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 三目标原生构建、Tauri updater 签名、版本对象不可变和 latest-last 发布；全部发布 workflow 不依赖 self-hosted 或自定义 Runner 标签。Review 不等于正式 Stable 发布。
@@ -29,7 +29,7 @@
 - 版本字符串必须是规范 SemVer，完整保留 `review` prerelease 标识。
 - Review 与 test channel 必须独立读取和写入各自的 `latest.json`；不得复制旧 test manifest 作为 Review 当前版本。
 - Review 发布仍只允许 HTTPS endpoint、CI secret 中的 updater private key 和 R2 写凭据，并保持版本对象 immutable。
-- Gmail Desktop OAuth Client ID 只从 CI Secret 注入并由 Rust build script 编入 public-client binary；校验与失败信息不得输出其值。
+- Gmail Desktop OAuth Client ID 与 Provider 签发的 Client Secret 只从 CI Secret 注入并由 Rust build script 编入 public-client binary；构建前必须以无真实账号、无真实授权码的 Provider probe 验证 credential pair 进入 `invalid_grant`，并拒绝未知、已删除或不匹配的凭据。Desktop Client Secret 不构成鉴权边界；校验与失败信息不得输出 Client ID、Client Secret 或 Provider 响应正文。
 - 已有 `0.1.x` 安装不提供自动 downgrade；回到 `0.0.1-review` 只能通过显式手动卸载/重装，并保留 Vault 数据保护与备份指引。
 
 ## 任务
@@ -48,17 +48,18 @@
 | `REV-011` | `REQ-UPDATE-002` | R2 成功后创建无 Git Tag 的 GitHub Draft Prerelease，并上传双 macOS DMG 与 Windows NSIS/MSI | `CT-UPDATE-REVIEW-001` | Done；workflow contract Pass，`.3` Draft 四资产 uploaded |
 | `REV-012` | `REQ-UPDATE-002`, `REQ-BROWSER-004` | `.4` 完整 hosted Review build 同 source 生成 Chrome/Firefox ZIP 并建立六资产 Draft | `CT-UPDATE-REVIEW-001`, `CT-BROWSER-PACKAGE-001` | Done；run `31369895049` 与六资产 Draft Pass |
 | `REV-013` | `REQ-UPDATE-002` | Review 三平台 Cargo cache 与同 run 失败 build/publish/Draft 恢复 | `CT-UPDATE-REVIEW-001` | Implemented；workflow contract Pass；`.5` hosted cache-miss/save 证据已记录，失败重跑证据 Pending |
-| `REV-014` | `REQ-UPDATE-002`, `REQ-EMAIL-001` | 所有 Review/Test 与 experimental desktop package workflow 注入并预检 Gmail OAuth Client ID；缺失配置的 `.4` 不覆盖并由 `.5` 补发 | `CT-UPDATE-REVIEW-001`, `CT-EMAIL-001` | Implemented；repository Secret configured、workflow contract 与 `.5` hosted package verification Pass；live Provider AT Pending |
+| `REV-014` | `REQ-UPDATE-002`, `REQ-EMAIL-001` | 所有 Review/Test 与 experimental desktop package workflow 注入并由 Provider 预检 Gmail Desktop OAuth credential pair；缺失 ID 的 `.4` 和缺失 Client Secret 的 `.5` 均不覆盖 | `CT-UPDATE-REVIEW-001`, `CT-EMAIL-001` | Implementing；`.5` live Provider AT 与 Desktop Client 截图证明 workflow 缺少配套 Client Secret；Provider-side fail-closed regression、repository Secret 配置与本地门禁 Pass，更高 immutable Review rebuild Pending |
 | `REV-003` | `REQ-UPDATE-002` | macOS/Windows Review fresh-install 与后续升级验收 | `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Pending |
 
 ## 验收与证据
 
-- 自动化证明当前所有产品 manifest 与 workspace package version 都是 `0.0.5-review`，历史 `.1` 仍作为安装基线保留，`.2`、`.3`、`.4` 保留为已发布的中间 Review 更新。
+- 自动化证明当前所有产品 manifest 与 workspace package version 都是 `0.0.6-review`，历史 `.1` 仍作为安装基线保留，`.2`、`.3`、`.4`、`.5` 保留为已发布的中间 Review 更新。
 - 自动化证明 Review workflow 只读写 `channels/review/latest.json`，使用标准 GitHub-hosted 原生架构 Runner 执行三平台、签名、immutable 和 latest-last 校验，且全部发布 workflow 不包含 `self-hosted` 或自定义 Runner 标签。
 - 平台验收从全新安装开始；已有 `0.1.x` 测试安装必须验证不会收到 `0.0.1-review` 自动降级，并按指引手动重装。
 
 自动化证据（2026-08-07）：
 
+- 2026-08-10 Gmail live Provider 失败与根因：`/Applications/VaultMesh.app` `0.0.5-review` 添加 Gmail 在 authorization-code exchange 返回 HTTP 400。Google Console 截图显示现有 `VaultMesh Desktop` 类型为桌面设备；截图可见前缀与安装包内 Client ID 只做布尔比对且结果一致，未输出完整值。向 Google token endpoint 发送无真实账号、无真实 token、无 Client Secret 的无效授权码 probe 返回 `invalid_request`/`client_secret is missing`；加入未跟踪本机配套 Client Secret 后进入预期的 `invalid_grant`/malformed-code 分支，证明 ID 类型正确且缺陷是 workflow 没有注入 Provider 签发的配套 secret。四个 package workflow 与构建门禁改为注入并预检 credential pair；Rust OAuth exchange/refresh 只解析标准 `error` code 并映射为可操作的无 secret 错误。本机真实 credential pair Provider gate、Email OTP tests 12/12、完整 Tauri Rust lib 221 pass/1 ignored、lib Clippy、scripts 98/98、Tauri typecheck、docs check 与 diff check Pass；GitHub Actions repository 中两个 credential Secret 名称均已确认存在且未读取其值。`0.0.5-review` immutable artifact 不覆盖，`0.0.6-review` hosted rebuild Pending。
 - 2026-08-10 Gmail OAuth package 配置修复：确认 `0.0.4-review` workflow 未注入 `VAULTMESH_GOOGLE_OAUTH_CLIENT_ID`，而 Rust 仅通过 `option_env!` 读取编译期值，因此已发布包运行时必然报告未配置。仓库级同名 GitHub Secret 已配置；完整 Review/Test 与 macOS/Windows experimental package workflow 现在显式注入，并共用可执行门禁拒绝缺失、空值、示例占位、错误 Provider 和带空白的值。OAuth/workflow 定向 tests 22/22、完整 `pnpm scripts:test` 90/90、四个 workflow YAML parse、`pnpm docs:check` 与 `git diff --check` Pass；`.4` immutable 资产未覆盖，`.5` hosted rebuild 证据见 run `31384139138`。
 - GitHub Actions run `31384139138`（source `8c856ce`）：Pass；Chrome/Firefox extension 29s，macOS ARM64、Intel x86_64、Windows x64 分别 12m03s、23m06s、23m36s，R2 publisher 50s、六资产 Draft 27s，完整 workflow 约 25m00s。三平台 OAuth 门禁均在构建前通过；公开 Review manifest 为 `0.0.5-review`，恰含 `darwin-aarch64`、`darwin-x86_64`、`windows-x86_64`，三个 signed updater URL 支持公网读取且签名非空。下载 ARM64 signed updater 后，仅以布尔匹配确认 desktop Mach-O 内嵌 `*.apps.googleusercontent.com` Client ID，未输出凭证值。Draft `untagged-38f78d8ea26d34082a7c` 为 Draft + Prerelease、target source 与 run 一致，两个 DMG、Windows NSIS/MSI、Chrome/Firefox ZIP 六个资产均为 `uploaded`，远端 `v0.0.5-review` Tag 不存在。
 - 同 run Cargo cache 证据：三个原生平台均因新 key 未命中，核心 Rust/Tauri release 阶段分别约 8m44s、17m22s、18m02s；末尾 cache save 在 ARM64 32s、Intel 29s、Windows 29s。pnpm 依赖缓存三平台均命中。后续优化应让 dependency cache key 不随 workspace 版本元数据变化，并评估拆分依赖缓存与 workspace release objects、只在受控分支保存或改用 Rust 专用 cache/sccache；不得以跳过原生目标构建替代发布验收。

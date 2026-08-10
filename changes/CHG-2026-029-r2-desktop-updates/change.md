@@ -11,7 +11,7 @@ VaultMesh 需要一个不购买 Apple/Windows 代码签名证书、适合小规�
 - 用户确认后，Rust runtime 必须先锁定 Vault、撤销 Agent/Browser 临时 authority 并清理敏感临时资源，再下载和安装通过内置 public key 验证的更新。取消、网络失败、无更新或签名失败不得退出当前应用或发布成功状态。
 - Windows x86_64、macOS aarch64 和 macOS x86_64 必须分别在标准 GitHub-hosted 原生目标 Runner 生成 Tauri v2 updater artifact；发布 workflow 不依赖 self-hosted 或自定义 Runner 标签。无 Apple/Windows 发布证书的测试产物可以显示 Gatekeeper/SmartScreen 警告，但 Tauri 更新签名不可关闭。
 - 发布必须先写入版本化不可变对象，校验三平台清单完整性后最后替换 `channels/test/latest.json`。R2 写凭据和 updater private key 只存在 CI secret；public URL、bucket name 与 updater public key 可以作为 CI variable。
-- 所有生成可分发 desktop package 的 Test/Review 与 experimental workflow 必须从 CI Secret 注入 Gmail Desktop OAuth Client ID，并在缺失或格式无效时于编译前失败。
+- 所有生成可分发 desktop package 的 Test/Review 与 experimental workflow 必须从 CI Secret 注入 Gmail Desktop OAuth Client ID 与 Provider 为该 Client 签发的 Client Secret，并在缺失、格式无效、Provider 不存在或 credential pair 不匹配时于编译前失败。
 - 标准 GitHub-hosted Windows target Runner 可以用独立 workflow 在同一个 Windows job 内生成作为 updater 的 Windows NSIS artifact 和额外 MSI 手动安装包，并直接上传到 immutable experimental prefix，不通过其他 Runner 或 GitHub artifact 中转；该路径不得修改 test channel，也不得作为 Windows AT 证据。
 - 标准 GitHub-hosted macOS target Runner 可以用独立 workflow 在同一个与目标架构匹配的 macOS job 内生成 updater archive 和 DMG，并直接上传到 immutable experimental prefix，不通过其他 Runner 或 GitHub artifact 中转；该路径不得修改 test channel，也不得作为 macOS AT 证据。
 
@@ -48,7 +48,7 @@ VaultMesh 需要一个不购买 Apple/Windows 代码签名证书、适合小规�
 | `UPD-009` | `REQ-UPDATE-001` | Intel macOS Runner 交叉构建 ARM64 updater archive、DMG 与明确标记的 R2 experimental direct links | `CT-UPDATE-001` | Historical evidence only；由 `UPD-010` 原生 hosted ARM64 路径替代 |
 | `UPD-010` | `REQ-UPDATE-001` | 标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 原生构建与 Ubuntu 发布；全部发布 workflow 无自定义 Runner 标签 | `CT-UPDATE-001` | Implemented；workflow contract Pass；目标平台真实 package run Pending |
 | `UPD-011` | `REQ-UPDATE-001` | 三平台 Cargo cache 与同 run 失败任务/artifact 恢复，避免单平台失败后重建成功平台 | `CT-UPDATE-001` | Implemented；workflow contract Pass；hosted cache-hit/失败重跑证据 Pending |
-| `UPD-012` | `REQ-UPDATE-001`, `REQ-EMAIL-001` | Test/Review 与 experimental desktop package 的 Gmail OAuth Client ID Secret 注入和编译前 fail-closed 门禁 | `CT-UPDATE-001`, `CT-EMAIL-001` | Implemented；repository Secret configured、workflow contract Pass；hosted rebuild Pending |
+| `UPD-012` | `REQ-UPDATE-001`, `REQ-EMAIL-001` | Test/Review 与 experimental desktop package 的 Gmail Desktop OAuth credential pair 注入、Provider preflight 和编译前 fail-closed 门禁 | `CT-UPDATE-001`, `CT-EMAIL-001` | Implementing；`.5` live Provider AT 与 Desktop Client 截图证明 workflow 缺少配套 Client Secret；Provider-side fail-closed regression、repository Secret 配置与本地门禁 Pass，hosted rebuild Pending |
 
 ## 验收与证据
 
@@ -63,6 +63,7 @@ VaultMesh 需要一个不购买 Apple/Windows 代码签名证书、适合小规�
 
 自动化证据（2026-08-05 至 2026-08-06）：
 
+- 2026-08-10 live Provider correction：`0.0.5-review` 的 Gmail authorization-code exchange 返回 HTTP 400；Google Console 截图及与安装包 Client ID 前缀的非输出布尔比对确认其类型为 Desktop。无 Client Secret 的 token-endpoint probe 返回 `client_secret is missing`，加入未跟踪本机配套 secret 后进入预期 malformed-code 分支，证明 workflow 只注入 Client ID 是根因。共用构建门禁和四个 package workflow 改为注入并预检 credential pair，使用固定无效授权码且不接触账号或 token；拒绝未知/已删除/不匹配凭据、网络失败和无效响应。本机真实 credential pair Provider gate、Email OTP tests 12/12、完整 Tauri Rust lib 221 pass/1 ignored、lib Clippy、scripts 98/98、Tauri typecheck、docs check 与 diff check Pass；GitHub Actions repository 中两个 credential Secret 名称均已确认存在且未读取其值。更高 immutable package run Pending。
 - 2026-08-10 Gmail OAuth package 配置修复：仓库级 `VAULTMESH_GOOGLE_OAUTH_CLIENT_ID` GitHub Secret 已从未跟踪本机环境安全配置；四个生成可分发 desktop package 的 workflow 显式注入该值，并共用可执行门禁拒绝缺失、空值、示例占位、错误 Provider 和带空白的值。OAuth/workflow 定向 tests 22/22、完整 `pnpm scripts:test` 90/90、四个 workflow YAML parse、`pnpm docs:check` 与 `git diff --check` Pass；既有缺失编译期值的 immutable artifact 不覆盖，需以更高版本重建。
 - 2026-08-10 发布流水线迁移：`r2-test-update.yml` 与 `r2-review-release.yml` 固定使用 `macos-15` ARM64、`macos-15-intel` x86_64、`windows-2025` x64 和 `ubuntu-24.04` publisher，并在 build job 中断言 Node host platform/architecture 与目标一致；历史 resume、staged 和 experimental workflow 也全部迁到标准 GitHub-hosted Runner，仓库工作流不再包含 `self-hosted`。全部 workflow YAML parse Pass；`pnpm scripts:test`：78/78 Pass；目标平台真实 package run Pending。
 - 2026-08-10 构建性能/恢复基线：完整 `0.0.4-review` run `31369895049` 中 ARM64、Windows、Intel 构建分别耗时约 9m41s、21m18s、29m11s；Actions cache 清单只有 pnpm 依赖缓存，没有 Cargo cache。Test/Review 完整 workflow 增加按 runner OS/arch/target/Cargo manifests 隔离的 Cargo dependency/release-object cache，并让 publisher 在矩阵失败时明确失败；同 run 使用“Re-run failed jobs”时只需重跑失败 matrix child 与 publisher，已上传成功 artifact 继续复用。`pnpm scripts:test` 83/83、workflow YAML parse、`pnpm docs:check` 与 `git diff --check` Pass；首次 hosted cache-hit/失败恢复运行证据 Pending。
@@ -93,7 +94,7 @@ R2 bucket、public base URL、updater keypair 和 CI Secrets/Variables 已配置
 
 ## 外部配置
 
-在 GitHub repository Variables 配置：`R2_ACCOUNT_ID`、`R2_BUCKET`、`R2_PUBLIC_BASE_URL`（小规模测试可以是 Cloudflare 提供的 HTTPS `r2.dev` base URL）、`TAURI_UPDATER_PUBLIC_KEY`。在 GitHub repository Secrets 配置：`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`、`TAURI_SIGNING_PRIVATE_KEY`、`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`、`VAULTMESH_GOOGLE_OAUTH_CLIENT_ID`。R2 API token 只授予目标 bucket 的 Object Read & Write；bucket 需要显式开启 public development URL 或绑定 custom domain。Gmail Desktop OAuth Client ID 由 build script 编入 public-client binary，不得输出到日志；缺失时 package workflow 必须失败。
+在 GitHub repository Variables 配置：`R2_ACCOUNT_ID`、`R2_BUCKET`、`R2_PUBLIC_BASE_URL`（小规模测试可以是 Cloudflare 提供的 HTTPS `r2.dev` base URL）、`TAURI_UPDATER_PUBLIC_KEY`。在 GitHub repository Secrets 配置：`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`、`TAURI_SIGNING_PRIVATE_KEY`、`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`、`VAULTMESH_GOOGLE_OAUTH_CLIENT_ID`、`VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET`。R2 API token 只授予目标 bucket 的 Object Read & Write；bucket 需要显式开启 public development URL 或绑定 custom domain。Gmail Desktop OAuth credential pair 由 build script 编入 public-client binary，不得输出到日志；缺失或 Provider 不接受时 package workflow 必须失败。
 
 Updater keypair 使用 Tauri CLI 一次性生成并离线备份 private key；丢失 private key 或密码后，已安装客户端不能接受由新 key 签名的更新。首次运行 `.github/workflows/r2-test-update.yml` 时输入严格递增的 SemVer 和短 release notes；workflow 会拒绝覆盖内容不同的版本对象，并在三个平台均完整后最后发布 channel manifest。
 
