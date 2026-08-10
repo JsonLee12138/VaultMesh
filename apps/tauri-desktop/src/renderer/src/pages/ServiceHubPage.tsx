@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { ArrowRightIcon, BoxesIcon, ExternalLinkIcon, KeyRoundIcon, Link2Icon, MergeIcon, PencilIcon, PlusIcon, RotateCcwIcon, SearchIcon, SparklesIcon, SplitIcon, Trash2Icon, UnlinkIcon } from 'lucide-react';
 import { toast } from 'sonner';
@@ -197,6 +197,7 @@ export function ServiceHubPage() {
   const [automaticLinking, setAutomaticLinking] = useState(true);
   const [environmentSetupRequest, setEnvironmentSetupRequest] = useState(0);
   const [creatingServiceForApiSetup, setCreatingServiceForApiSetup] = useState(false);
+  const resolvedPendingCredentialRef = useRef<string | null>(null);
 
   const itemOptions = useMemo<ItemOption[]>(() => [
     ...items.map((item) => ({ key: `login:${item.id}`, kind: 'login' as const, id: item.id, label: item.title })),
@@ -212,14 +213,40 @@ export function ServiceHubPage() {
     return term ? services.filter((service) => [service.name, service.description, ...service.tags].some((value) => value?.toLocaleLowerCase().includes(term))) : services;
   }, [query, services]);
 
+  const resolvePendingServiceId = async (): Promise<string | null> => {
+    if (!pendingApiEnvironmentSetup?.website) return null;
+    const target = { itemKind: 'secret' as const, itemId: pendingApiEnvironmentSetup.credentialId };
+    const aggregation = await window.vaultMesh.services.previewAggregation();
+    const plannedMatches = aggregation.clusters.filter((cluster) =>
+      cluster.existingServiceId && cluster.relationships.some((relationship) =>
+        relationship.itemKind === target.itemKind && relationship.itemId === target.itemId));
+    if (plannedMatches.length === 1) return plannedMatches[0]!.existingServiceId;
+    if (plannedMatches.length > 1) return null;
+
+    let hostname: string;
+    try { hostname = new URL(pendingApiEnvironmentSetup.website).hostname.toLocaleLowerCase().replace(/\.$/, '').replace(/^www\./, ''); } catch { return null; }
+    const candidates = await window.vaultMesh.services.list(hostname);
+    if (candidates.length > 50) return null;
+    const details = await Promise.all(candidates.map((candidate) => window.vaultMesh.services.detail(candidate.id)));
+    const linkedMatches = details.filter((candidate) => candidate.relationships.some((relationship) =>
+      relationship.itemKind === target.itemKind && relationship.itemId === target.itemId));
+    return linkedMatches.length === 1 ? linkedMatches[0]!.id : null;
+  };
+
   const load = async (preferredId?: string | null): Promise<void> => {
     const [nextServices, nextTrash, enabled] = await Promise.all([
       window.vaultMesh.services.list(), window.vaultMesh.services.trash(), window.vaultMesh.services.automaticLinkingEnabled(),
     ]);
     setServices(nextServices); setTrash(nextTrash); setAutomaticLinking(enabled);
-    const nextId = preferredId ?? selectedId ?? nextServices[0]?.id ?? null;
+    const pendingCredentialId = pendingApiEnvironmentSetup?.credentialId ?? null;
+    const shouldResolvePending = preferredId === undefined && pendingCredentialId !== null
+      && resolvedPendingCredentialRef.current !== pendingCredentialId;
+    if (shouldResolvePending) resolvedPendingCredentialRef.current = pendingCredentialId;
+    const pendingServiceId = shouldResolvePending ? await resolvePendingServiceId() : null;
+    const nextId = preferredId ?? pendingServiceId ?? selectedId ?? nextServices[0]?.id ?? null;
     if (nextId && nextServices.some((service) => service.id === nextId)) {
       setSelectedId(nextId); setDetail(await window.vaultMesh.services.detail(nextId));
+      if (pendingServiceId === nextId) setEnvironmentSetupRequest((current) => current + 1);
     } else { setSelectedId(null); setDetail(null); }
   };
 
@@ -227,6 +254,7 @@ export function ServiceHubPage() {
   useEffect(() => {
     setEnvironmentSetupRequest(0);
     setCreatingServiceForApiSetup(false);
+    if (!pendingApiEnvironmentSetup) resolvedPendingCredentialRef.current = null;
   }, [pendingApiEnvironmentSetup?.credentialId]);
 
   const run = async (operation: () => Promise<void>): Promise<void> => {
@@ -335,10 +363,10 @@ export function ServiceHubPage() {
         {pendingApiEnvironmentSetup && <Card className="border-primary/30 bg-primary/5">
           <CardHeader>
             <CardTitle className="flex items-center gap-2"><KeyRoundIcon className="text-primary" />继续配置 API 环境</CardTitle>
-            <CardDescription>“{pendingApiEnvironmentSetup.title}”已安全保存。请选择当前网站/服务，或新建一个网站/服务，再补充 API target 和认证方式。</CardDescription>
+            <CardDescription>“{pendingApiEnvironmentSetup.title}”已安全保存。请选择当前网站/服务，或新建一个网站/服务，再补充 API target 和认证方式。网站地址不会自动成为 API origin。</CardDescription>
             <CardAction className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" onClick={clearApiEnvironmentSetup}>稍后配置</Button>
-              <Button variant="outline" size="sm" onClick={() => openCreate(true)}><PlusIcon />新建网站/服务</Button>
+              <Button variant="outline" size="sm" onClick={() => openCreate(true)}><PlusIcon data-icon="inline-start" />新建网站/服务</Button>
               <Button size="sm" disabled={!detail} onClick={() => setEnvironmentSetupRequest((current) => current + 1)}>在当前服务配置</Button>
             </CardAction>
           </CardHeader>

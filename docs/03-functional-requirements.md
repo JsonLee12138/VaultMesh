@@ -240,6 +240,10 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
   使用标准 Ubuntu Runner；发布 workflow 不得依赖 `self-hosted` 或自定义 Runner 标签。版本化不可变对象
   必须先写入 R2，并且只在三个平台的 URL、非空签名和安装包全部验证后最后发布
   `channels/test/latest.json`；R2 写凭据和 updater private key 不得进入仓库、应用包、更新清单或日志。
+- 必须：完整三平台 workflow 必须按 OS、host architecture 与 target triple 隔离 Cargo dependency/release-object
+  cache，cache key 必须绑定 Rust manifests 与 `Cargo.lock`，不得缓存签名私钥或 R2 credential。矩阵必须继续
+  `fail-fast: false`；任一平台失败时，已成功平台的同 run artifact 必须保留，publisher 必须以失败而不是
+  skipped 结束，使“Re-run failed jobs”只重跑失败平台和发布链。publisher 在三平台全部成功前不得写 R2。
 - 可以：标准 GitHub-hosted Windows target Runner 可以通过独立 workflow 在同一个 Windows job 内构建作为 updater 的
   Windows NSIS 测试包和供手动部署的 MSI，并直接上传 immutable experimental prefix，不通过其他
   Runner 或 GitHub artifact 中转；该流程不得写入 `channels/test/latest.json` 或冒充 Windows 平台验收
@@ -256,18 +260,19 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 
 - 必须：`0.0.1-review` 是 fresh-install 基线；每个后续 Review build 的 workspace、Rust package、
   Tauri desktop、Chromium extension 和 Firefox extension 必须统一为同一个严格递增的规范 Review SemVer，当前更新版本为
-  `0.0.4-review`；打包输出和 updater descriptor 不得丢失 `review` prerelease 标识。
+  `0.0.5-review`；打包输出和 updater descriptor 不得丢失 `review` prerelease 标识。
 - 必须：Review build 从编译期固定的 HTTPS `channels/review/latest.json` 检查更新，并继续使用
   `REQ-UPDATE-001` 的 Rust-owned 检查、用户确认、Tauri 签名验证、安装前 lock/cleanup 和 latest-last
-  发布约束；完整 Review 发布同样必须使用三个标准 GitHub-hosted 原生架构 Runner，renderer 不得获得
-  updater plugin capability。
+  发布、Cargo cache 与失败任务恢复约束；完整 Review 发布同样必须使用三个标准 GitHub-hosted 原生架构
+  Runner，renderer 不得获得 updater plugin capability。
 - 必须：Review 与 test channel 独立读取和写入清单。首次 Review 发布可以没有现有 Review manifest，
   后续 Review 版本必须严格递增；不得覆盖、删除或把 `channels/test/latest.json` 复制为 Review 基线。
 - 必须：完整三平台 Review build 与 R2 latest-last 发布成功后，自动化必须为同一 source SHA 创建或恢复
   GitHub Draft Prerelease，并只上传 Apple Silicon DMG、Intel DMG、Windows x64 NSIS/MSI installers 与
   同 source SHA 的 Chrome/Chromium、Firefox extension ZIP。Draft
   必须保持 prerelease 状态且不得创建 Git Tag；它不计为正式 Release、平台 AT 或已发布。只有 GATE-6、
-  Work Verified/封存、Release record 与 Tag 门禁全部满足后才可以公开该 Draft。
+  Work Verified/封存、Release record 与 Tag 门禁全部满足后才可以公开该 Draft。任一 build、R2 publish 或
+  extension job 失败时，Draft job 必须以可重跑失败结束；同 run 重跑不得重新构建已经成功的平台。
 - 可以：小规模 Review 验收可以在目标平台 signed updater artifact 已 immutable 发布后，把
   `channels/review/latest.json` 原子发布为只含已验证目标平台的阶段性 manifest；该 manifest 必须从
   `0.0.1-review` 开始并保持版本严格递增，使已安装基线先返回“无更新”，再从 `.1` 发现并安装 `.2`。

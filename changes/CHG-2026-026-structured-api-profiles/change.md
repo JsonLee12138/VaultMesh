@@ -174,6 +174,15 @@ writer 移除、该 live Environment 仍进入安全目录，旧 desktop typed i
 边界拒绝，renderer 不再包含开关/确认状态。`pnpm typecheck`、`pnpm docs:check`、`cargo fmt --all` 与
 `git diff --check` 通过；Browser/extension 产品 surface 未修改。
 
+2026-08-10 补齐密钥创建/编辑入口：新建或编辑 `api-key`/`access-token` 均可选择“保存并配置 API 环境”，
+保存成功后以 renderer 内存中的 opaque credential reference 进入 Service Hub；编辑时可保留原密钥值，不强制重新输入。
+Service Hub 先使用 core-owned aggregation preview 定位唯一 exact-host 现有 Service，已自动/手动关联时再从由 URI host 缩小且最多 50 条的候选中反查 credential relationship；只有唯一结果时自动选中 Service 并打开 Environment 编辑器，冲突或超限继续由用户选择。用户明确选择或创建 Service 后
+才打开结构化 Environment 编辑器。新建凭据可预选 Bearer/API Key auth binding，但 website 只可预填 Service site，
+不得自动成为 API origin；Secret 自由文本 `environment` 已明确标记为“环境备注（非 API 配置）”。普通保存、
+取消和稍后配置不创建 Environment；Vault lock 会清除 pending setup。新增 renderer 回归后 desktop
+Vitest 29 files / 132 tests、`pnpm --filter @vaultmesh/tauri-desktop typecheck`、`pnpm docs:check` 与
+`git diff --check` 通过。本次仍未执行 macOS/Windows packaged `AT-API-PROFILE-001`。
+
 先前 macOS x86_64 app/DMG build 不包含本次 UI 修订，不能作为当前 packaged 证据。`AT-API-PROFILE-001` 的
 macOS/Windows packaged 构建与人工证据仍未执行；本 Work 保持 Implementing，未取得双平台 packaged AT 前不得标记
 Verified 或封存。

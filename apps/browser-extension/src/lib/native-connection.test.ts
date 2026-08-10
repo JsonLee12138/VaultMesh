@@ -74,4 +74,69 @@ describe("persistent native connection", () => {
 
     connection.dispose();
   });
+
+  it.each(["desktop-unavailable", "invalid-broker-response", "unpaired"])(
+    "restarts a stale native host after a correlated %s response",
+    async (status) => {
+      vi.useFakeTimers();
+      const firstPort = fakePort();
+      const secondPort = fakePort();
+      const connect = vi.fn()
+        .mockReturnValueOnce(firstPort as never)
+        .mockReturnValueOnce(secondPort as never);
+      const connection = new PersistentNativeConnection(connect);
+      const requestId = crypto.randomUUID();
+      const pending = connection.request(request(requestId));
+      const response = { kind: "vaultmesh.host-status", status, requestId };
+
+      firstPort.emitMessage(response);
+
+      await expect(pending).resolves.toEqual(response);
+      expect(firstPort.disconnect).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(connect).toHaveBeenCalledTimes(2);
+
+      connection.dispose();
+    },
+  );
+
+  it("restarts a native host that keeps its port open past the request timeout", async () => {
+    vi.useFakeTimers();
+    const firstPort = fakePort();
+    const secondPort = fakePort();
+    const connect = vi.fn()
+      .mockReturnValueOnce(firstPort as never)
+      .mockReturnValueOnce(secondPort as never);
+    const connection = new PersistentNativeConnection(connect, 250);
+    const pending = connection.request(request(crypto.randomUUID()));
+    const rejection = expect(pending).rejects.toThrow("desktop-unavailable");
+
+    await vi.advanceTimersByTimeAsync(250);
+
+    await rejection;
+    expect(firstPort.disconnect).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(connect).toHaveBeenCalledTimes(2);
+
+    connection.dispose();
+  });
+
+  it("keeps the current host for an intentional unlock-required status", async () => {
+    vi.useFakeTimers();
+    const port = fakePort();
+    const connect = vi.fn(() => port as never);
+    const connection = new PersistentNativeConnection(connect);
+    const requestId = crypto.randomUUID();
+    const pending = connection.request(request(requestId));
+    const response = { kind: "vaultmesh.host-status", status: "unlock-required", requestId };
+
+    port.emitMessage(response);
+
+    await expect(pending).resolves.toEqual(response);
+    expect(port.disconnect).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(30_000);
+    expect(connect).toHaveBeenCalledTimes(1);
+
+    connection.dispose();
+  });
 });

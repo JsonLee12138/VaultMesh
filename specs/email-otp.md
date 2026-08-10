@@ -28,6 +28,10 @@ Client ID 可以由构建环境直接注入，或在仓库根目录的未跟踪 
 读取；最终用户不配置开发者 OAuth credential。Desktop OAuth client 是 public client，包内
 Client Secret 不构成安全或鉴权边界；授权安全必须依赖 system browser、PKCE S256、state 和
 随机 loopback callback。构建 credential 不得进入源码提交、日志、renderer 或普通 settings。
+所有生成可分发 Tauri 安装包的 CI workflow 必须显式注入
+`VAULTMESH_GOOGLE_OAUTH_CLIENT_ID` repository Secret，并在缺失或格式无效时于编译前 fail
+closed；不得发布运行后才显示“尚未配置”的安装包。已经缺少该编译期配置的 immutable Review/Test
+产物不得原地覆盖，必须用严格递增版本重新构建。
 
 ## Outlook/Microsoft 365
 

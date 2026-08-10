@@ -2,12 +2,14 @@ id: "CHG-2026-030-review-version-baseline"
 title: "以 0.0.1-review 建立独立 Review 发布基线"
 type: "migration"
 status: "Implementing"
-spec_revision: "0.1.45-active"
-target_release: "0.0.4-review"
+spec_revision: "0.1.46-active"
+target_release: "0.0.5-review"
 requirements:
   - "REQ-UPDATE-002"
+  - "REQ-EMAIL-001"
 tests:
   - "CT-UPDATE-REVIEW-001"
+  - "CT-EMAIL-001"
   - "AT-UPDATE-REVIEW-MACOS-001"
   - "AT-UPDATE-REVIEW-WINDOWS-001"
 adrs:
@@ -15,10 +17,14 @@ adrs:
 context_refs:
   - "docs/02-scope-matrix.md#客户端与平台"
   - "docs/03-functional-requirements.md#REQ-UPDATE-002 Review 发布基线与独立通道"
+  - "docs/03-functional-requirements.md#REQ-EMAIL-001 Provider 授权与只读访问"
+  - "specs/email-otp.md#Gmail"
   - "specs/tauri-desktop-migration.md#兼容与共存"
   - "docs/07-test-release-plan.md#GATE-6 平台发布"
   - "docs/08-traceability.md#REQ-UPDATE-002"
+  - "docs/08-traceability.md#REQ-EMAIL-001"
 related_changes:
+  - "CHG-2026-004-tauri-desktop-migration"
   - "CHG-2026-029-r2-desktop-updates"
   - "CHG-2026-036-cross-browser-extension-release"
 affected_surfaces:
@@ -27,6 +33,7 @@ affected_surfaces:
   - "Cloudflare R2 updater channel"
   - "GitHub Draft Prerelease assets"
   - "Windows x64 Review packaging"
+  - "Gmail Desktop OAuth build configuration"
 affected_formats:
   - "Tauri v2 updater static JSON"
 affected_versions:
@@ -36,6 +43,7 @@ affected_versions:
   - "0.0.2-review"
   - "0.0.3-review"
   - "0.0.4-review"
-security_impact: "Review artifacts continue to require Tauri updater signatures. The review channel uses the existing public verification key and CI-only private key, but remains isolated from the existing test channel so a lower version cannot overwrite or downgrade installed test builds."
+  - "0.0.5-review"
+security_impact: "Review artifacts continue to require Tauri updater signatures. The review channel uses the existing public verification key and CI-only private key, but remains isolated from the existing test channel so a lower version cannot overwrite or downgrade installed test builds. Gmail Desktop OAuth Client ID is injected from a CI Secret into the public-client binary; it is not an authentication secret, and OAuth authority continues to rely on PKCE, state and loopback callback validation."
 migration: "0.0.1-review is a fresh-install Review baseline. Existing 0.1.x test installations cannot auto-downgrade and must be manually replaced if they join the Review channel; Vault format, settings, pairing, RPC and ABI are unchanged."
 supersedes: []

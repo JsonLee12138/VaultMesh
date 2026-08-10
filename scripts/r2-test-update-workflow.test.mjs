@@ -51,6 +51,35 @@ test("R2 updater installs pnpm before setup-node requests the pnpm cache", async
   assert.match(workflow, /cache: pnpm/);
 });
 
+test("R2 packages require the Gmail OAuth client ID from GitHub Secrets", async () => {
+  const workflows = await Promise.all([
+    readFile(workflowUrl, "utf8"),
+    readFile(windowsExperimentalWorkflowUrl, "utf8"),
+    readFile(macosExperimentalWorkflowUrl, "utf8"),
+  ]);
+
+  for (const workflow of workflows) {
+    assert.match(workflow, /VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: \$\{\{ secrets\.VAULTMESH_GOOGLE_OAUTH_CLIENT_ID \}\}/);
+    assert.match(workflow, /name: Validate required desktop OAuth build configuration/);
+    assert.match(workflow, /node scripts\/validate-desktop-oauth-build-config\.mjs/);
+  }
+});
+
+test("R2 updater caches Cargo per native target and keeps failed publication rerunnable", async () => {
+  const workflow = await readFile(workflowUrl, "utf8");
+
+  assert.match(workflow, /strategy:\n\s+fail-fast: false/);
+  assert.match(workflow, /name: Restore Cargo dependencies and release objects/);
+  assert.match(workflow, /uses: actions\/cache@v5/);
+  assert.match(workflow, /target\/\$\{\{ matrix\.target \}\}\/release\/build/);
+  assert.match(workflow, /target\/\$\{\{ matrix\.target \}\}\/release\/deps/);
+  assert.match(workflow, /target\/\$\{\{ matrix\.target \}\}\/release\/\.fingerprint/);
+  assert.match(workflow, /vaultmesh-cargo-v1-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}-\$\{\{ matrix\.target \}\}/);
+  assert.match(workflow, /publish:\n\s+name: Publish immutable artifacts then test channel\n\s+needs: build\n\s+if: \$\{\{ always\(\) && !cancelled\(\) \}\}/);
+  assert.match(workflow, /name: Require successful platform builds[\s\S]*BUILD_RESULT: \$\{\{ needs\.build\.result \}\}/);
+  assert.match(workflow, /Use Re-run failed jobs on this workflow run/);
+});
+
 test("R2 Windows build selects a complete Perl before compiling vendored OpenSSL", async () => {
   const workflow = await readFile(workflowUrl, "utf8");
   const perlSetup = workflow.indexOf("name: Select complete Perl for vendored OpenSSL");

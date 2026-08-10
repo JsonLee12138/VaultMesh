@@ -94,7 +94,20 @@ export function SecretItemEditorPage({ secretId }: SecretItemEditorPageProps) {
     try {
       if (item) {
         const succeeded = await updateSecret({ id: item.id, ...input, secret: secret || null });
-        if (succeeded) void navigate({ to: '/vault', replace: true });
+        if (!succeeded) return;
+        if (configureApiEnvironment && (kind === 'api-key' || kind === 'access-token')) {
+          queueApiEnvironmentSetup({
+            ...item,
+            title: input.title,
+            kind: input.kind,
+            provider: input.provider,
+            environment: input.environment,
+            website: input.website,
+          });
+          void navigate({ to: '/vault/services', replace: true });
+        } else {
+          void navigate({ to: '/vault', replace: true });
+        }
         return;
       }
       const created = await addSecret({ ...input, secret });
@@ -114,7 +127,7 @@ export function SecretItemEditorPage({ secretId }: SecretItemEditorPageProps) {
 
   const selectedKind = SECRET_ITEM_KIND_OPTIONS.find((option) => option.value === kind);
   const isCredential = ['api-key', 'access-token', 'authenticator-key', 'client-secret', 'webhook-secret'].includes(kind);
-  const canConfigureApiEnvironment = !item && (kind === 'api-key' || kind === 'access-token');
+  const canConfigureApiEnvironment = kind === 'api-key' || kind === 'access-token';
   const valueLabel = isCredential ? '密钥值' : '内容';
 
   return (
@@ -130,7 +143,7 @@ export function SecretItemEditorPage({ secretId }: SecretItemEditorPageProps) {
           type="submit"
           name="submit-intent"
           value="configure-api-environment"
-          disabled={busy || !title.trim() || !secret}
+          disabled={busy || !title.trim() || (!item && !secret)}
         >
           <Globe2Icon data-icon="inline-start" />
           保存并配置 API 环境

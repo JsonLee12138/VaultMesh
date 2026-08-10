@@ -2,6 +2,7 @@ const NATIVE_HOST_NAME = import.meta.env.WXT_NATIVE_HOST_NAME ?? "com.vaultmesh.
 const REQUEST_TIMEOUT_MS = 70_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const STABLE_CONNECTION_MS = 30_000;
+const RESTART_NATIVE_HOST_STATUSES = new Set(["desktop-unavailable", "invalid-broker-response", "unpaired"]);
 
 type NativePort = ReturnType<typeof browser.runtime.connectNative>;
 type PendingRequest = {
@@ -47,22 +48,23 @@ export class PersistentNativeConnection {
   request(message: NativeRpcRequest): Promise<unknown> {
     this.start();
     return new Promise((resolve, reject) => {
+      const port = this.#port;
       const timeout = setTimeout(() => {
-        this.#pending.delete(message.requestId);
-        reject(new Error("desktop-unavailable"));
+        this.#settle(message.requestId, undefined, new Error("desktop-unavailable"));
+        if (port) this.#restartPort(port);
       }, this.requestTimeoutMs);
       this.#pending.set(message.requestId, { resolve, reject, timeout });
 
-      if (!this.#port) {
+      if (!port) {
         this.#settle(message.requestId, undefined, new Error("desktop-unavailable"));
         return;
       }
 
       try {
-        this.#port.postMessage(message);
+        port.postMessage(message);
       } catch {
         this.#settle(message.requestId, undefined, new Error("desktop-unavailable"));
-        this.#handleDisconnect(this.#port);
+        this.#restartPort(port);
       }
     });
   }
@@ -110,12 +112,16 @@ export class PersistentNativeConnection {
 
   #handleMessage(port: NativePort, response: unknown): void {
     if (port !== this.#port) return;
-    this.#reconnectAttempt = 0;
-    if (this.#stableTimer) clearTimeout(this.#stableTimer);
-    this.#stableTimer = null;
+    const shouldRestartHost = shouldRestartNativeHost(response);
+    if (!shouldRestartHost) {
+      this.#reconnectAttempt = 0;
+      if (this.#stableTimer) clearTimeout(this.#stableTimer);
+      this.#stableTimer = null;
+    }
     const requestId = responseRequestId(response);
     if (requestId) {
       this.#settle(requestId, response);
+      if (shouldRestartHost) this.#restartPort(port);
       return;
     }
 
@@ -123,6 +129,17 @@ export class PersistentNativeConnection {
     // applies to every in-flight request and remains safe during upgrades.
     if (isHostStatus(response)) {
       for (const pendingId of [...this.#pending.keys()]) this.#settle(pendingId, response);
+      if (shouldRestartHost) this.#restartPort(port);
+    }
+  }
+
+  #restartPort(port: NativePort): void {
+    if (port !== this.#port) return;
+    this.#handleDisconnect(port);
+    try {
+      port.disconnect();
+    } catch {
+      // Chromium may already have closed the native port.
     }
   }
 
@@ -168,4 +185,10 @@ function responseRequestId(response: unknown): string | null {
 
 function isHostStatus(response: unknown): boolean {
   return Boolean(response && typeof response === "object" && (response as { kind?: unknown }).kind === "vaultmesh.host-status");
+}
+
+function shouldRestartNativeHost(response: unknown): boolean {
+  if (!isHostStatus(response)) return false;
+  const status = (response as { status?: unknown }).status;
+  return typeof status === "string" && RESTART_NATIVE_HOST_STATUSES.has(status);
 }

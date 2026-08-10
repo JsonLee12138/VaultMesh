@@ -6,8 +6,9 @@
 
 ## 预期行为
 
-- `REQ-UPDATE-002`：`0.0.1-review` 是 fresh-install 基线；当前 workspace、Tauri desktop、Chromium/Firefox extension 与 Rust package 必须统一为 `0.0.4-review`，并由 `.1 → .2 → .3 → .4` 严格递增。
+- `REQ-UPDATE-002`：`0.0.1-review` 是 fresh-install 基线；当前 workspace、Tauri desktop、Chromium/Firefox extension 与 Rust package 必须统一为 `0.0.5-review`，并由 `.1 → .2 → .3 → .4 → .5` 严格递增。
 - Review build 必须使用独立的 `channels/review/latest.json`；首次发布允许该通道没有现有清单，但后续版本仍必须严格递增。
+- Review desktop build 必须从 GitHub repository Secret 注入 Gmail Desktop OAuth Client ID；缺失或格式无效时必须在编译前失败，不得继续发布功能残缺的安装包。既有缺失该配置的 `0.0.4-review` immutable 版本不得覆盖，只能通过 `0.0.5-review` 补发。
 - 小规模验收可以先发布只含已验证目标平台的阶段性 Review manifest；同一 current version 可以在 immutable artifact 就绪后只追加一个缺失平台，同时保持全部既有字段不变。该路径不计为完整三平台 Review 发布或平台 AT。
 - 现有 `channels/test/latest.json` 和其中的 `0.1.1-test.*` 安装不得被覆盖、删除或降级。已有测试安装加入 Review 必须明确执行手动重装。
 - Review artifact 继续使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 三目标原生构建、Tauri updater 签名、版本对象不可变和 latest-last 发布；全部发布 workflow 不依赖 self-hosted 或自定义 Runner 标签。Review 不等于正式 Stable 发布。
@@ -28,6 +29,7 @@
 - 版本字符串必须是规范 SemVer，完整保留 `review` prerelease 标识。
 - Review 与 test channel 必须独立读取和写入各自的 `latest.json`；不得复制旧 test manifest 作为 Review 当前版本。
 - Review 发布仍只允许 HTTPS endpoint、CI secret 中的 updater private key 和 R2 写凭据，并保持版本对象 immutable。
+- Gmail Desktop OAuth Client ID 只从 CI Secret 注入并由 Rust build script 编入 public-client binary；校验与失败信息不得输出其值。
 - 已有 `0.1.x` 安装不提供自动 downgrade；回到 `0.0.1-review` 只能通过显式手动卸载/重装，并保留 Vault 数据保护与备份指引。
 
 ## 任务
@@ -44,21 +46,25 @@
 | `REV-009` | `REQ-UPDATE-002` | 完整 Review workflow 使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 原生构建与 Ubuntu 发布，并移除全部自定义 Runner 标签 | `CT-UPDATE-REVIEW-001` | Done；host/target 断言与完整 hosted run Pass |
 | `REV-010` | `REQ-UPDATE-002` | 统一 `0.0.3-review` 产品版本并触发完整 hosted 三目标 latest-last 发布 | `CT-UPDATE-REVIEW-001`, `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Published；R2 公网校验 Pass；fresh-install/update AT Pending |
 | `REV-011` | `REQ-UPDATE-002` | R2 成功后创建无 Git Tag 的 GitHub Draft Prerelease，并上传双 macOS DMG 与 Windows NSIS/MSI | `CT-UPDATE-REVIEW-001` | Done；workflow contract Pass，`.3` Draft 四资产 uploaded |
-| `REV-012` | `REQ-UPDATE-002`, `REQ-BROWSER-004` | `.4` 完整 hosted Review build 同 source 生成 Chrome/Firefox ZIP 并建立六资产 Draft | `CT-UPDATE-REVIEW-001`, `CT-BROWSER-PACKAGE-001` | Implementing；本地双 ZIP/manifest/CRC Pass，CI 固定 Chrome key Pending |
+| `REV-012` | `REQ-UPDATE-002`, `REQ-BROWSER-004` | `.4` 完整 hosted Review build 同 source 生成 Chrome/Firefox ZIP 并建立六资产 Draft | `CT-UPDATE-REVIEW-001`, `CT-BROWSER-PACKAGE-001` | Done；run `31369895049` 与六资产 Draft Pass |
+| `REV-013` | `REQ-UPDATE-002` | Review 三平台 Cargo cache 与同 run 失败 build/publish/Draft 恢复 | `CT-UPDATE-REVIEW-001` | Implemented；workflow contract Pass；hosted cache-hit/失败重跑证据 Pending |
+| `REV-014` | `REQ-UPDATE-002`, `REQ-EMAIL-001` | 所有 Review/Test 与 experimental desktop package workflow 注入并预检 Gmail OAuth Client ID；缺失配置的 `.4` 不覆盖并由 `.5` 补发 | `CT-UPDATE-REVIEW-001`, `CT-EMAIL-001` | Implemented；repository Secret configured、workflow contract Pass；`.5` hosted rebuild Pending |
 | `REV-003` | `REQ-UPDATE-002` | macOS/Windows Review fresh-install 与后续升级验收 | `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Pending |
 
 ## 验收与证据
 
-- 自动化证明当前所有产品 manifest 与 workspace package version 都是 `0.0.3-review`，历史 `.1` 仍作为安装基线保留，`.2` 保留为已发布的中间 Review 更新。
+- 自动化证明当前所有产品 manifest 与 workspace package version 都是 `0.0.5-review`，历史 `.1` 仍作为安装基线保留，`.2`、`.3`、`.4` 保留为已发布的中间 Review 更新。
 - 自动化证明 Review workflow 只读写 `channels/review/latest.json`，使用标准 GitHub-hosted 原生架构 Runner 执行三平台、签名、immutable 和 latest-last 校验，且全部发布 workflow 不包含 `self-hosted` 或自定义 Runner 标签。
 - 平台验收从全新安装开始；已有 `0.1.x` 测试安装必须验证不会收到 `0.0.1-review` 自动降级，并按指引手动重装。
 
 自动化证据（2026-08-07）：
 
+- 2026-08-10 Gmail OAuth package 配置修复：确认 `0.0.4-review` workflow 未注入 `VAULTMESH_GOOGLE_OAUTH_CLIENT_ID`，而 Rust 仅通过 `option_env!` 读取编译期值，因此已发布包运行时必然报告未配置。仓库级同名 GitHub Secret 已配置；完整 Review/Test 与 macOS/Windows experimental package workflow 现在显式注入，并共用可执行门禁拒绝缺失、空值、示例占位、错误 Provider 和带空白的值。OAuth/workflow 定向 tests 22/22、完整 `pnpm scripts:test` 90/90、四个 workflow YAML parse、`pnpm docs:check` 与 `git diff --check` Pass；`.4` immutable 资产不覆盖，`0.0.5-review` hosted rebuild Pending。
 - 2026-08-10 完整 Review workflow 固定使用 `macos-15` ARM64、`macos-15-intel` x86_64、`windows-2025` x64 与 `ubuntu-24.04` publisher，并新增 host platform/architecture fail-closed 断言；阶段性 Review publisher 和 experimental package 也迁到标准 GitHub-hosted Runner。全部 workflow YAML parse Pass；`pnpm scripts:test`：78/78 Pass；完整三目标 GitHub Actions run Pending。
 - `0.0.3-review` 触发前本地 gate：五个 pnpm/Tauri manifest 与四个 Rust workspace package 版本一致；`cargo check -p vaultmesh-core -p vaultmesh-ffi -p vaultmesh-agent-mcp -p vaultmesh-tauri-desktop`、`cargo test -p vaultmesh-tauri-desktop --lib`（220 pass、1 ignored）、`pnpm scripts:test`（78/78）、`pnpm tauri:typecheck`、`pnpm docs:check`、workflow YAML parse 与 `git diff --check` Pass。GitHub Actions 三目标 package/R2 latest-last publication Pending。
 - GitHub Actions run `31351302181`：Fail closed；标准 hosted `macos-15` ARM64 与 `macos-15-intel` x86_64 均完成 signed updater、DMG、artifact normalize/upload，`windows-2025` x64 在编译 Windows 托盘主题模块时发现私有子模块函数的 re-export 可见性错误。publisher job 被依赖门禁跳过，未上传 R2 immutable objects、未修改 Review channel。修复把两个平台函数提升为 `pub(crate)` 并收窄非 Windows 的 `Image` import；修复后本地 `cargo test -p vaultmesh-tauri-desktop --lib`（220 pass、1 ignored）、workspace `cargo check`、`pnpm scripts:test`（78/78）、`pnpm docs:check` 与 `git diff --check` Pass，完整 hosted 复跑 Pending。
 - GitHub Actions run `31352257713`（source `4592da1`）：Pass；标准 hosted macOS ARM64、Windows x64、macOS Intel 分别在 10m01s、22m37s、25m33s 完成原生 signed updater 与 Review installer 构建、normalize 和 artifact upload，Windows 实际编译通过托盘主题 cfg 分支并生成 NSIS `setup.exe`。Ubuntu publisher 在三者全部成功后才上传 immutable version objects，并最后写入、readback 校验 `channels/review/latest.json`。
+- GitHub Actions run `31369895049`（source `ffff2d6`）：Pass；Chrome/Firefox extension 27s，macOS ARM64、Windows x64 NSIS/MSI、macOS Intel 分别约 9m41s、21m18s、29m11s，完整六资产 Draft 约 30m34s。仓库 Actions cache 只有 pnpm 依赖缓存，证明三平台 Rust/Tauri 仍从零编译。Review workflow 因此增加按 OS/arch/target/Cargo manifests 隔离的 Cargo cache，并让 build、publish、extension 任一失败时下游 job 明确失败而非 skipped，使同 run “Re-run failed jobs”保留成功平台 artifact；`pnpm scripts:test` 83/83、workflow YAML parse、`pnpm docs:check` 与 `git diff --check` Pass，首次 hosted cache-hit/失败恢复运行证据 Pending。
 - 独立公网校验：Review manifest 为 `0.0.3-review`，平台键恰为 `darwin-aarch64`、`darwin-x86_64`、`windows-x86_64`；三个 updater URL、Apple Silicon DMG、Intel DMG 与 Windows NSIS installer 均返回 HTTP 200。完整 workflow 未声明 MSI，因此该 run 不产生 MSI；这不改变当前三平台 Review 发布契约。
 - GitHub Draft Prerelease 自动化只在 build 与 R2 publisher 全部成功后运行，要求 `contents: write` 仅属于该 job；它验证两个 DMG 与 Windows NSIS/MSI、Draft/prerelease/source SHA 状态与远端 Tag 不存在，并以不覆盖既有资产的方式支持失败 job 重跑。公开 Prerelease 仍受 GATE-6、Work 封存、Release record 与 Git Tag 门禁约束。
 - GitHub Draft Prerelease `untagged-53638acaa8f1260a1fbf`：target commit 为 `4592da1`，Apple Silicon DMG、Intel DMG 与 Windows x64 NSIS 三个资产均为 `uploaded`；MSI 正在通过同 source 的原生 Windows experimental workflow 补建。API 状态为 Draft + Prerelease，远端 `v0.0.3-review` Git Tag 不存在。该 Draft 只供维护者人工验收，不计为公开或正式发布。

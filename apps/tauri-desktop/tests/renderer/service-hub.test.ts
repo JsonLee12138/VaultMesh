@@ -39,6 +39,32 @@ describe('Service Hub renderer contract', () => {
     expect(source).not.toContain('credentialValue');
     expect(source).not.toContain('copyValue(');
   });
+  it('continues a newly saved API credential into a user-selected service and preselects only its protected reference', () => {
+    for (const marker of [
+      'pendingApiEnvironmentSetup',
+      '继续配置 API 环境',
+      'credential.credentialId',
+      "selectedSecret?.kind === 'access-token'",
+      "selectedSecret?.kind === 'api-key'",
+      "origin: 'https://'",
+      '网站地址不会自动成为 API origin',
+    ]) expect(source).toContain(marker);
+    expect(source).toContain('sites: [serviceSiteFromWebsite(pendingApiEnvironmentSetup.website)]');
+    expect(source).not.toContain('origin: serviceSiteFromWebsite');
+    expect(source).not.toContain('credentialValue');
+  });
+  it('selects and opens the unique Service resolved by the saved credential URI', () => {
+    for (const marker of [
+      'resolvePendingServiceId',
+      'services.previewAggregation()',
+      'plannedMatches.length === 1',
+      'services.list(hostname)',
+      "replace(/^www\\./, '')",
+      'candidates.length > 50',
+      'linkedMatches.length === 1',
+      'pendingServiceId === nextId',
+    ]) expect(source).toContain(marker);
+  });
   it('uses only the typed privileged API request adapter and keeps responses memory-only', () => {
     for (const marker of ['apiRequests.prepare', 'apiRequests.execute', 'apiRequests.cancel', 'Canonical preview', 'execution-unknown', '请求与响应不会保存到历史']) {
       expect(workbench).toContain(marker);

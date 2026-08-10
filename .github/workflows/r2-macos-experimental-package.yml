@@ -49,6 +49,7 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       VAULTMESH_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
       VAULTMESH_UPDATER_ENDPOINT: ${{ vars.R2_PUBLIC_BASE_URL }}/channels/${{ inputs.channel }}/latest.json
+      VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.VAULTMESH_GOOGLE_OAUTH_CLIENT_ID }}
       R2_ACCOUNT_ID: ${{ vars.R2_ACCOUNT_ID }}
       R2_BUCKET: ${{ vars.R2_BUCKET }}
       R2_PUBLIC_BASE_URL: ${{ vars.R2_PUBLIC_BASE_URL }}
@@ -57,6 +58,8 @@ jobs:
         shell: bash
     steps:
       - uses: actions/checkout@v7
+      - name: Validate required desktop OAuth build configuration
+        run: node scripts/validate-desktop-oauth-build-config.mjs
       - name: Validate selected version and updater channel
         run: |
           set -euo pipefail
