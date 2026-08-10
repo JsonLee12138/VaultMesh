@@ -102,7 +102,7 @@ export async function buildBrowserExtensionRelease({ outputDirectory, environmen
     validateExtensionManifest(await archiveManifest(archive), {
       target,
       version,
-      chromeExtensionKey: environment.WXT_CHROME_EXTENSION_KEY,
+      chromeExtensionKey: chromeIdentity.chromeExtensionKey,
     });
   }
   await mkdir(destination, { recursive: true });

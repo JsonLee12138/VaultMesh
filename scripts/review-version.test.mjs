@@ -42,7 +42,8 @@ test("Review publication is isolated from the existing test channel", async () =
   assert.match(workflow, /Verify GitHub-hosted runner matches target architecture/);
   assert.match(workflow, /github_prerelease:\n\s+name: Create GitHub draft prerelease/);
   assert.match(workflow, /extension:\n\s+name: Build Chrome and Firefox extensions/);
-  assert.match(workflow, /WXT_CHROME_EXTENSION_KEY: \$\{\{ secrets\.WXT_CHROME_EXTENSION_KEY \}\}/);
+  assert.match(workflow, /VAULTMESH_EXTENSION_DISTRIBUTION: sideload-review/);
+  assert.doesNotMatch(workflow, /secrets\.WXT_CHROME_EXTENSION_KEY/);
   assert.match(workflow, /build-browser-extension-release\.mjs/);
   assert.match(workflow, /name: vaultmesh-browser-extensions/);
   assert.match(workflow, /needs: \[build, publish, extension\]/);

@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { developmentExtensionId, developmentExtensionKey } from "./browser-identity.mjs";
+import {
+  developmentExtensionId,
+  developmentExtensionKey,
+  sideloadReviewDistribution,
+} from "./browser-identity.mjs";
 import {
   browserExtensionBuildEnvironment,
   browserExtensionBuildInvocation,
@@ -50,12 +54,17 @@ test("Explicit extension key derives one shared identity and release mode reject
   assert.notEqual(environment.VAULTMESH_BROWSER_EXTENSION_ID, developmentExtensionId);
   assert.throws(
     () => browserExtensionBuildEnvironment({}, { requireRelease: true }),
-    /正式发布必须显式提供非开发/,
+    /必须显式提供非 sideload/,
   );
   assert.throws(
     () => browserExtensionBuildEnvironment({
       WXT_CHROME_EXTENSION_KEY: developmentExtensionKey,
     }, { requireRelease: true }),
-    /正式发布必须显式提供非开发/,
+    /必须显式提供非 sideload/,
   );
+  const sideloadEnvironment = browserExtensionBuildEnvironment({
+    VAULTMESH_EXTENSION_DISTRIBUTION: sideloadReviewDistribution,
+  }, { requireRelease: true });
+  assert.equal(sideloadEnvironment.WXT_CHROME_EXTENSION_KEY, developmentExtensionKey);
+  assert.equal(sideloadEnvironment.VAULTMESH_BROWSER_EXTENSION_ID, developmentExtensionId);
 });

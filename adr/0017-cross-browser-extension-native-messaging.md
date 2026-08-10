@@ -13,13 +13,13 @@ Native Host 在读取配对 secret 前按浏览器启动参数进行认证：Chr
 
 - 单一扩展源码与同一 RPC policy 能避免 Firefox 形成第二套秘密或授权所有者。
 - Chrome 与 Firefox 对 Native Messaging allowlist 字段、manifest位置和 Host 启动参数的契约不同，不能用一个宽松 origin 校验兼容。
-- 固定 Gecko ID 让 Firefox manifest、Native Host 和可分发 ZIP 在开发、Review 与后续商店签名之间保持稳定身份。
+- 固定 Gecko ID 让 Firefox manifest、Native Host 和可分发 ZIP 在开发与 Review sideload 之间保持稳定身份；后续商店身份必须单独验证。
 - Firefox 缺少 Chromium WebAuthn proxy API；省略该 permission 并让现有 runtime capability detection返回 no-op，比伪造兼容层更安全。
 
 ## 后果
 
 - macOS/Windows installer、卸载器和 AT 必须覆盖 Mozilla NativeMessagingHosts。
-- Release CI 必须生成并检查两个浏览器 ZIP；Firefox商店正式提交仍需独立 source ZIP 与商店审核流程。
+- Review CI 必须显式选择仓库固定的 `sideload-review` 公共身份并生成、检查两个浏览器 ZIP；不得读取或要求商店凭证。Firefox商店正式提交仍需独立 source ZIP 与商店审核流程。
 - Chrome/Edge Passkey 行为不变；Firefox 包提供除 Passkey proxy 外的共享浏览器能力。
 - 浏览器 authorization 仍由每条 Native Host/Broker连接的既有 session 生命周期隔离，最后一条授权结束后执行既有清理。
 

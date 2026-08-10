@@ -25,7 +25,7 @@ Review Draft 当前只有桌面安装包，浏览器扩展没有可下载的安�
 
 ## 实现约束
 
-- Chrome key 与 Firefox Gecko ID 都必须在构建前固定并验证；release 模式不得退回开发 Chrome key或空 Gecko ID。
+- Chrome key 与 Firefox Gecko ID 都必须在构建前固定并验证；Review Draft 必须显式选择仓库固定的 `sideload-review` 公共身份，不需要商店凭证；商店或正式公开发布不得复用该 sideload 身份。
 - 浏览器特定 manifest 必须由同一个 WXT配置按目标生成，不维护两份功能源码。
 - Firefox Host 启动只接受官方参数形态：完整 manifest path 与精确 Gecko ID；Chrome 继续只接受精确 `chrome-extension://<id>/` origin。未知、缺失、路径漂移或混合参数必须 fail closed。
 - Firefox manifest 与 Chrome manifest 分开落盘，卸载必须同时清除；现有 Chrome/Edge 注册保持兼容。
@@ -53,9 +53,9 @@ Review Draft 当前只有桌面安装包，浏览器扩展没有可下载的安�
 - `pnpm scripts:test`：82/82 Pass，覆盖 release ZIP、浏览器 identity、macOS/Windows Host 安装计划与 Review 版本约束。
 - `pnpm extension:typecheck` 与 `pnpm extension:test`：Pass，39 files / 234 tests。
 - `cargo test -p vaultmesh-tauri-desktop browser_host_registration`：2/2 Pass；`cargo test -p vaultmesh-tauri-desktop --bin vaultmesh-native-host`：macOS browser launch identity 1/1 Pass。
-- 使用非生产本地测试 public key 运行 `scripts/build-browser-extension-release.mjs`：生成 `VaultMesh_0.0.4-review_chrome-extension.zip` 与 `VaultMesh_0.0.4-review_firefox-extension.zip`；两个 ZIP CRC、路径、秘密文件/source map 排除和浏览器特定 manifest 校验均 Pass。测试 key 及产物均未写入仓库。
+- 设置 `VAULTMESH_EXTENSION_DISTRIBUTION=sideload-review`、不提供任何商店凭证运行 `scripts/build-browser-extension-release.mjs`：生成 `VaultMesh_0.0.4-review_chrome-extension.zip` 与 `VaultMesh_0.0.4-review_firefox-extension.zip`（约 491 KiB/490 KiB）；两个 ZIP CRC、路径、秘密文件/source map 排除和浏览器特定 manifest 校验均 Pass。产物位于任务临时目录，未写入仓库。
 - Windows target cross-check 在 macOS 上因缺少 Windows SDK headers、Windows link environment 与兼容 OpenSSL Perl 工具链而不可执行；Windows Native Host 编译、MSI/NSIS 注册、真实 Firefox 通信与卸载必须由 `windows-2025` runner 和目标机 AT 证明。
-- Review workflow 已声明扩展与三个桌面构建使用同一 source SHA，并把 Chrome/Firefox ZIP 纳入六资产 Draft gate；远端运行暂未触发，因为仓库尚未配置 release identity 所需的 `WXT_CHROME_EXTENSION_KEY` secret。该 gate 必须 fail closed，不得使用开发 key 或任务内生成的临时 key。
+- Review workflow 已声明扩展与三个桌面构建使用同一 source SHA，并把 Chrome/Firefox ZIP 纳入六资产 Draft gate；按用户确认只发布本地 ZIP，workflow 显式选择仓库固定的 `sideload-review` 公共身份，不读取或要求任何浏览器商店凭证。未显式选择 sideload 模式的 release build 继续 fail closed。
 
 ## 安全与数据生命周期
 

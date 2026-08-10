@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { developmentExtensionId } from "./browser-identity.mjs";
+import {
+  developmentExtensionId,
+  developmentExtensionKey,
+  sideloadReviewDistribution,
+} from "./browser-identity.mjs";
 import {
   parseTauriBuildArguments,
   tauriBuildEnvironment,
@@ -110,6 +114,11 @@ test("Tauri CLI is launched through Node instead of a Windows command shim", () 
 test("Tauri release build cannot silently package the development extension identity", () => {
   assert.throws(
     () => tauriBuildEnvironment({}, { requireRelease: true }),
-    /正式发布必须显式提供非开发/,
+    /必须显式提供非 sideload/,
   );
+  const environment = tauriBuildEnvironment({
+    VAULTMESH_EXTENSION_DISTRIBUTION: sideloadReviewDistribution,
+  }, { requireRelease: true });
+  assert.equal(environment.WXT_CHROME_EXTENSION_KEY, developmentExtensionKey);
+  assert.equal(environment.VAULTMESH_BROWSER_EXTENSION_ID, developmentExtensionId);
 });

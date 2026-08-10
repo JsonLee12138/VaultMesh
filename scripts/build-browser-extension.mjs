@@ -54,6 +54,7 @@ export async function buildBrowserExtension(command, baseEnvironment = process.e
     });
   });
   return {
+    chromeExtensionKey: environment.WXT_CHROME_EXTENSION_KEY,
     chromeExtensionId: environment.VAULTMESH_BROWSER_EXTENSION_ID,
     firefoxExtensionId: environment.VAULTMESH_FIREFOX_EXTENSION_ID,
     target,

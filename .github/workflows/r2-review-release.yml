@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      WXT_CHROME_EXTENSION_KEY: ${{ secrets.WXT_CHROME_EXTENSION_KEY }}
+      VAULTMESH_EXTENSION_DISTRIBUTION: sideload-review
       VAULTMESH_FIREFOX_EXTENSION_ID: vaultmesh@atlantis-mk.github.io
     steps:
       - uses: actions/checkout@v7
@@ -86,7 +86,7 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       VAULTMESH_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
       VAULTMESH_UPDATER_ENDPOINT: ${{ vars.R2_PUBLIC_BASE_URL }}/channels/review/latest.json
-      WXT_CHROME_EXTENSION_KEY: ${{ secrets.WXT_CHROME_EXTENSION_KEY }}
+      VAULTMESH_EXTENSION_DISTRIBUTION: sideload-review
       VAULTMESH_FIREFOX_EXTENSION_ID: vaultmesh@atlantis-mk.github.io
     defaults:
       run:

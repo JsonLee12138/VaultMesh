@@ -20,7 +20,7 @@ macOS 集成开发使用 `pnpm browser:dev`。该命令必须编排仓库的 `pn
 
 WXT 必须使用固定的专用 development profile；Host manifest 必须同时安装到该 profile 的 `NativeMessagingHosts`，不能依赖 WXT 临时 profile 或普通浏览器 profile。Extension key 与 native-host `allowed_origins` 必须派生同一固定 ID。任一开发子进程失败、退出或收到 Ctrl+C 时，根命令必须回收 Tauri、WXT、开发浏览器和 debug Host，不得留下后台进程。
 
-使用其他 key 时设置 `WXT_CHROME_EXTENSION_KEY`；若同时设置 `VAULTMESH_BROWSER_EXTENSION_ID`，它必须等于派生 ID。Packaged release 必须提供固定 key 并安装签名 host `com.vaultmesh.browser`；development registration 禁止进入 release package。
+使用其他 key 时设置 `WXT_CHROME_EXTENSION_KEY`；若同时设置 `VAULTMESH_BROWSER_EXTENSION_ID`，它必须等于派生 ID。只供本地解压安装的 Review package 必须显式选择 `VAULTMESH_EXTENSION_DISTRIBUTION=sideload-review`，复用仓库固定的公共 sideload key；商店或正式公开 release 必须提供独立 key。Packaged build 必须安装 host `com.vaultmesh.browser`；development registration 禁止进入 package。
 
 ## 跨浏览器身份、Native Host 与打包
 
@@ -43,8 +43,9 @@ Native Messaging 使用浏览器特定 manifest，不能共享一份宽松 allow
 
 `pnpm extension:release:zip:all` 必须从同一 source/version 生成命名稳定的 Chrome 与 Firefox ZIP，
 解析内部 manifest、验证目标/身份/permission/版本、执行 ZIP 完整性检查，并排除 source map、环境文件、
-凭据和非发布输出。完整 Review workflow 只把这两个安装 ZIP加入 GitHub Draft；Firefox store source ZIP
-可以作为 CI 内部构建输出，但不冒充安装包或商店审核完成。
+凭据和非发布输出。完整 Review workflow 显式使用 `sideload-review` 身份，只把这两个本地安装 ZIP加入
+GitHub Draft；不提交任何浏览器商店。Firefox store source ZIP可以作为 CI 内部构建输出，但不冒充
+安装包或商店审核完成。
 
 ## Transport 与 authorization
 
