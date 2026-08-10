@@ -711,6 +711,7 @@ fn extract_codes(text: &str) -> Vec<String> {
     static TOKEN: OnceLock<Regex> = OnceLock::new();
     static BEFORE_CONTEXT: OnceLock<Regex> = OnceLock::new();
     static AFTER_CONTEXT: OnceLock<Regex> = OnceLock::new();
+    static SEMANTIC_CONTEXT: OnceLock<Regex> = OnceLock::new();
     const CONTEXT: &str = r"(?:
         验证码|动态码|校验码|登录码|登录代码|认证码|安全码|一次性密码|一次性代码|
         您的?代码|代码(?:\s*(?:是|为|[:：-]))|
@@ -720,7 +721,7 @@ fn extract_codes(text: &str) -> Vec<String> {
         (?:sign[-\s]?in|login|authentication|confirmation|access)\s+code|
         (?:enter|use)\s+(?:the\s+)?code|code(?:\s+is|\s*[:\-])
     )";
-    let normalized = normalize_message_text(text);
+    let blocks = normalize_message_blocks(text);
     let token = TOKEN.get_or_init(|| Regex::new(r"(?i)[a-z0-9]{4,8}").expect("fixed regex"));
     let before_context = BEFORE_CONTEXT.get_or_init(|| {
         Regex::new(&format!(
@@ -744,32 +745,64 @@ fn extract_codes(text: &str) -> Vec<String> {
         ))
         .expect("fixed regex")
     });
-    let bytes = normalized.as_bytes();
-    let mut values = token
-        .find_iter(&normalized)
-        .filter_map(|candidate| {
+    let semantic_context = SEMANTIC_CONTEXT
+        .get_or_init(|| Regex::new(&format!(r"(?ix){CONTEXT}")).expect("fixed regex"));
+    let mut values = Vec::new();
+    let flattened = blocks.join(" ");
+    let flattened_bytes = flattened.as_bytes();
+    for candidate in token.find_iter(&flattened) {
+        let value = candidate.as_str();
+        let has_complete_boundary = (candidate.start() == 0
+            || !flattened_bytes[candidate.start() - 1].is_ascii_alphanumeric())
+            && (candidate.end() == flattened_bytes.len()
+                || !flattened_bytes[candidate.end()].is_ascii_alphanumeric());
+        if has_complete_boundary
+            && value.bytes().any(|byte| byte.is_ascii_digit())
+            && (before_context.is_match(&flattened[..candidate.start()])
+                || after_context.is_match(&flattened[candidate.end()..]))
+        {
+            values.push(value.to_owned());
+        }
+    }
+    for (block_index, block) in blocks.iter().enumerate() {
+        let bytes = block.as_bytes();
+        for candidate in token.find_iter(block) {
             let value = candidate.as_str();
             let has_complete_boundary = (candidate.start() == 0
                 || !bytes[candidate.start() - 1].is_ascii_alphanumeric())
                 && (candidate.end() == bytes.len()
                     || !bytes[candidate.end()].is_ascii_alphanumeric());
+            let is_standalone = block[..candidate.start()]
+                .chars()
+                .chain(block[candidate.end()..].chars())
+                .all(|character| !character.is_alphanumeric());
+            let previous_block = block_index
+                .checked_sub(1)
+                .and_then(|index| blocks.get(index));
+            let next_block = block_index
+                .checked_add(1)
+                .and_then(|index| blocks.get(index));
+            let has_adjacent_context = is_standalone
+                && previous_block
+                    .into_iter()
+                    .chain(next_block)
+                    .any(|neighbor| semantic_context.is_match(neighbor));
             if !has_complete_boundary
                 || !value.bytes().any(|byte| byte.is_ascii_digit())
-                || (!before_context.is_match(&normalized[..candidate.start()])
-                    && !after_context.is_match(&normalized[candidate.end()..]))
+                || !has_adjacent_context
             {
-                return None;
+                continue;
             }
-            Some(value.to_owned())
-        })
-        .collect::<Vec<_>>();
+            values.push(value.to_owned());
+        }
+    }
     values.sort();
     values.dedup();
     values.truncate(10);
     values
 }
 
-fn normalize_message_text(text: &str) -> String {
+fn normalize_message_blocks(text: &str) -> Vec<String> {
     static NON_CONTENT: OnceLock<Regex> = OnceLock::new();
     static HTML_TAG: OnceLock<Regex> = OnceLock::new();
     static NUMERIC_ENTITY: OnceLock<Regex> = OnceLock::new();
@@ -781,7 +814,7 @@ fn normalize_message_text(text: &str) -> String {
         .replace_all(text, " ");
     let without_tags = HTML_TAG
         .get_or_init(|| Regex::new(r"(?s)<[^>]{0,4096}>").expect("fixed regex"))
-        .replace_all(&without_non_content, " ");
+        .replace_all(&without_non_content, "\n");
     let decoded = NUMERIC_ENTITY
         .get_or_init(|| {
             Regex::new(r"&#(?:[xX]([0-9a-fA-F]{1,6})|([0-9]{1,7}));").expect("fixed regex")
@@ -804,6 +837,12 @@ fn normalize_message_text(text: &str) -> String {
         .replace("&nbsp;", " ")
         .replace("&#160;", " ")
         .replace("&amp;", "&")
+        .lines()
+        .filter_map(|line| {
+            let block = line.split_whitespace().collect::<Vec<_>>().join(" ");
+            (!block.is_empty()).then_some(block)
+        })
+        .collect()
 }
 
 fn validate_transport_policy(input: &Value) -> Result<(), String> {

@@ -1,6 +1,35 @@
 use super::*;
 
 #[test]
+fn otp_extraction_uses_structural_blocks_for_standalone_codes() {
+    let raw = concat!(
+        "From: Security <security@example.test>\r\n",
+        "Subject: Email verification\r\n",
+        "MIME-Version: 1.0\r\n",
+        "Content-Type: text/html; charset=utf-8\r\n",
+        "Content-Transfer-Encoding: 8bit\r\n",
+        "\r\n",
+        "<html><body>",
+        "<h1>邮箱验证码</h1>",
+        "<p>请使用以下验证码完成验证，有效期 5 分钟。如非本人操作，请忽略此邮件。</p>",
+        "<div>246810</div>",
+        "</body></html>",
+    );
+    let parsed = mailparse::parse_mail(raw.as_bytes()).expect("parse synthetic eml");
+    let mut text = String::new();
+    collect_mail_text(&parsed, &mut text);
+    assert_eq!(extract_codes(&text), ["246810"]);
+    assert_eq!(
+        extract_codes("A9b2C3\nis your verification code"),
+        ["A9b2C3"]
+    );
+    assert_eq!(
+        extract_codes("验证码说明：ORDER 123456 不是验证码"),
+        Vec::<String>::new()
+    );
+}
+
+#[test]
 fn otp_extraction_requires_context_and_deduplicates() {
     assert_eq!(
         extract_codes("Your verification code is 123456. OTP 123456"),
