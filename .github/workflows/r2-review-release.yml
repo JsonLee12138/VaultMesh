@@ -119,18 +119,22 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - name: Restore Cargo dependencies and release objects
+      - name: Compute Rust dependency cache key
+        id: cargo-cache-key
+        run: node scripts/rust-dependency-cache-key.mjs --github-output
+      - name: Restore Cargo downloads and dependency objects
         uses: actions/cache@v5
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
+            ~/.cargo/registry/index
+            ~/.cargo/registry/cache
+            ~/.cargo/git/db
             target/${{ matrix.target }}/release/build
             target/${{ matrix.target }}/release/deps
             target/${{ matrix.target }}/release/.fingerprint
-          key: vaultmesh-cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-${{ hashFiles('Cargo.lock', 'Cargo.toml', '**/Cargo.toml') }}
+          key: vaultmesh-cargo-deps-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-${{ steps.cargo-cache-key.outputs.hash }}
           restore-keys: |
-            vaultmesh-cargo-v1-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-
+            vaultmesh-cargo-deps-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-
       - name: Verify GitHub-hosted runner matches target architecture
         env:
           EXPECTED_HOST_PLATFORM: ${{ matrix.host_platform }}
@@ -177,6 +181,13 @@ jobs:
           path: ${{ runner.temp }}/vaultmesh-update
           if-no-files-found: error
           retention-days: 7
+      - name: Remove workspace release objects before saving dependency cache
+        run: >-
+          cargo clean --release --target "${{ matrix.target }}"
+          -p vaultmesh-agent-mcp
+          -p vaultmesh-core
+          -p vaultmesh-ffi
+          -p vaultmesh-tauri-desktop
 
   publish:
     name: Publish immutable artifacts then review channel

@@ -44,9 +44,13 @@ test("Review publication is isolated from the existing test channel", async () =
   const extensionJob = workflow.match(/\n  extension:[\s\S]*?\n  build:/)?.[0] ?? "";
   const buildJob = workflow.match(/\n  build:[\s\S]*?\n  publish:/)?.[0] ?? "";
   assert.doesNotMatch(extensionJob, /actions\/cache@v5/);
-  assert.match(buildJob, /name: Restore Cargo dependencies and release objects[\s\S]*uses: actions\/cache@v5/);
+  assert.match(buildJob, /name: Compute Rust dependency cache key[\s\S]*rust-dependency-cache-key\.mjs --github-output/);
+  assert.match(buildJob, /name: Restore Cargo downloads and dependency objects[\s\S]*uses: actions\/cache@v5/);
   assert.equal(workflow.match(/uses: actions\/cache@v5/g)?.length, 1);
-  assert.match(workflow, /vaultmesh-cargo-v1-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}-\$\{\{ matrix\.target \}\}/);
+  assert.match(workflow, /vaultmesh-cargo-deps-v2-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}-\$\{\{ matrix\.target \}\}-\$\{\{ steps\.cargo-cache-key\.outputs\.hash \}\}/);
+  assert.match(buildJob, /name: Remove workspace release objects before saving dependency cache[\s\S]*cargo clean --release --target/);
+  assert.ok(buildJob.indexOf("uses: actions/upload-artifact@v7") < buildJob.indexOf("name: Remove workspace release objects before saving dependency cache"));
+  assert.doesNotMatch(workflow, /vaultmesh-cargo-v1-|hashFiles\(|sccache/);
   assert.match(workflow, /publish:\n\s+name: Publish immutable artifacts then review channel\n\s+needs: build\n\s+if: \$\{\{ always\(\) && !cancelled\(\) \}\}/);
   assert.match(workflow, /name: Require successful platform builds[\s\S]*BUILD_RESULT: \$\{\{ needs\.build\.result \}\}/);
   assert.match(workflow, /github_prerelease:\n\s+name: Create GitHub draft prerelease/);

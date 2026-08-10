@@ -240,10 +240,13 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
   使用标准 Ubuntu Runner；发布 workflow 不得依赖 `self-hosted` 或自定义 Runner 标签。版本化不可变对象
   必须先写入 R2，并且只在三个平台的 URL、非空签名和安装包全部验证后最后发布
   `channels/test/latest.json`；R2 写凭据和 updater private key 不得进入仓库、应用包、更新清单或日志。
-- 必须：完整三平台 workflow 必须按 OS、host architecture 与 target triple 隔离 Cargo dependency/release-object
-  cache，cache key 必须绑定 Rust manifests 与 `Cargo.lock`，不得缓存签名私钥或 R2 credential。矩阵必须继续
-  `fail-fast: false`；任一平台失败时，已成功平台的同 run artifact 必须保留，publisher 必须以失败而不是
-  skipped 结束，使“Re-run failed jobs”只重跑失败平台和发布链。publisher 在三平台全部成功前不得写 R2。
+- 必须：完整三平台 workflow 必须固定精确 Rust toolchain，并按 OS、host architecture 与 target triple 隔离
+  Cargo 下载和第三方 dependency build-object cache。cache key 必须绑定该 toolchain、Rust manifests、Cargo
+  配置和 `Cargo.lock` 中的依赖图，但必须忽略只改变 workspace 自身 SemVer 的元数据；workspace package
+  object、最终 binary/bundle、签名/R2 credential 与编译期 OAuth 值不得进入 cache，保存前必须清除 workspace
+  release object。矩阵必须继续 `fail-fast: false`；任一平台失败时，已成功平台的同 run artifact 必须保留，
+  publisher 必须以失败而不是 skipped 结束，使“Re-run failed jobs”只重跑失败平台和发布链。publisher 在
+  三平台全部成功前不得写 R2。
 - 可以：标准 GitHub-hosted Windows target Runner 可以通过独立 workflow 在同一个 Windows job 内构建作为 updater 的
   Windows NSIS 测试包和供手动部署的 MSI，并直接上传 immutable experimental prefix，不通过其他
   Runner 或 GitHub artifact 中转；该流程不得写入 `channels/test/latest.json` 或冒充 Windows 平台验收

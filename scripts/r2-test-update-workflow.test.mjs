@@ -66,19 +66,39 @@ test("R2 packages require the Gmail OAuth credential pair from GitHub Secrets", 
   }
 });
 
-test("R2 updater caches Cargo per native target and keeps failed publication rerunnable", async () => {
+test("R2 updater caches only Rust dependencies per native target and keeps failed publication rerunnable", async () => {
   const workflow = await readFile(workflowUrl, "utf8");
 
   assert.match(workflow, /strategy:\n\s+fail-fast: false/);
-  assert.match(workflow, /name: Restore Cargo dependencies and release objects/);
+  assert.match(workflow, /name: Compute Rust dependency cache key[\s\S]*id: cargo-cache-key[\s\S]*rust-dependency-cache-key\.mjs --github-output/);
+  assert.match(workflow, /name: Restore Cargo downloads and dependency objects/);
   assert.match(workflow, /uses: actions\/cache@v5/);
+  assert.match(workflow, /~\/\.cargo\/registry\/index/);
+  assert.match(workflow, /~\/\.cargo\/registry\/cache/);
+  assert.match(workflow, /~\/\.cargo\/git\/db/);
+  assert.doesNotMatch(workflow, /^\s+~\/\.cargo\/(?:registry|git)\s*$/m);
   assert.match(workflow, /target\/\$\{\{ matrix\.target \}\}\/release\/build/);
   assert.match(workflow, /target\/\$\{\{ matrix\.target \}\}\/release\/deps/);
   assert.match(workflow, /target\/\$\{\{ matrix\.target \}\}\/release\/\.fingerprint/);
-  assert.match(workflow, /vaultmesh-cargo-v1-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}-\$\{\{ matrix\.target \}\}/);
+  assert.match(workflow, /vaultmesh-cargo-deps-v2-\$\{\{ runner\.os \}\}-\$\{\{ runner\.arch \}\}-\$\{\{ matrix\.target \}\}-\$\{\{ steps\.cargo-cache-key\.outputs\.hash \}\}/);
+  assert.doesNotMatch(workflow, /vaultmesh-cargo-v1-|hashFiles\(/);
+  assert.match(workflow, /name: Remove workspace release objects before saving dependency cache[\s\S]*cargo clean --release --target/);
+  for (const packageName of ["vaultmesh-agent-mcp", "vaultmesh-core", "vaultmesh-ffi", "vaultmesh-tauri-desktop"]) {
+    assert.match(workflow, new RegExp(`-p ${packageName}`));
+  }
+  assert.ok(workflow.indexOf("uses: actions/upload-artifact@v7") < workflow.indexOf("name: Remove workspace release objects before saving dependency cache"));
+  assert.doesNotMatch(workflow, /sccache/);
   assert.match(workflow, /publish:\n\s+name: Publish immutable artifacts then test channel\n\s+needs: build\n\s+if: \$\{\{ always\(\) && !cancelled\(\) \}\}/);
   assert.match(workflow, /name: Require successful platform builds[\s\S]*BUILD_RESULT: \$\{\{ needs\.build\.result \}\}/);
   assert.match(workflow, /Use Re-run failed jobs on this workflow run/);
+});
+
+test("Rust builds use the exact repository toolchain", async () => {
+  const toolchain = await readFile(new URL("../rust-toolchain.toml", import.meta.url), "utf8");
+
+  assert.match(toolchain, /channel = "1\.95\.0"/);
+  assert.match(toolchain, /profile = "minimal"/);
+  assert.doesNotMatch(toolchain, /components\s*=/);
 });
 
 test("R2 Windows build selects a complete Perl before compiling vendored OpenSSL", async () => {
