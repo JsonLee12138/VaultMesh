@@ -52,6 +52,10 @@ Rust runtime 是系统主题读取和托盘更新唯一 owner；renderer 不获�
   平台函数已直接提升为 crate 可见，并收窄非 Windows 的 `Image` import；修复后桌面端 220 tests Pass、1 ignored，
   workspace `cargo check`、`pnpm scripts:test`（78/78）、`pnpm docs:check` 与 `git diff --check` Pass，Windows hosted
   复跑与 packaged 动态切换 AT 仍 Pending。
+- GitHub Actions run `31352257713`（source `4592da1`）：`windows-2025` x64 在 22m37s 内完成托盘主题 cfg 分支的
+  release 编译、NSIS signed updater/installer、normalize 与 artifact upload；双 macOS jobs 和 R2 latest-last publisher
+  也全部 Pass。该证据证明 Windows packaged build，但尚未证明目标机上的运行时明暗双向切换，因此
+  `AT-TAURI-WINDOWS-003` 仍 Pending，Work 保持 Implementing。
 
 ## 安全与数据生命周期
 
