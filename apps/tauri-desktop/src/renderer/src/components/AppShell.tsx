@@ -49,6 +49,10 @@ export function isFocusedItemEditor(pathname: string): boolean {
   return /^\/vault\/(?:items|cards|ssh|identities|secrets)\/(?:new|[^/]+)$/.test(pathname);
 }
 
+export function usesViewportShell(pathname: string): boolean {
+  return isFocusedItemEditor(pathname) || pathname === '/vault/services';
+}
+
 export function getVaultPageHeader(pathname: string): VaultPageHeader | null {
   if (pathname === '/vault/security/agent') {
     return { title: '本地 Agent 能力代理', description: '管理 MCP 解锁、授权、连接与审计' };
@@ -98,6 +102,7 @@ export function AppShell() {
   const isAgentManagement = pathname === '/vault/security/agent';
   const isEmailOtp = pathname === '/vault/email-otp';
   const isItemEditor = isFocusedItemEditor(pathname);
+  const isViewportShell = usesViewportShell(pathname);
   const pageHeader = getVaultPageHeader(pathname);
   const [selectingImport, setSelectingImport] = useState(false);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
@@ -143,8 +148,8 @@ export function AppShell() {
 
   return (
     <main
-      className={cn('bg-background text-foreground', isItemEditor ? 'mx-auto flex h-svh w-full max-w-6xl flex-col overflow-hidden' : 'min-h-svh')}
-      data-viewport-shell={isItemEditor ? 'true' : undefined}
+      className={cn('bg-background text-foreground', isViewportShell ? 'flex h-svh w-full flex-col overflow-hidden' : 'min-h-svh', isItemEditor && 'mx-auto max-w-6xl')}
+      data-viewport-shell={isViewportShell ? 'true' : undefined}
     >
       {status?.unlocked ? (
         <header className="sticky top-0 z-40 shrink-0 border-b bg-background/80 backdrop-blur">

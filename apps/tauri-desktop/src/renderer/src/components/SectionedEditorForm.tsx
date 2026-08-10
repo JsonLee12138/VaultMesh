@@ -23,6 +23,7 @@ interface SectionedEditorFormProps {
   submitLabel: string;
   savingLabel?: string;
   submitDisabled?: boolean;
+  submitActions?: ReactNode;
   onCancel(): void;
   onSubmit(event: FormEvent<HTMLFormElement>): void;
 }
@@ -35,6 +36,7 @@ export function SectionedEditorForm({
   submitLabel,
   savingLabel = '正在保存…',
   submitDisabled = false,
+  submitActions,
   onCancel,
   onSubmit,
 }: SectionedEditorFormProps) {
@@ -141,6 +143,7 @@ export function SectionedEditorForm({
                 <ChevronRightIcon data-icon="inline-end" />
               </Button>
             )}
+            {submitActions}
             <Button type="submit" disabled={busy || submitDisabled}>
               {busy ? <Spinner data-icon="inline-start" /> : <SaveIcon data-icon="inline-start" />}
               {busy ? savingLabel : submitLabel}

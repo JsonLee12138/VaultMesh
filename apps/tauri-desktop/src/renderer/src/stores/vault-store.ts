@@ -29,6 +29,15 @@ import type {
   VaultStatus,
 } from '../../../shared/contracts';
 
+export interface PendingApiEnvironmentSetup {
+  credentialId: string;
+  title: string;
+  kind: 'api-key' | 'access-token';
+  provider: string | null;
+  environment: string | null;
+  website: string | null;
+}
+
 interface VaultStore {
   ready: boolean;
   status: VaultStatus | null;
@@ -37,6 +46,7 @@ interface VaultStore {
   sshCredentials: SshCredentialSummary[];
   identities: IdentitySummary[];
   secrets: SecretItemSummary[];
+  pendingApiEnvironmentSetup: PendingApiEnvironmentSetup | null;
   busy: boolean;
   error: string | null;
   copiedId: string | null;
@@ -74,11 +84,13 @@ interface VaultStore {
   updateIdentity(input: IdentityUpdate): Promise<boolean>;
   getIdentityDetail(id: string): Promise<IdentityDetail | null>;
   deleteIdentity(id: string): Promise<boolean>;
-  addSecret(input: SecretItemInput): Promise<boolean>;
+  addSecret(input: SecretItemInput): Promise<SecretItemSummary | null>;
   updateSecret(input: SecretItemUpdate): Promise<boolean>;
   getSecretDetail(id: string): Promise<SecretItemDetail | null>;
   deleteSecret(id: string): Promise<boolean>;
   copySecretValue(id: string, masterPassword?: string): Promise<boolean>;
+  queueApiEnvironmentSetup(secret: SecretItemSummary): void;
+  clearApiEnvironmentSetup(): void;
   selectImport(source: ImportSource): Promise<ImportPreview | null>;
   commitImport(sessionId: string): Promise<ImportResult | null>;
   cancelImport(sessionId: string): Promise<void>;
@@ -114,7 +126,11 @@ export const useVaultStore = create<VaultStore>((set, get) => {
       const [items, cards, sshCredentials, identities, secrets] = status.unlocked
         ? await Promise.all([window.vaultMesh.items.list(), window.vaultMesh.cards.list(), window.vaultMesh.ssh.list(), window.vaultMesh.identities.list(), window.vaultMesh.secrets.list()])
         : [[], [], [], [], []];
-      set({ status, biometric, pin, items, cards, sshCredentials, identities, secrets, copiedId: status.unlocked ? get().copiedId : null });
+      set({
+        status, biometric, pin, items, cards, sshCredentials, identities, secrets,
+        copiedId: status.unlocked ? get().copiedId : null,
+        pendingApiEnvironmentSetup: status.unlocked ? get().pendingApiEnvironmentSetup : null,
+      });
     } catch (reason) {
       set({ error: messageOf(reason) });
     } finally {
@@ -130,6 +146,7 @@ export const useVaultStore = create<VaultStore>((set, get) => {
     sshCredentials: [],
     identities: [],
     secrets: [],
+    pendingApiEnvironmentSetup: null,
     busy: false,
     error: null,
     copiedId: null,
@@ -164,6 +181,7 @@ export const useVaultStore = create<VaultStore>((set, get) => {
             sshCredentials: [],
             identities: [],
             secrets: [],
+            pendingApiEnvironmentSetup: null,
           });
           created = result.status.unlocked;
         }
@@ -243,7 +261,7 @@ export const useVaultStore = create<VaultStore>((set, get) => {
     lockVault: () =>
       run(async () => {
         const status = await window.vaultMesh.vault.lock();
-        set({ status, items: [], cards: [], sshCredentials: [], identities: [], secrets: [], copiedId: null });
+        set({ status, items: [], cards: [], sshCredentials: [], identities: [], secrets: [], copiedId: null, pendingApiEnvironmentSetup: null });
       }),
     addItem: (input) =>
       run(async () => {
@@ -364,10 +382,14 @@ export const useVaultStore = create<VaultStore>((set, get) => {
       await window.vaultMesh.identities.delete(id);
       set({ identities: await window.vaultMesh.identities.list() });
     }),
-    addSecret: (input) => run(async () => {
-      await window.vaultMesh.secrets.add(input);
-      set({ secrets: await window.vaultMesh.secrets.list() });
-    }),
+    addSecret: async (input) => {
+      let created: SecretItemSummary | null = null;
+      const succeeded = await run(async () => {
+        created = await window.vaultMesh.secrets.add(input);
+        set({ secrets: await window.vaultMesh.secrets.list() });
+      });
+      return succeeded ? created : null;
+    },
     updateSecret: (input) => run(async () => {
       await window.vaultMesh.secrets.update(input);
       set({ secrets: await window.vaultMesh.secrets.list() });
@@ -388,6 +410,20 @@ export const useVaultStore = create<VaultStore>((set, get) => {
       });
       return succeeded;
     },
+    queueApiEnvironmentSetup: (secret) => {
+      if (secret.kind !== 'api-key' && secret.kind !== 'access-token') return;
+      set({
+        pendingApiEnvironmentSetup: {
+          credentialId: secret.id,
+          title: secret.title,
+          kind: secret.kind,
+          provider: secret.provider,
+          environment: secret.environment,
+          website: secret.website,
+        },
+      });
+    },
+    clearApiEnvironmentSetup: () => set({ pendingApiEnvironmentSetup: null }),
     selectImport: async (source) => {
       let preview: ImportPreview | null = null;
       const succeeded = await run(async () => {
@@ -431,6 +467,7 @@ export const useVaultStore = create<VaultStore>((set, get) => {
         sshCredentials: [],
         identities: [],
         secrets: [],
+        pendingApiEnvironmentSetup: null,
         copiedId: null,
         busy: false,
       });

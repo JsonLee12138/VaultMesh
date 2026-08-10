@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { agentPairingUsesMainWindow, isFocusedItemEditor, isFocusedLoginEditor } from './AppShell';
+import { agentPairingUsesMainWindow, isFocusedItemEditor, isFocusedLoginEditor, usesViewportShell } from './AppShell';
 
 describe('CT-AGENT-CODEX-001 local Agent UI routing', () => {
   it('keeps first-time Agent pairing out of the main window', () => {
@@ -23,5 +23,11 @@ describe('login editor shell layout', () => {
     expect(isFocusedItemEditor('/vault/identities/identity-id')).toBe(true);
     expect(isFocusedItemEditor('/vault/secrets/new')).toBe(true);
     expect(isFocusedItemEditor('/vault/services')).toBe(false);
+  });
+
+  it('bounds the service hub to the viewport for independent pane scrolling', () => {
+    expect(usesViewportShell('/vault/services')).toBe(true);
+    expect(usesViewportShell('/vault/items/new')).toBe(true);
+    expect(usesViewportShell('/vault')).toBe(false);
   });
 });

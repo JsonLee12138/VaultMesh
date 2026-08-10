@@ -43,7 +43,7 @@
 | `REV-008` | `REQ-UPDATE-002` | 同一 Windows x64 Runner 生成 `.2` signed updater/NSIS/MSI，并在保持现有 Intel entry 与 test channel 不变时把 Windows 平台追加到阶段性 Review manifest | `CT-UPDATE-REVIEW-001` | Done |
 | `REV-009` | `REQ-UPDATE-002` | 完整 Review workflow 使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 原生构建与 Ubuntu 发布，并移除全部自定义 Runner 标签 | `CT-UPDATE-REVIEW-001` | Done；host/target 断言与完整 hosted run Pass |
 | `REV-010` | `REQ-UPDATE-002` | 统一 `0.0.3-review` 产品版本并触发完整 hosted 三目标 latest-last 发布 | `CT-UPDATE-REVIEW-001`, `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Published；R2 公网校验 Pass；fresh-install/update AT Pending |
-| `REV-011` | `REQ-UPDATE-002` | R2 成功后创建无 Git Tag 的 GitHub Draft Prerelease，并上传双 macOS DMG 与 Windows NSIS/MSI | `CT-UPDATE-REVIEW-001` | Implementing；Draft 已有三资产，`.3` MSI build/upload Pending |
+| `REV-011` | `REQ-UPDATE-002` | R2 成功后创建无 Git Tag 的 GitHub Draft Prerelease，并上传双 macOS DMG 与 Windows NSIS/MSI | `CT-UPDATE-REVIEW-001` | Done；workflow contract Pass，`.3` Draft 四资产 uploaded |
 | `REV-003` | `REQ-UPDATE-002` | macOS/Windows Review fresh-install 与后续升级验收 | `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Pending |
 
 ## 验收与证据
@@ -62,6 +62,7 @@
 - GitHub Draft Prerelease 自动化只在 build 与 R2 publisher 全部成功后运行，要求 `contents: write` 仅属于该 job；它验证两个 DMG 与 Windows NSIS/MSI、Draft/prerelease/source SHA 状态与远端 Tag 不存在，并以不覆盖既有资产的方式支持失败 job 重跑。公开 Prerelease 仍受 GATE-6、Work 封存、Release record 与 Git Tag 门禁约束。
 - GitHub Draft Prerelease `untagged-53638acaa8f1260a1fbf`：target commit 为 `4592da1`，Apple Silicon DMG、Intel DMG 与 Windows x64 NSIS 三个资产均为 `uploaded`；MSI 正在通过同 source 的原生 Windows experimental workflow 补建。API 状态为 Draft + Prerelease，远端 `v0.0.3-review` Git Tag 不存在。该 Draft 只供维护者人工验收，不计为公开或正式发布。
 - GitHub Actions run `31354047769`：Fail closed；冻结 `4592da1` source 已包含 Review→MSI 构建兼容修正，overlay 后为零差异，但旧门禁错误地要求必须恰有 `scripts/build-tauri.mjs` 一个差异。失败发生在依赖安装和构建前，未上传 R2、未修改 Review channel 或 GitHub Draft。门禁改为允许零差异或只允许该单一文件差异，其他路径继续 fail closed；MSI 复跑 Pending。
+- GitHub Actions run `31354130960`：Pass；标准 hosted Windows x64 从冻结 `4592da1` source 原生生成 NSIS 与 MSI，在 18m27s 内通过 PE x86_64、MSI compound header、immutable R2 upload/readback 和 Review/test channel 不变校验。MSI 公网对象返回 HTTP 200，并已追加到 `untagged-53638acaa8f1260a1fbf`；Draft 当前两个 DMG、Windows NSIS/MSI 四个资产均为 `uploaded`，仍无远端 Git Tag。
 
 - `cargo check -p vaultmesh-core -p vaultmesh-ffi -p vaultmesh-agent-mcp -p vaultmesh-tauri-desktop`：Pass；四个 workspace package 均以 `0.0.1-review` 编译，`Cargo.lock` 同步更新。
 - `pnpm scripts:test`：59/59 Pass；`CT-UPDATE-REVIEW-001` 验证五个产品 manifest 与 Rust workspace 版本一致，证明完整 Review workflow 包含三目标构建、source version fail-closed、独立 Review endpoint 和 latest-last 发布；Intel experimental workflow 可以嵌入 Review endpoint，阶段性 baseline generator/workflow 只接受固定 `0.0.1-review` x86_64 descriptor、只在 Review channel 缺失时创建并保持 test channel 不变。

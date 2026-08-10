@@ -94,6 +94,7 @@ function contentType(name) {
   if (name.endsWith(".json")) return "application/json";
   if (name.endsWith(".dmg")) return "application/x-apple-diskimage";
   if (name.endsWith(".exe")) return "application/vnd.microsoft.portable-executable";
+  if (name.endsWith(".msi")) return "application/x-msi";
   if (name.endsWith(".gz")) return "application/gzip";
   if (name.endsWith(".zip")) return "application/zip";
   return "application/octet-stream";

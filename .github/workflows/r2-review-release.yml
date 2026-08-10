@@ -227,6 +227,7 @@ jobs:
             echo "- [macOS Apple Silicon DMG](${base}/VaultMesh_${RELEASE_VERSION}_darwin-aarch64.dmg)"
             echo "- [macOS Intel DMG](${base}/VaultMesh_${RELEASE_VERSION}_darwin-x86_64.dmg)"
             echo "- [Windows x64 installer](${base}/VaultMesh_${RELEASE_VERSION}_windows-x86_64-setup.exe)"
+            echo "- [Windows x64 MSI installer](${base}/VaultMesh_${RELEASE_VERSION}_windows-x86_64-installer.msi)"
             echo "- [Updater manifest](${R2_PUBLIC_BASE_URL%/}/channels/review/latest.json)"
           } >> "$GITHUB_STEP_SUMMARY"
 

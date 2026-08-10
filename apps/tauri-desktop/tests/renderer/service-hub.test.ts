@@ -8,6 +8,10 @@ const vaultSource = readFileSync(resolve(process.cwd(), 'src/renderer/src/pages/
 const workbench = readFileSync(resolve(process.cwd(), 'src/renderer/src/components/ApiRequestWorkbench.tsx'), 'utf8');
 
 describe('Service Hub renderer contract', () => {
+  it('keeps the service list and detail content in independent scroll areas', () => {
+    expect(source).toContain("import { ScrollArea } from '@/components/ui/scroll-area';");
+    expect(source.match(/<ScrollArea className="min-h-0">/g)).toHaveLength(2);
+  });
   it('exposes aggregation, correction, navigation and non-cascading delete copy', () => {
     for (const marker of ['previewAggregation', 'applyAggregation', 'rollbackAggregation', '.merge(', '.split(', '.move(', '.unlink(', '原项目保持不变']) {
       expect(source).toContain(marker);

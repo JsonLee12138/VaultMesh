@@ -11,6 +11,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
@@ -249,18 +250,21 @@ export function ServiceHubPage() {
   const grouped = detail ? (Object.keys(groupLabels) as ServiceItemKind[]).map((kind) => ({ kind, relationships: detail.relationships.filter((relationship) => relationship.itemKind === kind) })).filter((group) => group.relationships.length > 0) : [];
 
   return (
-    <section className="mx-auto grid w-full max-w-6xl gap-6 px-5 py-8 lg:grid-cols-[20rem_minmax(0,1fr)]">
-      <aside className="space-y-4">
+    <section className="mx-auto grid min-h-0 w-full max-w-6xl flex-1 grid-rows-[minmax(12rem,0.8fr)_minmax(0,1.2fr)] gap-6 overflow-hidden px-5 py-8 lg:grid-cols-[20rem_minmax(0,1fr)] lg:grid-rows-1">
+      <ScrollArea className="min-h-0">
+      <aside className="flex flex-col gap-4 pr-3">
         <div className="flex items-center gap-2"><div className="relative flex-1"><SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" /><Input aria-label="搜索网站或服务" className="pl-9" placeholder="搜索网站、服务或标签" value={query} onChange={(event) => setQuery(event.target.value)} /></div><Button size="icon" type="button" aria-label="新建网站或服务" onClick={openCreate}><PlusIcon /></Button></div>
         <div className="flex items-center justify-between rounded-xl border bg-card p-3"><div><p className="text-sm font-medium">持续自动关联</p><p className="text-xs text-muted-foreground">仅使用唯一精确主机</p></div><Switch checked={automaticLinking} disabled={busy} aria-label="持续自动关联" onCheckedChange={(enabled) => void run(async () => { setAutomaticLinking(await window.vaultMesh.services.updateAutomaticLinking(enabled)); })} /></div>
-        <div className="space-y-2" aria-label="网站和服务列表">
+        <div className="flex flex-col gap-2" aria-label="网站和服务列表">
           {filteredServices.map((service) => <button key={service.id} type="button" onClick={() => selectService(service.id)} className={`w-full rounded-xl border p-3 text-left transition-colors ${selectedId === service.id ? 'border-primary bg-primary/5' : 'bg-card hover:bg-muted/60'}`}><span className="block truncate font-medium">{service.name}</span><span className="mt-1 block text-xs text-muted-foreground">{service.siteCount} 个站点 · {service.counts.login + service.counts.secret + service.counts.ssh + service.counts.identity} 个项目</span></button>)}
           {filteredServices.length === 0 && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">还没有网站/服务。</p>}
         </div>
         {trash.length > 0 && <Card size="sm"><CardHeader><CardTitle>已删除</CardTitle><CardDescription>恢复不会改变原项目。</CardDescription></CardHeader><CardContent className="space-y-2">{trash.map((entry) => <div key={entry.trashId} className="flex items-center justify-between gap-2"><span className="truncate text-sm">{entry.name}</span><div className="flex"><Button variant="ghost" size="icon-sm" aria-label={`恢复 ${entry.name}`} onClick={() => void run(async () => { const restored = await window.vaultMesh.services.restoreTrash(entry.trashId); await load(restored.id); })}><RotateCcwIcon /></Button><Button variant="ghost" size="icon-sm" aria-label={`永久删除 ${entry.name}`} onClick={() => void run(async () => { await window.vaultMesh.services.purgeTrash(entry.trashId); await load(); })}><Trash2Icon /></Button></div></div>)}</CardContent></Card>}
       </aside>
+      </ScrollArea>
 
-      <div className="min-w-0 space-y-5">
+      <ScrollArea className="min-h-0">
+      <div className="flex min-w-0 flex-col gap-5 pr-3">
         <Card className="border-primary/20 bg-gradient-to-br from-primary/8 via-card to-card">
           <CardHeader><CardTitle className="flex items-center gap-2"><SparklesIcon className="text-primary" />自动整理现有项目</CardTitle><CardDescription>只扫描本地安全 metadata。冲突、共享托管域、IP 与 localhost 不会自动归组。</CardDescription><CardAction className="flex gap-2">{lastBatch && <Button variant="outline" size="sm" disabled={busy} onClick={rollback}><RotateCcwIcon />撤销上次整理</Button>}<Button size="sm" disabled={busy} onClick={preview}><SparklesIcon />预览整理</Button></CardAction></CardHeader>
         </Card>
@@ -275,6 +279,7 @@ export function ServiceHubPage() {
           {services.length > 1 && <Card size="sm"><CardHeader><CardTitle>合并重复网站/服务</CardTitle><CardDescription>关系和站点会合并，来源记录进入回收站；原项目保持不变。</CardDescription></CardHeader><CardContent className="flex gap-2"><Select value={mergeTarget || EMPTY_SELECT_VALUE} onValueChange={(value) => setMergeTarget(value === EMPTY_SELECT_VALUE ? '' : value)}><SelectTrigger className="h-9 min-w-0 flex-1" aria-label="选择合并目标"><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value={EMPTY_SELECT_VALUE}>合并到…</SelectItem>{services.filter((service) => service.id !== detail.id).map((service) => <SelectItem key={service.id} value={service.id}>{service.name}</SelectItem>)}</SelectGroup></SelectContent></Select><Button variant="outline" disabled={!mergeTarget || busy} onClick={() => void run(async () => { const merged = await window.vaultMesh.services.merge(detail.id, mergeTarget); await load(merged.id); toast.success('网站/服务已合并。'); })}><MergeIcon />合并</Button></CardContent></Card>}
         </>}
       </div>
+      </ScrollArea>
 
       <Dialog open={editorOpen} onOpenChange={(open) => { setEditorOpen(open); if (!open) setSplitRelationship(null); }}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>{splitRelationship ? '拆分为新网站/服务' : editingId ? '编辑网站/服务' : '新建网站/服务'}</DialogTitle><DialogDescription>这里只保存非秘密说明、标签、站点地址和导航关系。</DialogDescription></DialogHeader><div className="grid gap-3"><Input autoFocus aria-label="名称" placeholder="名称" value={draft.name} onChange={(event) => setDraft((current) => ({ ...current, name: event.target.value }))} /><Textarea aria-label="说明" placeholder="非秘密说明（可选）" value={draft.description ?? ''} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value || null }))} /><Input aria-label="标签" placeholder="标签，以逗号分隔" value={draft.tags.join(', ')} onChange={(event) => setDraft((current) => ({ ...current, tags: event.target.value.split(',') }))} /><Textarea aria-label="站点地址" placeholder={'每行一个 HTTP(S) 地址\nhttps://example.com'} value={draft.sites.join('\n')} onChange={(event) => setDraft((current) => ({ ...current, sites: event.target.value.split('\n') }))} /></div><DialogFooter><Button variant="outline" onClick={() => setEditorOpen(false)}>取消</Button><Button disabled={busy || !draft.name.trim() || !draft.sites.some((site) => site.trim())} onClick={save}>{splitRelationship ? '拆分' : editingId ? '保存' : '创建'}</Button></DialogFooter></DialogContent></Dialog>
 

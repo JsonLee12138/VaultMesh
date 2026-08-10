@@ -15,11 +15,13 @@ async function fixture() {
   for (const platform of ["darwin-aarch64", "darwin-x86_64", "windows-x86_64"]) {
     const updateFile = `VaultMesh_${version}_${platform}${platform.startsWith("darwin") ? ".app.tar.gz" : "-setup.exe"}`;
     const signatureFile = `${updateFile}.sig`;
-    const installer = platform.startsWith("darwin") ? `VaultMesh_${version}_${platform}.dmg` : updateFile;
+    const installers = platform.startsWith("darwin")
+      ? [`VaultMesh_${version}_${platform}.dmg`]
+      : [updateFile, `VaultMesh_${version}_${platform}-installer.msi`];
     await writeFile(path.join(inputDirectory, updateFile), "artifact");
     await writeFile(path.join(inputDirectory, signatureFile), `signature-${platform}`);
-    await writeFile(path.join(inputDirectory, installer), "installer");
-    await writeFile(path.join(inputDirectory, `${platform}.update.json`), JSON.stringify({ platform, version, updateFile, signatureFile, installers: [installer] }));
+    for (const installer of installers) await writeFile(path.join(inputDirectory, installer), "installer");
+    await writeFile(path.join(inputDirectory, `${platform}.update.json`), JSON.stringify({ platform, version, updateFile, signatureFile, installers }));
   }
   return { inputDirectory, outputDirectory, version };
 }
@@ -37,6 +39,7 @@ test("creates a complete static Tauri manifest and immutable upload plan", async
   assert.equal(result.manifest.platforms["windows-x86_64"].signature, "signature-windows-x86_64");
   const uploadPlan = await readFile(path.join(options.outputDirectory, "immutable.tsv"), "utf8");
   assert.match(uploadPlan, /releases\/v1\.2\.3-test\.1\/VaultMesh_1\.2\.3-test\.1_windows-x86_64-setup\.exe/);
+  assert.match(uploadPlan, /windows-x86_64-installer\.msi\tapplication\/x-msi\t[0-9a-f]{64}/);
   assert.match(uploadPlan, /\t[0-9a-f]{64}\n/);
   assert.doesNotMatch(await readFile(result.manifestPath, "utf8"), /Secret|Access Key/);
 });
