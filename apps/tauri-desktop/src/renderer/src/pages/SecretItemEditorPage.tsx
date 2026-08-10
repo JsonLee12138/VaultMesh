@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
-import { FileTextIcon, KeyRoundIcon, LinkIcon, ShieldCheckIcon, StarIcon, TagsIcon } from 'lucide-react';
+import { FileTextIcon, Globe2Icon, KeyRoundIcon, LinkIcon, ShieldCheckIcon, StarIcon, TagsIcon } from 'lucide-react';
 
 import { DatePicker } from '../components/DatePicker';
 import { PasswordField } from '../components/PasswordField';
@@ -25,6 +25,7 @@ export function SecretItemEditorPage({ secretId }: SecretItemEditorPageProps) {
   const busy = useVaultStore((state) => state.busy);
   const error = useVaultStore((state) => state.error);
   const addSecret = useVaultStore((state) => state.addSecret);
+  const queueApiEnvironmentSetup = useVaultStore((state) => state.queueApiEnvironmentSetup);
   const updateSecret = useVaultStore((state) => state.updateSecret);
   const getSecretDetail = useVaultStore((state) => state.getSecretDetail);
   const navigate = useNavigate();
@@ -74,6 +75,8 @@ export function SecretItemEditorPage({ secretId }: SecretItemEditorPageProps) {
 
   const submit = async (event: FormEvent): Promise<void> => {
     event.preventDefault();
+    const submitter = (event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
+    const configureApiEnvironment = submitter?.value === 'configure-api-environment';
     const input = {
       title,
       kind,
@@ -89,10 +92,19 @@ export function SecretItemEditorPage({ secretId }: SecretItemEditorPageProps) {
       masterPasswordReprompt,
     };
     try {
-      const succeeded = item
-        ? await updateSecret({ id: item.id, ...input, secret: secret || null })
-        : await addSecret({ ...input, secret });
-      if (succeeded) void navigate({ to: '/vault', replace: true });
+      if (item) {
+        const succeeded = await updateSecret({ id: item.id, ...input, secret: secret || null });
+        if (succeeded) void navigate({ to: '/vault', replace: true });
+        return;
+      }
+      const created = await addSecret({ ...input, secret });
+      if (!created) return;
+      if (configureApiEnvironment && (created.kind === 'api-key' || created.kind === 'access-token')) {
+        queueApiEnvironmentSetup(created);
+        void navigate({ to: '/vault/services', replace: true });
+      } else {
+        void navigate({ to: '/vault', replace: true });
+      }
     } finally {
       setSecret('');
     }
@@ -102,6 +114,7 @@ export function SecretItemEditorPage({ secretId }: SecretItemEditorPageProps) {
 
   const selectedKind = SECRET_ITEM_KIND_OPTIONS.find((option) => option.value === kind);
   const isCredential = ['api-key', 'access-token', 'authenticator-key', 'client-secret', 'webhook-secret'].includes(kind);
+  const canConfigureApiEnvironment = !item && (kind === 'api-key' || kind === 'access-token');
   const valueLabel = isCredential ? '密钥值' : '内容';
 
   return (
@@ -111,6 +124,18 @@ export function SecretItemEditorPage({ secretId }: SecretItemEditorPageProps) {
       busy={busy}
       submitLabel="保存机密信息"
       submitDisabled={!title.trim() || (!item && !secret)}
+      submitActions={canConfigureApiEnvironment ? (
+        <Button
+          variant="outline"
+          type="submit"
+          name="submit-intent"
+          value="configure-api-environment"
+          disabled={busy || !title.trim() || !secret}
+        >
+          <Globe2Icon data-icon="inline-start" />
+          保存并配置 API 环境
+        </Button>
+      ) : undefined}
       onCancel={() => void navigate({ to: '/vault' })}
       onSubmit={(event) => void submit(event)}
       sections={[
@@ -131,13 +156,13 @@ export function SecretItemEditorPage({ secretId }: SecretItemEditorPageProps) {
           content: <FieldGroup><PasswordField id="secret-value" label={item ? `新${valueLabel}（留空则保持不变）` : valueLabel} value={secret} minLength={item ? undefined : 1} placeholder={kind === 'access-token' ? 'ghp_…' : kind === 'api-key' ? 'sk-…' : `输入${valueLabel}`} onChange={setSecret} /></FieldGroup>,
         },
         {
-          id: 'ownership', label: '归属与权限', description: '记录服务商、账号、环境和最小权限范围。', icon: TagsIcon,
+          id: 'ownership', label: '归属与权限', description: '记录服务商、账号、环境备注和最小权限范围。', icon: TagsIcon,
           complete: Boolean(provider.trim() || account.trim() || environment.trim() || scopes.trim() || expiresAt),
           content: <FieldGroup>
             <div className="grid gap-5 sm:grid-cols-2">
               <Field><FieldLabel htmlFor="secret-provider">服务商</FieldLabel><Input id="secret-provider" value={provider} maxLength={256} placeholder="GitHub、OpenAI、TMDB" onChange={(event) => setProvider(event.target.value)} /></Field>
               <Field><FieldLabel htmlFor="secret-account">账号或项目</FieldLabel><Input id="secret-account" value={account} maxLength={256} placeholder="用户名、邮箱或项目 ID" onChange={(event) => setAccount(event.target.value)} /></Field>
-              <Field><FieldLabel htmlFor="secret-environment">环境</FieldLabel><Input id="secret-environment" value={environment} maxLength={256} placeholder="Production、Staging、Local" onChange={(event) => setEnvironment(event.target.value)} /></Field>
+              <Field><FieldLabel htmlFor="secret-environment">环境备注（非 API 配置）</FieldLabel><Input id="secret-environment" value={environment} maxLength={256} placeholder="Production、Staging、Local" onChange={(event) => setEnvironment(event.target.value)} /><FieldDescription>仅用于整理和搜索；API target、认证和 Header 需在结构化 API 环境中配置。</FieldDescription></Field>
               <Field><FieldLabel htmlFor="secret-expires">到期日</FieldLabel><DatePicker id="secret-expires" value={expiresAt} onValueChange={setExpiresAt} placeholder="选择到期日" /></Field>
             </div>
             <Field><FieldLabel htmlFor="secret-scopes">权限范围</FieldLabel><Input id="secret-scopes" value={scopes} maxLength={10_000} placeholder="repo, read:org, models:read" onChange={(event) => setScopes(event.target.value)} /><FieldDescription>用逗号分隔，便于以后检查最小权限和轮换范围。</FieldDescription></Field>
