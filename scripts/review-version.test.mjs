@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const workspace = new URL("../", import.meta.url);
-const expectedVersion = "0.0.7-review";
+const expectedVersion = "0.0.8-review";
 
 async function json(relativePath) {
   return JSON.parse(await readFile(new URL(relativePath, workspace), "utf8"));
@@ -27,7 +27,7 @@ test("Review product manifests use one prerelease version", async () => {
 test("Review publication is isolated from the existing test channel", async () => {
   const workflow = await readFile(new URL(".github/workflows/r2-review-release.yml", workspace), "utf8");
   assert.match(workflow, /name: Publish R2 review release/);
-  assert.match(workflow, /default: "0\.0\.7-review"/);
+  assert.match(workflow, /default: "0\.0\.8-review"/);
   assert.match(workflow, /channels\/review\/latest\.json/);
   assert.doesNotMatch(workflow, /channels\/test\/latest\.json/);
   assert.match(workflow, /Review version matches source metadata/);
@@ -108,7 +108,7 @@ test("Intel staged Review channel starts at the baseline and then advances stric
   );
 
   assert.match(workflow, /runs-on: ubuntu-24\.04/);
-  assert.match(workflow, /default: "0\.0\.7-review"/);
+  assert.match(workflow, /default: "0\.0\.8-review"/);
   assert.match(workflow, /RELEASE_VERSION.*-review/);
   assert.match(workflow, /create-review-baseline-manifest\.mjs/);
   assert.match(workflow, /arguments\+?=\(/);

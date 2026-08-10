@@ -6,9 +6,10 @@
 
 ## 预期行为
 
-- `REQ-UPDATE-002`：`0.0.1-review` 是 fresh-install 基线；当前 workspace、Tauri desktop、Chromium/Firefox extension 与 Rust package 必须统一为 `0.0.7-review`，并由 `.1 → .2 → .3 → .4 → .5 → .6 → .7` 严格递增。
+- `REQ-UPDATE-002`：`0.0.1-review` 是 fresh-install 基线；当前 workspace、Tauri desktop、Chromium/Firefox extension 与 Rust package 必须统一为 `0.0.8-review`，并由 `.1 → .2 → .3 → .4 → .5 → .6 → .7 → .8` 严格递增。
 - Review build 必须使用独立的 `channels/review/latest.json`；首次发布允许该通道没有现有清单，但后续版本仍必须严格递增。
 - Review desktop build 必须从 GitHub repository Secret 注入 Gmail Desktop OAuth Client ID 与 Provider 为该 Client 签发的 Client Secret；缺失、格式无效、Provider 不存在或 credential pair 不匹配时必须在编译前失败，不得继续发布功能残缺的安装包。既有缺失 ID 的 `.4` 和缺失 Client Secret 的 `.5` immutable 版本不得覆盖，只能通过更高 Review 版本补发。
+- Gmail 必须只请求 `gmail.readonly`，在 authorization-code exchange 后验证 Provider 实际授予该 scope，并通过 Gmail Profile 获取邮箱地址；不得把只授予 `openid`/`email` 身份 scope 的部分授权保存为可用 Gmail 账户。
 - 小规模验收可以先发布只含已验证目标平台的阶段性 Review manifest；同一 current version 可以在 immutable artifact 就绪后只追加一个缺失平台，同时保持全部既有字段不变。该路径不计为完整三平台 Review 发布或平台 AT。
 - 现有 `channels/test/latest.json` 和其中的 `0.1.1-test.*` 安装不得被覆盖、删除或降级。已有测试安装加入 Review 必须明确执行手动重装。
 - Review artifact 继续使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 三目标原生构建、Tauri updater 签名、版本对象不可变和 latest-last 发布；全部发布 workflow 不依赖 self-hosted 或自定义 Runner 标签。Review 不等于正式 Stable 发布。
@@ -30,6 +31,7 @@
 - Review 与 test channel 必须独立读取和写入各自的 `latest.json`；不得复制旧 test manifest 作为 Review 当前版本。
 - Review 发布仍只允许 HTTPS endpoint、CI secret 中的 updater private key 和 R2 写凭据，并保持版本对象 immutable。
 - Gmail Desktop OAuth Client ID 与 Provider 签发的 Client Secret 只从 CI Secret 注入并由 Rust build script 编入 public-client binary；构建前必须先验证 Client ID 属于已接受的 VaultMesh Desktop client，再以无真实账号、无真实授权码的 Provider probe 验证 credential pair 进入 `invalid_grant`，并拒绝其他有效 Google Client、未知、已删除或不匹配的凭据。Desktop Client Secret 不构成鉴权边界；校验与失败信息不得输出 Client ID、Client Secret 或 Provider 响应正文。
+- Gmail OAuth 请求不得混合 Sign-In scopes；Token response 缺少 `gmail.readonly` 时必须在账户持久化前 fail closed，且错误不得包含 access/refresh token 或 Provider 响应正文。
 - 已有 `0.1.x` 安装不提供自动 downgrade；回到 `0.0.1-review` 只能通过显式手动卸载/重装，并保留 Vault 数据保护与备份指引。
 
 ## 任务
@@ -49,11 +51,12 @@
 | `REV-012` | `REQ-UPDATE-002`, `REQ-BROWSER-004` | `.4` 完整 hosted Review build 同 source 生成 Chrome/Firefox ZIP 并建立六资产 Draft | `CT-UPDATE-REVIEW-001`, `CT-BROWSER-PACKAGE-001` | Done；run `31369895049` 与六资产 Draft Pass |
 | `REV-013` | `REQ-UPDATE-002` | Review 三平台 Cargo cache 与同 run 失败 build/publish/Draft 恢复 | `CT-UPDATE-REVIEW-001` | Implemented；workflow contract Pass；`.5` hosted cache-miss/save 证据已记录，失败重跑证据 Pending |
 | `REV-014` | `REQ-UPDATE-002`, `REQ-EMAIL-001` | 所有 Review/Test 与 experimental desktop package workflow 注入并预检已接受的 Gmail Desktop OAuth credential pair；缺失 ID 的 `.4`、缺失 Client Secret 的 `.5` 与错误有效 Client 的 `.6` 均不覆盖 | `CT-UPDATE-REVIEW-001`, `CT-EMAIL-001` | Implemented；`.5` live Provider AT 证明缺少配套 Client Secret，`.6` live AT 证明 CI 注入了另一组有效 Google Client；已接受 Client 前缀与 Provider pair 双门禁及 `.7` hosted rebuild、本机 DMG 静态绑定验证 Pass，live Provider retest Pending |
+| `REV-016` | `REQ-UPDATE-002`, `REQ-EMAIL-001` | Gmail 单一 `gmail.readonly` consent、实际授予 scope fail-closed 校验与 Gmail Profile 地址读取，并以 `.8` immutable Review 补发 | `CT-UPDATE-REVIEW-001`, `CT-EMAIL-001`, `AT-EMAIL-001` | Implementing；`.7` live callback 复现部分授权与 HTTP 403，Rust regression Pass，`.8` hosted package/live AT Pending |
 | `REV-003` | `REQ-UPDATE-002` | macOS/Windows Review fresh-install 与后续升级验收 | `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Pending |
 
 ## 验收与证据
 
-- 自动化证明当前所有产品 manifest 与 workspace package version 都是 `0.0.7-review`，历史 `.1` 仍作为安装基线保留，`.2`、`.3`、`.4`、`.5`、`.6` 保留为已发布的中间 Review 更新。
+- 自动化证明当前所有产品 manifest 与 workspace package version 都是 `0.0.8-review`，历史 `.1` 仍作为安装基线保留，`.2`、`.3`、`.4`、`.5`、`.6`、`.7` 保留为已发布的中间 Review 更新。
 - 自动化证明 Review workflow 只读写 `channels/review/latest.json`，使用标准 GitHub-hosted 原生架构 Runner 执行三平台、签名、immutable 和 latest-last 校验，且全部发布 workflow 不包含 `self-hosted` 或自定义 Runner 标签。
 - 平台验收从全新安装开始；已有 `0.1.x` 测试安装必须验证不会收到 `0.0.1-review` 自动降级，并按指引手动重装。
 
@@ -62,6 +65,7 @@
 - 2026-08-10 Gmail live Provider 失败与根因：`/Applications/VaultMesh.app` `0.0.5-review` 添加 Gmail 在 authorization-code exchange 返回 HTTP 400。Google Console 截图显示现有 `VaultMesh Desktop` 类型为桌面设备；当时 binary 侧只确认了格式有效的 Google Client ID 与 Provider 接受的 credential pair，没有证明其与截图中的 exact client 相同。向 Google token endpoint 发送无真实账号、无真实 token、无 Client Secret 的无效授权码 probe 返回 `invalid_request`/`client_secret is missing`；加入配套 Client Secret 后进入预期的 `invalid_grant`/malformed-code 分支，证明 `.5` 的直接缺陷是 workflow 没有注入配套 secret，但尚未排除使用了其他有效 Client。四个 package workflow 与构建门禁改为注入并预检 credential pair；Rust OAuth exchange/refresh 只解析标准 `error` code 并映射为可操作的无 secret 错误。本机真实 credential pair Provider gate、Email OTP tests 12/12、完整 Tauri Rust lib 221 pass/1 ignored、lib Clippy、scripts 98/98、Tauri typecheck、docs check 与 diff check Pass；GitHub Actions repository 中两个 credential Secret 名称均已确认存在且未读取其值。`0.0.5-review` immutable artifact 不覆盖。
 - 2026-08-10 `.6` Gmail live correction：run `31397283749` 的三平台 credential-pair Provider probe、package、R2 publish 与六资产 Draft 均 Pass，但安装后 Gmail API 返回 HTTP 403。只读核对确认目标 Google 项目已启用 Gmail API、声明 `gmail.readonly` 且测试账号已登记；对 `.6` 与已安装 `.5` binary 仅做非输出布尔比对，二者 Client ID 相同但均不匹配已接受 `VaultMesh Desktop` 截图前缀。根因是原门禁只能证明 ID/Secret 彼此有效，不能拒绝属于其他 Google 项目的有效 credential pair；本地运行时环境变量优先于 build-time 值，因此正确本地变量掩盖了错误 CI 配置。GitHub Secrets 已更新；构建门禁新增已接受 Client 前缀校验，`.6` immutable artifact 不覆盖，`0.0.7-review` rebuild Pending。
 - 2026-08-10 `.7` Gmail credential correction：GitHub Actions [run `31402083758`](https://github.com/atlantis-mk/VaultMesh/actions/runs/31402083758)（source `0b64d18`）的三平台已接受 Client 前缀门禁、credential-pair Provider probe、原生 package、R2 latest-last publish 与六资产 Draft 全部 Pass；公开 Review manifest 为 `0.0.7-review`，恰含 `darwin-aarch64`、`darwin-x86_64`、`windows-x86_64` 且三个 HTTPS URL 的签名均非空。Draft `untagged-590266da3cb1aef7631a` 为 Draft + Prerelease、target source 与 run 一致。将 Intel DMG 下载到本机后只读挂载，主程序为 Mach-O x86_64，`.app` deep/strict code signature Pass；对 Mach-O 原始字节只做非输出布尔匹配，确认内嵌已接受 `VaultMesh Desktop` Client 前缀。`strings` 默认只扫描部分 Mach-O 区段，不能作为缺失判据。真实 Gmail 授权与读取 retest Pending，因此 Work 保持 Implementing。
+- 2026-08-11 `.7` Gmail granular-consent 根因：安装态 `.7` binary、版本、x86_64 架构、code signature 与已接受 Client 前缀均确认正确，Google Cloud 只读核对同时确认 Gmail API、`gmail.readonly` restricted scope、Testing audience 与测试用户配置正确；但本次 loopback callback 的非秘密 scope 集合只包含三个 Sign-In/身份 scope，`gmail.readonly` 布尔检查为 false，随后 Gmail API 返回 HTTP 403。根因是 OAuth 请求混合 `openid`/`email` 与 Gmail non-Sign-In scope 后触发 granular consent，而 runtime 未检查实际授予 scope。修复把 Gmail 请求收窄为唯一 `gmail.readonly`，Token response 缺少该 scope 时在持久化前返回可操作错误，并用 Gmail `users.getProfile` 的 `emailAddress` 替代 OpenID UserInfo；定向 Email OTP tests 14/14 Pass。`.7` immutable artifact 不覆盖，`.8` hosted rebuild 与 live Provider AT Pending。
 - 2026-08-10 Gmail OAuth package 配置修复：确认 `0.0.4-review` workflow 未注入 `VAULTMESH_GOOGLE_OAUTH_CLIENT_ID`，而 Rust 仅通过 `option_env!` 读取编译期值，因此已发布包运行时必然报告未配置。仓库级同名 GitHub Secret 已配置；完整 Review/Test 与 macOS/Windows experimental package workflow 现在显式注入，并共用可执行门禁拒绝缺失、空值、示例占位、错误 Provider 和带空白的值。OAuth/workflow 定向 tests 22/22、完整 `pnpm scripts:test` 90/90、四个 workflow YAML parse、`pnpm docs:check` 与 `git diff --check` Pass；`.4` immutable 资产未覆盖，`.5` hosted rebuild 证据见 run `31384139138`。
 - GitHub Actions run `31384139138`（source `8c856ce`）：Pass；Chrome/Firefox extension 29s，macOS ARM64、Intel x86_64、Windows x64 分别 12m03s、23m06s、23m36s，R2 publisher 50s、六资产 Draft 27s，完整 workflow 约 25m00s。三平台 OAuth 门禁均在构建前通过；公开 Review manifest 为 `0.0.5-review`，恰含 `darwin-aarch64`、`darwin-x86_64`、`windows-x86_64`，三个 signed updater URL 支持公网读取且签名非空。下载 ARM64 signed updater 后，仅以布尔匹配确认 desktop Mach-O 内嵌 `*.apps.googleusercontent.com` Client ID，未输出凭证值。Draft `untagged-38f78d8ea26d34082a7c` 为 Draft + Prerelease、target source 与 run 一致，两个 DMG、Windows NSIS/MSI、Chrome/Firefox ZIP 六个资产均为 `uploaded`，远端 `v0.0.5-review` Tag 不存在。
 - 同 run Cargo cache 证据：三个原生平台均因新 key 未命中，核心 Rust/Tauri release 阶段分别约 8m44s、17m22s、18m02s；末尾 cache save 在 ARM64 32s、Intel 29s、Windows 29s。pnpm 依赖缓存三平台均命中。后续优化应让 dependency cache key 不随 workspace 版本元数据变化，并评估拆分依赖缓存与 workspace release objects、只在受控分支保存或改用 Rust 专用 cache/sccache；不得以跳过原生目标构建替代发布验收。

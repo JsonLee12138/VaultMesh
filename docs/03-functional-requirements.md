@@ -260,7 +260,7 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 
 - 必须：`0.0.1-review` 是 fresh-install 基线；每个后续 Review build 的 workspace、Rust package、
   Tauri desktop、Chromium extension 和 Firefox extension 必须统一为同一个严格递增的规范 Review SemVer，当前更新版本为
-  `0.0.7-review`；打包输出和 updater descriptor 不得丢失 `review` prerelease 标识。
+  `0.0.8-review`；打包输出和 updater descriptor 不得丢失 `review` prerelease 标识。
 - 必须：Review build 从编译期固定的 HTTPS `channels/review/latest.json` 检查更新，并继续使用
   `REQ-UPDATE-001` 的 Rust-owned 检查、用户确认、Tauri 签名验证、安装前 lock/cleanup 和 latest-last
   发布、Cargo cache 与失败任务恢复约束；完整 Review 发布同样必须使用三个标准 GitHub-hosted 原生架构
@@ -580,6 +580,7 @@ managed web 或 protected-action 工具完成受支持的任务。
 ### REQ-EMAIL-001 Provider 授权与只读访问
 
 - 必须：Gmail/Outlook 使用 OAuth API，其他 Provider 使用 TLS read-only IMAP；Token/app password 保存在加密内部记录中。
+- 必须：Gmail 只请求 `gmail.readonly`，通过 Gmail Profile 获取邮箱地址，并在保存账户前拒绝未实际授予该 scope 的部分授权；不得把身份 Sign-In scope 成功误判为 Gmail 读取授权成功。
 - 验收：`CT-EMAIL-001`、`AT-EMAIL-001`。
 
 ### REQ-EMAIL-002 候选生命周期

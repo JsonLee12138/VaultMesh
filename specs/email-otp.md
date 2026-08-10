@@ -13,14 +13,14 @@
 
 ## Gmail
 
-Gmail 使用 Desktop OAuth client、Gmail API 和 scopes `openid`、`email`、`https://www.googleapis.com/auth/gmail.readonly`：
+Gmail 使用 Desktop OAuth client、Gmail API 和唯一 scope `https://www.googleapis.com/auth/gmail.readonly`：
 
 ```sh
 VAULTMESH_GOOGLE_OAUTH_CLIENT_ID="...apps.googleusercontent.com"
 VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET="..." # provider 实际签发时才设置
 ```
 
-OAuth 使用 system browser、随机 `127.0.0.1` loopback port、state validation 和 PKCE S256。Restricted Gmail scope 的公开发行必须完成 Provider verification。选中 message 以 raw form 获取，只在内存解析。
+OAuth 使用 system browser、随机 `127.0.0.1` loopback port、state validation 和 PKCE S256。Gmail 授权不得混合请求 `openid`/`email` Sign-In scopes，避免 Google granular consent 允许只授予身份信息却拒绝邮件读取；authorization-code exchange 后必须检查 Provider 返回的实际 scope，缺少 `gmail.readonly` 时不得保存账户，并返回不包含 Token 或 Provider 正文的可操作错误。邮箱地址必须通过同一 `gmail.readonly` authority 调用 Gmail `users.getProfile` 读取。Restricted Gmail scope 的公开发行必须完成 Provider verification。选中 message 以 raw form 获取，只在内存解析。
 
 Client ID 可以由构建环境直接注入，或在仓库根目录的未跟踪 `.env` 中配置；Tauri build script
 把 Google Desktop OAuth Client ID、provider 实际签发的 Client Secret 和 Microsoft tenant
@@ -75,4 +75,4 @@ Non-secret polling policy 可以写 Tauri user-data；Provider secret 必须留�
 运行 `pnpm tauri:typecheck` 和 `pnpm tauri:test`。Rust CT 必须覆盖 encrypted account CRUD、
 renderer redaction、TLS policy、OTP parsing、dedup、poll、expiry、lock cleanup 和 OAuth
 state/PKCE 边界。真实 Gmail、Outlook 与代表性 IMAP Provider 仍必须执行 `AT-EMAIL-001/002`；
-Provider Client ID、权限审查和 live AT 未完成时平台状态保持 Not Run。
+Provider Client ID、实际授予 scope、权限审查和 live AT 未完成时平台状态保持 Not Run。

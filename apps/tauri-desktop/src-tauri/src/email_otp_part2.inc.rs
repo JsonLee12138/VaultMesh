@@ -405,6 +405,8 @@ fn update_oauth_credential(
     Ok(())
 }
 
+const GMAIL_READONLY_SCOPE: &str = "https://www.googleapis.com/auth/gmail.readonly";
+
 fn authorize(provider: &str, now: u64) -> Result<(OAuthCredential, String), String> {
     let listener =
         TcpListener::bind(("127.0.0.1", 0)).map_err(|_| "无法启动 OAuth 本地回调。".to_owned())?;
@@ -425,7 +427,7 @@ fn authorize(provider: &str, now: u64) -> Result<(OAuthCredential, String), Stri
         (
             required_env("VAULTMESH_GOOGLE_OAUTH_CLIENT_ID")?,
             "https://accounts.google.com/o/oauth2/v2/auth".to_owned(),
-            "openid email https://www.googleapis.com/auth/gmail.readonly",
+            GMAIL_READONLY_SCOPE,
         )
     } else {
         (
@@ -455,6 +457,11 @@ fn authorize(provider: &str, now: u64) -> Result<(OAuthCredential, String), Stri
         verifier.as_str(),
         code.as_str(),
     )?;
+    if provider == "gmail" && !gmail_readonly_granted(&token.scope) {
+        return Err(
+            "未授予 Gmail 阅读权限，请重新连接并允许查看您的电子邮件及设置。".to_owned(),
+        );
+    }
     let credential = OAuthCredential {
         access_token: std::mem::take(&mut token.access_token),
         refresh_token: token.refresh_token.take(),
@@ -463,6 +470,12 @@ fn authorize(provider: &str, now: u64) -> Result<(OAuthCredential, String), Stri
     };
     let address = oauth_address(provider, &credential.access_token)?;
     Ok((credential, address))
+}
+
+fn gmail_readonly_granted(scope: &str) -> bool {
+    scope
+        .split_whitespace()
+        .any(|granted| granted == GMAIL_READONLY_SCOPE)
 }
 
 fn wait_for_callback(listener: &TcpListener) -> Result<String, String> {
@@ -577,12 +590,12 @@ fn oauth_address(provider: &str, access_token: &str) -> Result<String, String> {
     let value: Value = if provider == "gmail" {
         checked(
             client
-                .get("https://openidconnect.googleapis.com/v1/userinfo")
+                .get("https://gmail.googleapis.com/gmail/v1/users/me/profile")
                 .bearer_auth(access_token)
                 .send(),
         )?
         .json()
-        .map_err(|_| "Google 账户信息无效。".to_owned())?
+        .map_err(|_| "Gmail 账户信息无效。".to_owned())?
     } else {
         checked(
             client
@@ -594,10 +607,18 @@ fn oauth_address(provider: &str, access_token: &str) -> Result<String, String> {
         .json()
         .map_err(|_| "Microsoft 账户信息无效。".to_owned())?
     };
-    value
-        .get("email")
-        .or_else(|| value.get("mail"))
-        .or_else(|| value.get("userPrincipalName"))
+    provider_address(provider, &value)
+}
+
+fn provider_address(provider: &str, value: &Value) -> Result<String, String> {
+    let address = if provider == "gmail" {
+        value.get("emailAddress")
+    } else {
+        value
+            .get("mail")
+            .or_else(|| value.get("userPrincipalName"))
+    };
+    address
         .and_then(Value::as_str)
         .filter(|value| value.contains('@') && value.len() <= 320)
         .map(ToOwned::to_owned)

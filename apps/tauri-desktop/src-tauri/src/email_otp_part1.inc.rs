@@ -190,6 +190,8 @@ struct TokenResponse {
     access_token: String,
     #[serde(default)]
     refresh_token: Option<String>,
+    #[serde(default)]
+    scope: String,
     #[serde(default = "default_expires_in")]
     expires_in: u64,
     #[serde(default = "default_token_type")]
@@ -202,6 +204,7 @@ impl Drop for TokenResponse {
         if let Some(value) = &mut self.refresh_token {
             value.zeroize();
         }
+        self.scope.zeroize();
     }
 }
 

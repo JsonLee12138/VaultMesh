@@ -2,8 +2,8 @@ id: "CHG-2026-030-review-version-baseline"
 title: "以 0.0.1-review 建立独立 Review 发布基线"
 type: "migration"
 status: "Implementing"
-spec_revision: "0.1.46-active"
-target_release: "0.0.7-review"
+spec_revision: "0.1.47-active"
+target_release: "0.0.8-review"
 requirements:
   - "REQ-UPDATE-002"
   - "REQ-EMAIL-001"
@@ -34,6 +34,7 @@ affected_surfaces:
   - "GitHub Draft Prerelease assets"
   - "Windows x64 Review packaging"
   - "Gmail Desktop OAuth build configuration"
+  - "Gmail OAuth consent and granted-scope validation"
 affected_formats:
   - "Tauri v2 updater static JSON"
 affected_versions:
@@ -46,6 +47,7 @@ affected_versions:
   - "0.0.5-review"
   - "0.0.6-review"
   - "0.0.7-review"
-security_impact: "Review artifacts continue to require Tauri updater signatures. The review channel uses the existing public verification key and CI-only private key, but remains isolated from the existing test channel so a lower version cannot overwrite or downgrade installed test builds. Gmail Desktop OAuth Client ID and provider-issued Client Secret are injected from CI Secrets into the public-client binary; the Desktop Client Secret is not an authentication boundary, and OAuth authority continues to rely on PKCE, state and loopback callback validation."
+  - "0.0.8-review"
+security_impact: "Review artifacts continue to require Tauri updater signatures. The review channel uses the existing public verification key and CI-only private key, but remains isolated from the existing test channel so a lower version cannot overwrite or downgrade installed test builds. Gmail Desktop OAuth Client ID and provider-issued Client Secret are injected from CI Secrets into the public-client binary; the Desktop Client Secret is not an authentication boundary, and OAuth authority continues to rely on PKCE, state, loopback callback validation and explicit verification that the Provider actually granted gmail.readonly."
 migration: "0.0.1-review is a fresh-install Review baseline. Existing 0.1.x test installations cannot auto-downgrade and must be manually replaced if they join the Review channel; Vault format, settings, pairing, RPC and ABI are unchanged."
 supersedes: []

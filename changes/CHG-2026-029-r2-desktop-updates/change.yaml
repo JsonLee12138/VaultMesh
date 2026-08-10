@@ -2,7 +2,7 @@ id: "CHG-2026-029-r2-desktop-updates"
 title: "通过 Cloudflare R2 分发 Tauri 测试更新"
 type: "feature"
 status: "Implementing"
-spec_revision: "0.1.46-active"
+spec_revision: "0.1.47-active"
 target_release: "0.1.0-development"
 requirements:
   - "REQ-UPDATE-001"
@@ -31,6 +31,7 @@ affected_surfaces:
   - "macOS and Windows packaging"
   - "GitHub Actions release pipeline"
   - "Gmail Desktop OAuth build configuration"
+  - "Gmail OAuth consent and granted-scope validation"
   - "Cloudflare R2 update channel"
 affected_formats:
   - "Tauri v2 updater static JSON"

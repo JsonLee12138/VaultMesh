@@ -209,6 +209,35 @@ fn oauth_callback_requires_matching_state_and_pkce_is_stable() {
 }
 
 #[test]
+fn gmail_oauth_requires_readonly_scope_and_uses_gmail_profile_address() {
+    assert!(gmail_readonly_granted(GMAIL_READONLY_SCOPE));
+    assert!(gmail_readonly_granted(&format!(
+        "openid {GMAIL_READONLY_SCOPE} email"
+    )));
+    assert!(!gmail_readonly_granted(
+        "openid email https://www.googleapis.com/auth/userinfo.email"
+    ));
+    assert!(!gmail_readonly_granted(
+        "https://www.googleapis.com/auth/gmail.metadata"
+    ));
+
+    assert_eq!(
+        provider_address(
+            "gmail",
+            &json!({"emailAddress": "owner@example.test"})
+        )
+        .expect("gmail profile address"),
+        "owner@example.test"
+    );
+    assert!(provider_address("gmail", &json!({"email": "wrong@example.test"})).is_err());
+    assert_eq!(
+        provider_address("outlook", &json!({"userPrincipalName": "owner@example.test"}))
+            .expect("outlook address"),
+        "owner@example.test"
+    );
+}
+
+#[test]
 fn oauth_provider_errors_are_actionable_without_exposing_provider_details() {
     assert_eq!(
         oauth_error_message("gmail", OAuthPhase::Exchange, 400, Some("invalid_request")),
