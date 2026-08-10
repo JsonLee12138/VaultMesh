@@ -1,6 +1,6 @@
 {
   "name": "@vaultmesh/browser-extension",
-  "version": "0.0.2-review",
+  "version": "0.0.3-review",
   "description": "VaultMesh Chromium MV3 extension",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",

@@ -652,15 +652,22 @@ pub(super) fn show_main_window(app: &AppHandle) {
     let _ = window.set_focus();
 }
 
+#[cfg(target_os = "macos")]
+pub(crate) const DESKTOP_TRAY_ICON_BYTES: &[u8] =
+    include_bytes!("../../resources/tray-iconTemplate@2x.png");
+
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(super) fn setup_desktop_tray(app: &mut tauri::App) -> tauri::Result<()> {
     let show = MenuItem::with_id(app, TRAY_SHOW_ID, "显示 VaultMesh", true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let quit = MenuItem::with_id(app, TRAY_QUIT_ID, "退出 VaultMesh", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&show, &separator, &quit])?;
-    let icon = Image::from_bytes(include_bytes!("../../resources/tray-iconTemplate.png"))?;
+    #[cfg(target_os = "macos")]
+    let icon = Image::from_bytes(DESKTOP_TRAY_ICON_BYTES)?;
+    #[cfg(target_os = "windows")]
+    let icon = crate::windows_tray_theme::current_tray_icon()?;
 
-    TrayIconBuilder::with_id("vaultmesh-status-bar")
+    TrayIconBuilder::with_id(DESKTOP_TRAY_ID)
         .icon(icon)
         .icon_as_template(cfg!(target_os = "macos"))
         .tooltip("VaultMesh")
@@ -684,5 +691,7 @@ pub(super) fn setup_desktop_tray(app: &mut tauri::App) -> tauri::Result<()> {
             }
         })
         .build(app)?;
+    #[cfg(target_os = "windows")]
+    crate::windows_tray_theme::start_tray_theme_watcher(app.handle().clone());
     Ok(())
 }

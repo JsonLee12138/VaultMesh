@@ -27,7 +27,7 @@ concurrency:
 jobs:
   publish:
     name: Resume immutable artifacts then test channel
-    runs-on: [self-hosted, vaultmesh-local-publish]
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}

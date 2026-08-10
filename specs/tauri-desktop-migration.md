@@ -82,7 +82,9 @@ Vault 只写入和读取 format 3。Tauri 主密码、quick unlock、Browser、A
 Browser RPC 2 和 extension wire contract 保持不变。Tauri 使用正式 app identifier、独立 user-data、browser-host
 identifier、socket/pipe 和 updater channel。Test 与 Review updater channel 均由 Rust runtime 独占，固定 HTTPS
 endpoint 与 public key 编入对应 release build，renderer 不获得 updater plugin capability；两个 channel 的 manifest
-必须隔离，版本化 artifact 先发布，静态 channel manifest 最后原子切换，且各自不允许 downgrade。`0.0.1-review`
+必须隔离，版本化 artifact 先发布，静态 channel manifest 最后原子切换，且各自不允许 downgrade。完整发布流水线
+使用标准 GitHub-hosted Runner 分别在原生 macOS ARM64、macOS Intel 和 Windows x64 环境构建，不依赖自定义
+Runner 标签。`0.0.1-review`
 是独立 Review fresh-install 基线；小规模验收可以在 immutable artifact 就绪后先发布只含已验证目标平台的
 阶段性 Review manifest，使基线检查返回无更新，并在相同 current version 下只追加 artifact 后续就绪且尚不存在的
 目标平台；追加必须保持 version、notes、pub_date 与全部既有 platform entry 不变。该清单不构成完整三平台 Review 发布。

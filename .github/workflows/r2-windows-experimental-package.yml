@@ -37,7 +37,7 @@ jobs:
   build_and_publish:
     name: Build and publish Windows x64 on Windows
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, Windows, X64, vaultmesh-windows-native]
+    runs-on: windows-2022
     timeout-minutes: 90
     env:
       RELEASE_VERSION: ${{ inputs.version }}
@@ -110,7 +110,7 @@ jobs:
           Set-Content -LiteralPath $probe -Encoding ascii -Value "WScript.Quit 0"
           & "$env:SystemRoot\System32\cscript.exe" //NoLogo $probe
           if ($LASTEXITCODE -ne 0) {
-            throw "WiX MSI validation requires the Windows VBScript optional feature. Install VBScript on this self-hosted runner before packaging MSI."
+            throw "WiX MSI validation requires the Windows VBScript optional feature on the hosted runner image."
           }
       - name: Install toolchain and dependencies
         run: |

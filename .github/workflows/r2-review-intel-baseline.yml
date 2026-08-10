@@ -6,7 +6,7 @@ on:
       version:
         description: "Strictly increasing Intel macOS Review SemVer"
         required: true
-        default: "0.0.2-review"
+        default: "0.0.3-review"
         type: string
 
 permissions:
@@ -20,7 +20,7 @@ jobs:
   publish:
     name: Publish Intel-only staged Review manifest
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, macOS, X64, vaultmesh-macos-native]
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     env:
       RELEASE_VERSION: ${{ inputs.version }}

@@ -9,11 +9,10 @@ VaultMesh 需要一个不购买 Apple/Windows 代码签名证书、适合小规�
 - `REQ-UPDATE-001`：release build 在启动后和有界周期内从固定 HTTPS test channel 检查更高 SemVer；发现更新时由原生对话框让用户选择立即更新或稍后处理。
 - macOS/Windows release build 在原生 VaultMesh 应用菜单提供“检查更新…”；主动检查与后台检查互斥，并对无更新和检查失败显示明确反馈。
 - 用户确认后，Rust runtime 必须先锁定 Vault、撤销 Agent/Browser 临时 authority 并清理敏感临时资源，再下载和安装通过内置 public key 验证的更新。取消、网络失败、无更新或签名失败不得退出当前应用或发布成功状态。
-- Windows x86_64、macOS aarch64 和 macOS x86_64 必须分别生成 Tauri v2 updater artifact；无 Apple/Windows 发布证书的测试产物可以显示 Gatekeeper/SmartScreen 警告，但 Tauri 更新签名不可关闭。
+- Windows x86_64、macOS aarch64 和 macOS x86_64 必须分别在标准 GitHub-hosted 原生目标 Runner 生成 Tauri v2 updater artifact；发布 workflow 不依赖 self-hosted 或自定义 Runner 标签。无 Apple/Windows 发布证书的测试产物可以显示 Gatekeeper/SmartScreen 警告，但 Tauri 更新签名不可关闭。
 - 发布必须先写入版本化不可变对象，校验三平台清单完整性后最后替换 `channels/test/latest.json`。R2 写凭据和 updater private key 只存在 CI secret；public URL、bucket name 与 updater public key 可以作为 CI variable。
-- Windows target Runner 可以用独立 workflow 在同一个 Windows job 内生成作为 updater 的 Windows NSIS artifact 和额外 MSI 手动安装包，并直接上传到 immutable experimental prefix，不通过其他 Runner 或 GitHub artifact 中转；该路径不得修改 test channel，也不得作为 Windows AT 证据。
-- macOS target Runner 可以用独立 workflow 在同一个与目标架构匹配的 macOS job 内生成 updater archive 和 DMG，并直接上传到 immutable experimental prefix，不通过其他 Runner 或 GitHub artifact 中转；该路径不得修改 test channel，也不得作为 macOS AT 证据。
-- 为获得小规模安装反馈，Intel macOS Runner 可以在同一 macOS job 内交叉构建并直接发布 ARM64 updater archive 和 DMG；该链接必须标记 cross-built，且不得修改 test channel、不得作为 macOS ARM AT 或替代目标架构原生构建。
+- 标准 GitHub-hosted Windows target Runner 可以用独立 workflow 在同一个 Windows job 内生成作为 updater 的 Windows NSIS artifact 和额外 MSI 手动安装包，并直接上传到 immutable experimental prefix，不通过其他 Runner 或 GitHub artifact 中转；该路径不得修改 test channel，也不得作为 Windows AT 证据。
+- 标准 GitHub-hosted macOS target Runner 可以用独立 workflow 在同一个与目标架构匹配的 macOS job 内生成 updater archive 和 DMG，并直接上传到 immutable experimental prefix，不通过其他 Runner 或 GitHub artifact 中转；该路径不得修改 test channel，也不得作为 macOS AT 证据。
 
 ## 非目标
 
@@ -45,20 +44,23 @@ VaultMesh 需要一个不购买 Apple/Windows 代码签名证书、适合小规�
 | `UPD-006` | `REQ-UPDATE-001` | Windows target NSIS updater、MSI 手动安装包与 R2 experimental direct links | `CT-UPDATE-001` | Implemented；single-runner build/R2 public verification Pass；Windows AT Pending |
 | `UPD-007` | `REQ-UPDATE-001` | Windows 覆盖安装前注销并停止仍占用安装目录的 Browser Native Host | `CT-UPDATE-001`, `AT-UPDATE-WINDOWS-001` | Implemented；Windows package retest Pending |
 | `UPD-008` | `REQ-UPDATE-001` | macOS target updater archive、DMG 与 R2 experimental direct links | `CT-UPDATE-001` | Implemented；single-runner build/R2 public verification Pass；macOS AT Pending |
-| `UPD-009` | `REQ-UPDATE-001` | Intel macOS Runner 交叉构建 ARM64 updater archive、DMG 与明确标记的 R2 experimental direct links | `CT-UPDATE-001` | Implemented；cross-build/R2 public verification Pass；macOS ARM AT Pending |
+| `UPD-009` | `REQ-UPDATE-001` | Intel macOS Runner 交叉构建 ARM64 updater archive、DMG 与明确标记的 R2 experimental direct links | `CT-UPDATE-001` | Historical evidence only；由 `UPD-010` 原生 hosted ARM64 路径替代 |
+| `UPD-010` | `REQ-UPDATE-001` | 标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 原生构建与 Ubuntu 发布；全部发布 workflow 无自定义 Runner 标签 | `CT-UPDATE-001` | Implemented；workflow contract Pass；目标平台真实 package run Pending |
 
 ## 验收与证据
 
 - 自动化必须拒绝非法版本、HTTP endpoint、缺失/空签名、未知/重复 platform、缺少任一目标平台、非版本化 artifact URL 和把 secret 写入生成文件。
-- macOS aarch64/x86_64 与 Windows x86_64 package/updater artifact 必须在对应目标 OS/architecture 的原生 runner 生成；平台 AT 不得由本机交叉编译或 config-only 测试替代。
+- macOS aarch64/x86_64 与 Windows x86_64 package/updater artifact 必须分别在标准 GitHub-hosted `macos-15`、`macos-15-intel`、`windows-2025` 原生 Runner 生成，发布 job 使用标准 Ubuntu Runner；全部发布 workflow 必须拒绝 `self-hosted` 或自定义 Runner 标签。平台 AT 不得由本机交叉编译或 config-only 测试替代。
 - 平台 AT 必须从旧版安装开始，覆盖无更新、用户取消、成功更新、篡改 artifact/签名拒绝、网络失败、Vault unlocked 时确认更新后的 lock/cleanup，以及 Windows installer exit/macOS restart。
 - macOS AT 必须从原生应用菜单触发主动检查，覆盖无更新、检查失败、发现更新，以及与后台自动检查重叠时不产生重复检查或对话框。
 - Windows AT 必须从原生“帮助”菜单触发主动检查，覆盖无更新、检查失败、发现更新，以及与后台自动检查重叠时不产生重复检查或对话框。
 - Windows experimental package 必须在单个 Windows target Runner job 内生成并直接发布，验证 PE x86_64、NSIS updater/installer、MSI 手动安装包、updater signature、immutable digest 与 R2 回读一致性，并证明发布前后的 `channels/test/latest.json` 字节不变；不得通过其他 Runner 或 GitHub artifact 中转，且它不替代 Windows AT。
 - macOS experimental package 必须在单个、与目标架构匹配的 macOS target Runner job 内生成并直接发布，验证主程序与特权 sidecar 的 Mach-O 目标架构及 macOS 12.0 deployment target、`.app` code signature、DMG 可读性、updater signature、immutable digest 与 R2 回读一致性，并证明发布前后的 `channels/test/latest.json` 字节不变；不得通过其他 Runner 或 GitHub artifact 中转，且它不替代 macOS AT。
-- Intel macOS Runner 交叉构建 ARM64 experimental package 时，必须在同一 job 内验证主程序与全部特权 sidecar 均为 Mach-O arm64、macOS 12.0 deployment target、`.app` code signature、DMG 可读性、updater signature、immutable digest 与 R2 回读一致性，并证明发布前后的 `channels/test/latest.json` 字节不变；所有摘要和链接必须标记 cross-built，不得通过其他 Runner 或 GitHub artifact 中转，且它不替代 Apple Silicon 原生 package 或 macOS ARM AT。
+- macOS experimental package 必须根据目标选择标准 GitHub-hosted ARM64 或 Intel Runner，并在同一原生架构 job 内验证主程序与全部特权 sidecar 的 Mach-O architecture、macOS 12.0 deployment target、`.app` code signature、DMG 可读性、updater signature、immutable digest 与 R2 回读一致性；不得通过其他 Runner 或 GitHub artifact 中转，且它不替代 macOS AT。
 
 自动化证据（2026-08-05 至 2026-08-06）：
+
+- 2026-08-10 发布流水线迁移：`r2-test-update.yml` 与 `r2-review-release.yml` 固定使用 `macos-15` ARM64、`macos-15-intel` x86_64、`windows-2025` x64 和 `ubuntu-24.04` publisher，并在 build job 中断言 Node host platform/architecture 与目标一致；历史 resume、staged 和 experimental workflow 也全部迁到标准 GitHub-hosted Runner，仓库工作流不再包含 `self-hosted`。全部 workflow YAML parse Pass；`pnpm scripts:test`：78/78 Pass；目标平台真实 package run Pending。
 
 - Windows 真机覆盖安装 `0.1.1-test.2` 时，NSIS 报告无法写入 `%LOCALAPPDATA%\VaultMesh\vaultmesh-native-host.exe`；现有 hooks 只有 post-install 注册与 pre-uninstall 注销，没有在覆盖复制前阻止 Chromium 重连并停止仍持有旧 EXE 的 Native Host。修复在 `NSIS_HOOK_PREINSTALL` 中先注销 Chrome/Edge Host、再有界终止该 current-user Host，并在安装后恢复注册；Windows 新 package 复测前不得把该 AT 记为 Pass。
 - 修复进入 `main@58f4320` 后触发的原生 Windows `0.1.1-test.3` build [30985556390](https://github.com/atlantis-mk/VaultMesh/actions/runs/30985556390) 未获得 runner、没有执行任何 step；GitHub annotation 明确为近期付款失败或 spending limit 不足。该外部门禁解除或接入真实 Windows self-hosted runner 前，不能生成包含本修复的新安装包。

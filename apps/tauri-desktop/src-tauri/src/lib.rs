@@ -13,9 +13,10 @@ use serde_json::{Value, json};
 #[cfg(any(target_os = "windows", test))]
 use tauri::menu::Submenu;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent};
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
+use tauri::image::Image;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use tauri::{
-    image::Image,
     menu::{Menu, MenuItem, PredefinedMenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
 };
@@ -92,6 +93,8 @@ mod ssh_host_setup;
 mod ssh_scan;
 mod ssh_service;
 mod ssh_tools;
+#[cfg(any(target_os = "windows", test))]
+mod windows_tray_theme;
 
 use agent_admin::*;
 use agent_authorization_store::AgentAuthorizationStore;
@@ -168,6 +171,8 @@ pub use browser_broker::{
 use browser_integration_windows::{BrowserIntegrationError, WindowsBrowserIntegration};
 
 const MAX_COMMAND_BYTES: usize = 1024 * 1024;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+const DESKTOP_TRAY_ID: &str = "vaultmesh-status-bar";
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 const TRAY_SHOW_ID: &str = "vaultmesh-tray-show";
 #[cfg(any(target_os = "macos", target_os = "windows"))]

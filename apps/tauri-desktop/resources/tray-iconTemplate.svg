@@ -1,10 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36">
-  <title>VaultMesh macOS menu bar icon</title>
-  <g fill="none" stroke="#000" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M18 3.5 30.5 10.7v14.6L18 32.5 5.5 25.3V10.7Z" stroke-width="2.4"/>
-    <path d="m18 3.5 12.5 21.8M30.5 10.7l-25 14.6M5.5 10.7l25 14.6M18 32.5 5.5 10.7" stroke-width="1.7" opacity=".72"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" role="img" aria-labelledby="title desc">
+  <title id="title">VaultMesh macOS menu bar icon</title>
+  <desc id="desc">A safe front with a three-spoke mechanical vault dial and side handle.</desc>
+  <defs>
+    <mask id="safe-body-cutouts">
+      <rect width="36" height="36" fill="#fff"/>
+      <circle cx="17" cy="17" r="12" fill="#000"/>
+      <path d="M31.5 7H35v5.8c0 .65-.3 1.15-.75 1.6v5.2c.45.45.75.95.75 1.6V28h-3.5c-1.1 0-2-.9-2-2v-4.8c0-.65.3-1.15.75-1.6v-5.2c-.45-.45-.75-.95-.75-1.6V9c0-1.1.9-2 2-2Z" fill="#000"/>
+    </mask>
+  </defs>
+
+  <g fill="#000" mask="url(#safe-body-cutouts)">
+    <rect width="36" height="34" rx="4"/>
+    <rect x="4" y="32" width="5" height="4" rx="1"/>
+    <rect x="25" y="32" width="5" height="4" rx="1"/>
   </g>
-  <path d="M18 8a10 10 0 1 1 0 20 10 10 0 0 1 0-20Zm0 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14Z" fill="#000" fill-rule="evenodd"/>
-  <path d="M18 14.2a2.8 2.8 0 0 0-1.25 5.3l-.8 3.35h4.1l-.8-3.35A2.8 2.8 0 0 0 18 14.2Z" fill="#000"/>
+
+  <path d="M17 6.7a10.3 10.3 0 1 1 0 20.6 10.3 10.3 0 0 1 0-20.6Zm0 1.8a8.5 8.5 0 1 0 0 17 8.5 8.5 0 0 0 0-17Z" fill="#000" fill-rule="evenodd"/>
+  <path d="M17 8.5v4.7M9.64 21.25l4.06-2.35M24.36 21.25 20.3 18.9" fill="none" stroke="#000" stroke-width="1.8" stroke-linecap="square"/>
+  <circle cx="17" cy="17" r="3.8" fill="#000"/>
+
+  <path d="M31.7 8.3h1.1c.65 0 1.2.55 1.2 1.2v3.2c0 .55-.25.95-.65 1.35v5.9c.4.4.65.8.65 1.35v4.4c0 .65-.55 1.2-1.2 1.2h-1.1c-.65 0-1.2-.55-1.2-1.2v-4.4c0-.55.25-.95.65-1.35v-5.9c-.4-.4-.65-.8-.65-1.35V9.5c0-.65.55-1.2 1.2-1.2Z" fill="#000"/>
 </svg>

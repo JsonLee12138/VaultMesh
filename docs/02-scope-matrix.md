@@ -8,8 +8,8 @@
 | --- | --- | --- | --- |
 | Electron desktop | Out | Out | 源码已由 `CHG-2026-008` 移除；旧加密 user-data 暂时保留 |
 | Tauri 2 desktop | Required | Required | 唯一产品 shell；平台发布验收仍由 `CHG-2026-004` 跟踪 |
-| R2 test-channel 自动更新 | Required（aarch64/x86_64） | Required（x86_64） | `CHG-2026-029` 实现；Tauri 更新签名强制，Apple/Windows 代码签名不属于测试通道完成条件，目标平台 AT 未完成前为 Partial |
-| R2 Review 发布基线 | Required（aarch64/x86_64） | Required（x86_64） | `CHG-2026-030` 以 `0.0.1-review` 为 fresh-install 基线，当前统一版本为 `0.0.2-review`，并使用独立 `channels/review/latest.json`；允许先发布只含已验证目标平台的阶段性 manifest 进行小规模验收，并在同版本 immutable artifact 就绪后追加缺失平台，但不计为完整 Review 发布或平台 AT；既有 `0.1.x` test 安装不得自动降级，目标平台 AT 未完成前为 Partial |
+| R2 test-channel 自动更新 | Required（aarch64/x86_64） | Required（x86_64） | `CHG-2026-029` 实现；完整发布固定使用标准 GitHub-hosted 原生架构 Runner，不依赖 self-hosted 标签；Tauri 更新签名强制，Apple/Windows 代码签名不属于测试通道完成条件，目标平台 AT 未完成前为 Partial |
+| R2 Review 发布基线 | Required（aarch64/x86_64） | Required（x86_64） | `CHG-2026-030` 以 `0.0.1-review` 为 fresh-install 基线，当前统一版本为 `0.0.3-review`，并使用独立 `channels/review/latest.json`；完整发布固定使用标准 GitHub-hosted 原生架构 Runner；允许先发布只含已验证目标平台的阶段性 manifest 进行小规模验收，并在同版本 immutable artifact 就绪后追加缺失平台，但不计为完整 Review 发布或平台 AT；既有 `0.1.x` test 安装不得自动降级，目标平台 AT 未完成前为 Partial |
 | Tauri 登录时静默启动 | Required | Required | `CHG-2026-019` 实现；默认启用、保持锁定并可由用户关闭，目标平台 AT 未完成前保持发布 Gate |
 | Tauri 窗口内容捕获保护 | Required（启用平台提示；现代 macOS 不承诺通用截屏阻断） | Required（Windows 10 2004+ 公共系统捕获排除） | `CHG-2026-018` 实现；目标平台 AT 未完成前保持发布 Gate |
 | Chromium extension + native host | Required | Required | 实现存在；发布安装/签名验证待完成 |

@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       platform:
-        description: "macOS target platform; ARM64 is cross-built on the Intel runner"
+        description: "macOS target platform; each target uses its matching GitHub-hosted architecture"
         required: true
         default: darwin-x86_64
         type: choice
@@ -33,9 +33,9 @@ concurrency:
 
 jobs:
   build_and_publish:
-    name: Build and publish ${{ inputs.platform }} on Intel macOS
+    name: Build and publish ${{ inputs.platform }} on GitHub-hosted macOS
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, macOS, X64, vaultmesh-macos-native]
+    runs-on: ${{ inputs.platform == 'darwin-aarch64' && 'macos-15' || 'macos-15-intel' }}
     timeout-minutes: 90
     env:
       RELEASE_VERSION: ${{ inputs.version }}
@@ -43,7 +43,7 @@ jobs:
       UPDATER_CHANNEL: ${{ inputs.channel }}
       TARGET_TRIPLE: ${{ inputs.platform == 'darwin-aarch64' && 'aarch64-apple-darwin' || 'x86_64-apple-darwin' }}
       MACHO_ARCH: ${{ inputs.platform == 'darwin-aarch64' && 'arm64' || 'x86_64' }}
-      CROSS_BUILT: ${{ inputs.platform == 'darwin-aarch64' && 'true' || 'false' }}
+      HOST_ARCH: ${{ inputs.platform == 'darwin-aarch64' && 'arm64' || 'x86_64' }}
       APPLE_SIGNING_IDENTITY: "-"
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
@@ -84,11 +84,11 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - name: Verify Intel macOS build runner
+      - name: Verify native macOS build runner
         run: |
           set -euo pipefail
           [[ "$(uname -s)" == "Darwin" ]]
-          [[ "$(uname -m)" == "x86_64" ]]
+          [[ "$(uname -m)" == "$HOST_ARCH" ]]
           xcodebuild -version
       - name: Install toolchain and dependencies
         run: |
@@ -122,10 +122,6 @@ jobs:
             file "$sidecar" | grep -F "Mach-O 64-bit executable $MACHO_ARCH"
             vtool -show-build "$sidecar" | grep -F "minos 12.0"
           done
-          if [[ "$CROSS_BUILT" == "true" ]]; then
-            [[ "$TARGET_PLATFORM" == "darwin-aarch64" ]]
-            [[ "$(uname -m)" == "x86_64" ]]
-          fi
           codesign --verify --deep --strict "$app"
           shopt -s nullglob
           dmgs=("$RUNNER_TEMP/vaultmesh-macos-experimental"/*.dmg)
@@ -246,9 +242,9 @@ jobs:
             curl --fail --silent --show-error --head "$url" >/dev/null
           done
           {
-            if [[ "$CROSS_BUILT" == "true" ]]; then
-              build_label="macOS ARM64 cross-built on Intel"
-              evidence="Cross-built experimental package: not native Apple Silicon package or macOS ARM AT evidence."
+            if [[ "$TARGET_PLATFORM" == "darwin-aarch64" ]]; then
+              build_label="macOS Apple Silicon native"
+              evidence="Native Apple Silicon experimental package: not macOS ARM AT evidence."
             else
               build_label="macOS Intel native"
               evidence="Native Intel experimental package: not macOS AT evidence."

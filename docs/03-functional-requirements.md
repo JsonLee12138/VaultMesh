@@ -202,13 +202,17 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
   N-API、SwiftUI/WinUI presentation 或长期 Node sidecar。
 - 必须：renderer、typed API/contracts、Browser RPC policy、UI tests 和 product assets 由
   Tauri 路径拥有；workspace、默认脚本、lockfile 和 CI 不得保留 Electron/Native build owner。
+- 必须：macOS 系统托盘使用平台模板图标；Windows 系统托盘在启动时按 Windows 系统明暗模式
+  选择高对比度黑/白图标，并在模式变化后无需重启立即更新。
 - 必须：源码移除不得删除旧 Electron 加密 user-data、迁移 receipt、backup 或系统 credential；
   未完成的平台 AT 继续阻止 Verified/Released。
 - 失败：未知 command、越权 scope、锁定状态、非法 payload、重复提交和持久化失败必须 fail closed，
-  不得发布新状态或残留受保护值。
+  不得发布新状态或残留受保护值；Windows 主题读取或监听失败不得阻止启动，必须回退为深色任务栏
+  可读的白色托盘图标。
 - 验收：`CT-TAURI-SOURCE-001`、`CT-TAURI-SHELL-001`、`CT-TAURI-COMMAND-001`、
   `CT-TAURI-VAULT-001`、`CT-TAURI-DESKTOP-001`、`CT-TAURI-BROWSER-001`、
-  `AT-TAURI-MACOS-001`、`AT-TAURI-WINDOWS-001`。
+  `CT-TAURI-TRAY-THEME-001`、`AT-TAURI-MACOS-001`、`AT-TAURI-WINDOWS-001`、
+  `AT-TAURI-WINDOWS-003`。
 
 ### REQ-DESKTOP-001 登录时静默启动
 
@@ -231,21 +235,19 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 - 必须：发现更新后由 Rust-owned 原生对话框让用户选择立即更新或稍后处理；确认安装后必须先锁定
   Vault、撤销 Browser/Agent 临时 authority 并清理敏感临时资源。Windows installer exit 与 macOS restart
   必须走等价的退出清理路径。
-- 必须：CI 在目标 OS/architecture 分别构建 updater artifact，将版本化不可变对象先写入 R2，并且只在
-  三个平台的 URL、非空签名和安装包全部验证后最后发布 `channels/test/latest.json`；R2 写凭据和 updater
-  private key 不得进入仓库、应用包、更新清单或日志。
-- 可以：Windows target Runner 可以通过独立 workflow 在同一个 Windows job 内构建作为 updater 的
+- 必须：CI 必须使用与目标 OS/architecture 匹配的标准 GitHub-hosted Runner 原生构建 updater artifact：
+  `macos-15` 对应 aarch64、`macos-15-intel` 对应 x86_64、`windows-2025` 对应 Windows x86_64，发布 job
+  使用标准 Ubuntu Runner；发布 workflow 不得依赖 `self-hosted` 或自定义 Runner 标签。版本化不可变对象
+  必须先写入 R2，并且只在三个平台的 URL、非空签名和安装包全部验证后最后发布
+  `channels/test/latest.json`；R2 写凭据和 updater private key 不得进入仓库、应用包、更新清单或日志。
+- 可以：标准 GitHub-hosted Windows target Runner 可以通过独立 workflow 在同一个 Windows job 内构建作为 updater 的
   Windows NSIS 测试包和供手动部署的 MSI，并直接上传 immutable experimental prefix，不通过其他
   Runner 或 GitHub artifact 中转；该流程不得写入 `channels/test/latest.json` 或冒充 Windows 平台验收
   证据，并且必须明确输出两个安装器的直接下载链接和未验收状态。
-- 可以：macOS target Runner 可以通过独立 workflow 在同一个与目标架构匹配的 macOS job 内构建
+- 可以：标准 GitHub-hosted macOS target Runner 可以通过独立 workflow 在同一个与目标架构匹配的 macOS job 内构建
   Tauri updater archive 和 DMG，并直接上传 immutable experimental prefix，不通过其他 Runner 或
   GitHub artifact 中转；该流程不得写入 `channels/test/latest.json` 或冒充 macOS 平台验收证据，并且
   必须明确输出 updater archive、DMG 的直接下载链接和未验收状态。
-- 可以：仅为获得小规模测试安装反馈，Intel macOS Runner 可以在同一 macOS job 内交叉构建
-  `darwin-aarch64` experimental updater archive 和 DMG；该流程必须验证主程序与全部特权 sidecar 均为
-  Mach-O arm64、deployment target 与签名/DMG 完整性，发布链接必须明确标记 cross-built，并且不得写入
-  `channels/test/latest.json`、不得作为 macOS ARM 平台验收或替代目标架构原生构建。
 - 失败：无更新、用户取消、超时、离线、HTTP/TLS、清单、目标、版本或签名失败不得退出当前应用、
   不得宣称成功，也不得启用 downgrade。需要回滚时必须发布更高版本的补偿 build 或明确手动重装。
 - 验收：`CT-UPDATE-001`、`AT-UPDATE-MACOS-001`、`AT-UPDATE-WINDOWS-001`。
@@ -254,10 +256,11 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 
 - 必须：`0.0.1-review` 是 fresh-install 基线；每个后续 Review build 的 workspace、Rust package、
   Tauri desktop 和 Chromium extension 必须统一为同一个严格递增的规范 Review SemVer，当前更新版本为
-  `0.0.2-review`；打包输出和 updater descriptor 不得丢失 `review` prerelease 标识。
+  `0.0.3-review`；打包输出和 updater descriptor 不得丢失 `review` prerelease 标识。
 - 必须：Review build 从编译期固定的 HTTPS `channels/review/latest.json` 检查更新，并继续使用
   `REQ-UPDATE-001` 的 Rust-owned 检查、用户确认、Tauri 签名验证、安装前 lock/cleanup 和 latest-last
-  发布约束；renderer 不得获得 updater plugin capability。
+  发布约束；完整 Review 发布同样必须使用三个标准 GitHub-hosted 原生架构 Runner，renderer 不得获得
+  updater plugin capability。
 - 必须：Review 与 test channel 独立读取和写入清单。首次 Review 发布可以没有现有 Review manifest，
   后续 Review 版本必须严格递增；不得覆盖、删除或把 `channels/test/latest.json` 复制为 Review 基线。
 - 可以：小规模 Review 验收可以在目标平台 signed updater artifact 已 immutable 发布后，把

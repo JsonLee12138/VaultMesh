@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
 const workflowUrl = new URL("../.github/workflows/r2-test-update.yml", import.meta.url);
@@ -16,6 +16,28 @@ const windowsExperimentalFromRunWorkflowUrl = new URL(
   "../.github/workflows/r2-windows-experimental-from-run.yml",
   import.meta.url,
 );
+const workflowsUrl = new URL("../.github/workflows/", import.meta.url);
+
+test("release workflows use only standard GitHub-hosted runners", async () => {
+  const workflowNames = (await readdir(workflowsUrl)).filter((name) => name.endsWith(".yml"));
+  for (const name of workflowNames) {
+    const workflow = await readFile(new URL(name, workflowsUrl), "utf8");
+    assert.doesNotMatch(workflow, /self-hosted/, name);
+  }
+});
+
+test("R2 updater builds natively on hosted macOS ARM, macOS Intel and Windows x64", async () => {
+  const workflow = await readFile(workflowUrl, "utf8");
+
+  assert.match(workflow, /runner: macos-15\n\s+target: aarch64-apple-darwin/);
+  assert.match(workflow, /host_platform: darwin\n\s+host_arch: arm64/);
+  assert.match(workflow, /runner: macos-15-intel\n\s+target: x86_64-apple-darwin/);
+  assert.match(workflow, /host_platform: darwin\n\s+host_arch: x64/);
+  assert.match(workflow, /runner: windows-2025\n\s+target: x86_64-pc-windows-msvc/);
+  assert.match(workflow, /host_platform: win32\n\s+host_arch: x64/);
+  assert.match(workflow, /name: Verify GitHub-hosted runner matches target architecture/);
+  assert.match(workflow, /process\.platform !== platform \|\| process\.arch !== arch/);
+});
 
 test("R2 updater installs pnpm before setup-node requests the pnpm cache", async () => {
   const workflow = await readFile(workflowUrl, "utf8");
@@ -54,7 +76,7 @@ test("R2 updater artifact download declares one pattern", async () => {
 test("R2 resume publication accepts only a completed three-platform build run", async () => {
   const workflow = await readFile(resumeWorkflowUrl, "utf8");
 
-  assert.match(workflow, /runs-on: \[self-hosted, vaultmesh-local-publish\]/);
+  assert.match(workflow, /runs-on: ubuntu-24\.04/);
   assert.match(workflow, /SOURCE_RUN_ID: \$\{\{ inputs\.source_run_id \}\}/);
   assert.match(workflow, /\.name == "Publish R2 test update"/);
   for (const platform of ["darwin-aarch64", "darwin-x86_64", "windows-x86_64"]) {
@@ -72,8 +94,7 @@ test("Windows native package publishes only immutable experimental objects", asy
   const runnerDeclarations = workflow.match(/^\s{4}runs-on:/gm) ?? [];
 
   assert.equal(runnerDeclarations.length, 1);
-  assert.match(workflow, /runs-on: \[self-hosted, Windows, X64, vaultmesh-windows-native\]/);
-  assert.doesNotMatch(workflow, /vaultmesh-windows-cross|runs-on: \[self-hosted, Linux/);
+  assert.match(workflow, /runs-on: windows-2022/);
   assert.match(workflow, /if: github\.ref == 'refs\/heads\/main'/);
   assert.match(workflow, /options:\n\s+- test\n\s+- review/);
   assert.match(workflow, /source_ref:/);
@@ -125,19 +146,23 @@ test("Windows native package publishes only immutable experimental objects", asy
   assert.match(workflow, /Review channel state changed during Windows platform publication/);
   assert.match(workflow, /Cache-Control: no-store, max-age=0/);
   assert.match(workflow, /Public Review channel did not converge/);
-  assert.doesNotMatch(workflow, /windows-2025|ubuntu-24\.04|docker|cargo-xwin/);
+  assert.doesNotMatch(workflow, /ubuntu-24\.04|macos-15|docker|cargo-xwin/);
   assert.doesNotMatch(workflow, /s3:\/\/\$\{?R2_BUCKET\}?\/channels\/test\/latest\.json/);
   assert.doesNotMatch(workflow, /channels\/test\/latest\.json.*(?:PUT|upload-file)/);
 });
 
-test("Intel macOS runner publishes native x86_64 or explicitly cross-built ARM64 packages", async () => {
+test("macOS experimental packages use matching hosted ARM64 or Intel runners", async () => {
   const workflow = await readFile(macosExperimentalWorkflowUrl, "utf8");
   const runnerDeclarations = workflow.match(/^\s{4}runs-on:/gm) ?? [];
 
   assert.equal(runnerDeclarations.length, 1);
-  assert.match(workflow, /runs-on: \[self-hosted, macOS, X64, vaultmesh-macos-native\]/);
+  assert.match(
+    workflow,
+    /runs-on: \$\{\{ inputs\.platform == 'darwin-aarch64' && 'macos-15' \|\| 'macos-15-intel' \}\}/,
+  );
   assert.match(workflow, /if: github\.ref == 'refs\/heads\/main'/);
-  assert.match(workflow, /\[\[ "\$\(uname -m\)" == "x86_64" \]\]/);
+  assert.match(workflow, /HOST_ARCH: \$\{\{ inputs\.platform == 'darwin-aarch64' && 'arm64' \|\| 'x86_64' \}\}/);
+  assert.match(workflow, /\[\[ "\$\(uname -m\)" == "\$HOST_ARCH" \]\]/);
   assert.match(workflow, /options:\n\s+- darwin-x86_64\n\s+- darwin-aarch64/);
   assert.match(workflow, /options:\n\s+- test\n\s+- review/);
   assert.match(workflow, /UPDATER_CHANNEL: \$\{\{ inputs\.channel \}\}/);
@@ -156,21 +181,21 @@ test("Intel macOS runner publishes native x86_64 or explicitly cross-built ARM64
   assert.match(workflow, /hdiutil imageinfo/);
   assert.match(workflow, /create-macos-experimental-publication\.mjs/);
   assert.match(workflow, /experimental\/macos\/"\$TARGET_PLATFORM"/);
-  assert.match(workflow, /macOS ARM64 cross-built on Intel/);
-  assert.match(workflow, /not native Apple Silicon package or macOS ARM AT evidence/);
+  assert.match(workflow, /macOS Apple Silicon native/);
+  assert.match(workflow, /Native Apple Silicon experimental package: not macOS ARM AT evidence/);
   assert.match(workflow, /--aws-sigv4 "aws:amz:auto:s3"/);
   assert.match(workflow, /shasum -a 256/);
   assert.match(workflow, /cmp "\$RUNNER_TEMP\/channel-before\.status" "\$RUNNER_TEMP\/channel-after\.status"/);
   assert.match(workflow, /if \[\[ "\$status" == "200" \]\]; then\n\s+cmp "\$RUNNER_TEMP\/channel-before\.json" "\$RUNNER_TEMP\/channel-after\.json"/);
   assert.match(workflow, /if \[\[ "\$status" == "404" \]\]; then/);
   assert.doesNotMatch(workflow, /actions\/(?:upload|download)-artifact|needs: build/);
-  assert.doesNotMatch(workflow, /macos-15|ubuntu-24\.04|windows-2025|channels\/(?:test|review)\/latest\.json.*--request PUT/);
+  assert.doesNotMatch(workflow, /self-hosted|CROSS_BUILT|cross-built|channels\/(?:test|review)\/latest\.json.*--request PUT/);
 });
 
 test("Windows experimental resume accepts only a successful native Windows build", async () => {
   const workflow = await readFile(windowsExperimentalFromRunWorkflowUrl, "utf8");
 
-  assert.match(workflow, /runs-on: \[self-hosted, linux, x64, vaultmesh-windows-cross\]/);
+  assert.match(workflow, /runs-on: ubuntu-24\.04/);
   assert.match(workflow, /\.name == "Publish R2 test update"/);
   assert.match(workflow, /\.name == "Build windows-x86_64"/);
   assert.match(workflow, /\.conclusion == "success"/);

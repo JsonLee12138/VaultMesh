@@ -61,9 +61,10 @@ pnpm typecheck
 | `CT-AGENT-CODEX-001`、`CT-AGENT-OPENCODE-001` | packaged stdio shim 的 tools/list/call/cancel/revoke/multi-account client E2E |
 | `CT-TAURI-SHELL-*`、`CT-TAURI-COMMAND-*` | `apps/tauri-desktop` config/adapter/Rust command 与 Electron data migration contract tests |
 | `CT-TAURI-VAULT-*`、`CT-TAURI-DESKTOP-*` | Tauri Rust runtime integration tests + shared renderer tests |
+| `CT-TAURI-TRAY-THEME-001` | Windows light/dark/unknown 主题选择、黑白托盘资源尺寸/解码、macOS Retina 模板资源保持测试 |
 | `CT-DESKTOP-STARTUP-*` | Tauri Rust autostart owner、固定参数、初始化标记、隐藏窗口配置、typed adapter 与设置 UI contract tests |
-| `CT-UPDATE-001` | Rust-owned updater/no-renderer-capability、release-only HTTPS config、macOS/Windows 原生“检查更新…”菜单、主动/自动检查互斥、主动检查无更新/失败反馈、用户确认、安装前 lock/exit cleanup、Windows NSIS 覆盖复制前 Native Host 注销/停止与安装后恢复注册，以及 manifest 的 SemVer/platform/signature/不可变 URL/三平台完整性与 latest-last publish contract tests；Windows target experimental package 必须只发布 immutable objects、保持 test channel 不变且不计入 Windows AT |
-| `CT-UPDATE-REVIEW-001` | `0.0.1-review` fresh-install baseline 与当前 `0.0.2-review` build 的 workspace/Rust/Tauri/extension 版本一致性；Review workflow 固定使用 `channels/review/latest.json`，保留完整发布的三目标、签名、immutable 与 latest-last 约束；阶段性 manifest 只引用已发布的 signed immutable artifact、首次从 `.1` 创建且后续严格递增，并允许在相同 current version 下只追加一个缺失平台，同时保持顶层字段、既有平台和 test channel 不变；阶段性清单不得计为完整发布或平台 AT |
+| `CT-UPDATE-001` | Rust-owned updater/no-renderer-capability、release-only HTTPS config、macOS/Windows 原生“检查更新…”菜单、主动/自动检查互斥、主动检查无更新/失败反馈、用户确认、安装前 lock/exit cleanup、Windows NSIS 覆盖复制前 Native Host 注销/停止与安装后恢复注册，以及标准 GitHub-hosted `macos-15` ARM64、`macos-15-intel` x86_64、`windows-2025` x64 原生目标/host 架构绑定、发布 workflow 无 `self-hosted` 标签、manifest 的 SemVer/platform/signature/不可变 URL/三平台完整性与 latest-last publish contract tests；Windows target experimental package 必须只发布 immutable objects、保持 test channel 不变且不计入 Windows AT |
+| `CT-UPDATE-REVIEW-001` | `0.0.1-review` fresh-install baseline 与当前 `0.0.3-review` build 的 workspace/Rust/Tauri/extension 版本一致性；Review workflow 固定使用 `channels/review/latest.json`，保留完整发布的三目标、签名、immutable 与 latest-last 约束；阶段性 manifest 只引用已发布的 signed immutable artifact、首次从 `.1` 创建且后续严格递增，并允许在相同 current version 下只追加一个缺失平台，同时保持顶层字段、既有平台和 test channel 不变；阶段性清单不得计为完整发布或平台 AT |
 | `CT-OSS-001` | 历史证据：`scripts/open-source-metadata.test.mjs` 保留原 AGPLv3-or-later 标准正文、首次公开 Work 封存记录和精确秘密扫描例外；该 ID 不再代表当前版本的许可元数据 |
 | `CT-LICENSE-001` | `scripts/source-license-metadata.test.mjs` 验证 PolyForm Noncommercial 1.0.0 标准正文、Rust/pnpm SPDX、source-available/非商业表述、商业授权入口、历史 AGPL 权利与第三方权利边界一致，并保持 workspace package `private: true` |
 | `CT-HISTORY-001` | `scripts/repository-history-policy.test.mjs` 验证当前 Git refs 不再包含已知 AGPL 发布提交、`main` 根快照使用 PolyForm Noncommercial，并保留当前许可证元数据 |
@@ -78,6 +79,7 @@ pnpm typecheck
 | `AT-API-PROFILE-001` | macOS/Windows packaged Tauri 在同一 Service 配置 Production/Staging/Local、none/Bearer/Basic/API Key、literal/protected Header、delete/restore/lock cleanup，并由真实 Codex/OpenCode 验证全部 live Environment 只投影 opaque ref/label/kind/http capability/可选 openapiUrl，不能读取 detail；后续执行仍需独立 Agent unlock 与 Action Lease |
 | `AT-API-REQUEST-001` | macOS/Windows packaged Tauri 使用无生产凭据 fixture 验证 none/Bearer/Basic/API-key GET/POST JSON/text、canonical preview、原生 mutation/private/HTTP 确认、public HTTP/self-signed/metadata/redirect/oversize/canary 拒绝、cancel/timeout/lock/window close/Vault switch cleanup 与 `execution-unknown`；目标 OS 分别执行，不以交叉编译替代 |
 | `AT-TAURI-MACOS-002`、`AT-TAURI-WINDOWS-002` | packaged Tauri 主窗口的系统截图/录屏内容捕获保护；macOS 记录 best-effort 结果，Windows 10 2004+ 必须从公共捕获路径排除 |
+| `AT-TAURI-WINDOWS-003` | packaged Windows Tauri 在系统 light/dark 启动、运行中双向主题切换、Explorer/应用重启及主题读取失败回退时的托盘图标可读性和即时更新 |
 | `AT-UPDATE-MACOS-001`、`AT-UPDATE-WINDOWS-001` | 目标 OS/architecture 从旧版安装开始验证无更新、取消、离线、篡改拒绝、已解锁确认后的 lock/cleanup、R2 test channel 成功更新，以及 Windows installer exit/macOS restart；macOS 分别覆盖 aarch64/x86_64，两平台均从原生应用菜单验证主动检查的无更新、失败与发现更新路径 |
 | `AT-UPDATE-REVIEW-MACOS-001`、`AT-UPDATE-REVIEW-WINDOWS-001` | 目标 OS/architecture 全新安装 `0.0.1-review`，验证 Review endpoint、无更新和后续更高 Review 版本更新；已有 `0.1.x` test 安装验证不会自动降级，并按说明手动重装且保留 Vault 数据 |
 | `AT-RECOVERY-CODES-*` | packaged Tauri/插件的 Login 恢复码粘贴、文件导入/确认删除、保存、逐次主密码查看/复制与锁定清理验收 |
@@ -111,6 +113,8 @@ pnpm typecheck
 - `CT-TAURI-SOURCE-001` 证明 Electron/Native build owner 已移除且 Tauri 自包含。
 - `CT-DESKTOP-STARTUP-001` 证明首次默认注册、用户关闭保持、固定参数、登录项静默锁定启动和
   renderer 无直接插件 capability；macOS/Windows packaged app 分别执行登录项 AT。
+- `CT-TAURI-TRAY-THEME-001` 证明 Windows 主题选择和资源契约；`AT-TAURI-WINDOWS-003`
+  在 packaged Windows 验证运行中主题切换和失败回退。
 - Tauri packaged app 在目标 OS 冒烟。
 
 ### GATE-4 Browser
@@ -140,6 +144,7 @@ pnpm typecheck
 - macOS/Windows 登录项分别验证默认注册、静默托盘、锁定状态、关闭、重新启用和卸载清理。
 - Upgrade、downgrade refusal、backup/restore、不可逆 migration 和 rollback compensation 验收。
 - Test channel 必须完成三目标 updater artifact、Tauri 签名、R2 latest-last 发布及 `AT-UPDATE-*`；该证据不替代正式发布所需的 Apple notarization 或 Windows Authenticode。
+- Test 与 Review 的完整三目标构建必须使用标准 GitHub-hosted 原生架构 Runner；发布 workflow 不得依赖 `self-hosted` 或自定义 Runner 标签。
 - Review 发布必须使用独立 channel；`0.0.1-review` 作为 fresh-install 基线，不得覆盖 test channel 或对已有 `0.1.x` 安装启用 downgrade。
 - Release record 与 Git Tag 存在。
 - Release 中引用的 Work 均已列入 `changes/archive.json`，且 `VAULTMESH_ARCHIVE_BASE_REF` 基线校验通过。

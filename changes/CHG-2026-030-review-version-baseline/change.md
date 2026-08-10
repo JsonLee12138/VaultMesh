@@ -6,11 +6,11 @@
 
 ## 预期行为
 
-- `REQ-UPDATE-002`：`0.0.1-review` 是 fresh-install 基线；当前 workspace、Tauri desktop、Chromium extension 与 Rust package 必须统一为 `0.0.2-review`，并由 `.1` 严格升级到 `.2`。
+- `REQ-UPDATE-002`：`0.0.1-review` 是 fresh-install 基线；当前 workspace、Tauri desktop、Chromium extension 与 Rust package 必须统一为 `0.0.3-review`，并由 `.1 → .2 → .3` 严格递增。
 - Review build 必须使用独立的 `channels/review/latest.json`；首次发布允许该通道没有现有清单，但后续版本仍必须严格递增。
 - 小规模验收可以先发布只含已验证目标平台的阶段性 Review manifest；同一 current version 可以在 immutable artifact 就绪后只追加一个缺失平台，同时保持全部既有字段不变。该路径不计为完整三平台 Review 发布或平台 AT。
 - 现有 `channels/test/latest.json` 和其中的 `0.1.1-test.*` 安装不得被覆盖、删除或降级。已有测试安装加入 Review 必须明确执行手动重装。
-- Review artifact 继续使用三目标构建、Tauri updater 签名、版本对象不可变和 latest-last 发布；Review 不等于正式 Stable 发布。
+- Review artifact 继续使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 三目标原生构建、Tauri updater 签名、版本对象不可变和 latest-last 发布；全部发布 workflow 不依赖 self-hosted 或自定义 Runner 标签。Review 不等于正式 Stable 发布。
 
 ## 非目标
 
@@ -40,15 +40,20 @@
 | `REV-006` | `REQ-UPDATE-002` | 生成 Intel macOS `0.0.2-review` signed updater/DMG，并把阶段性 Review channel 从 `.1` latest-last 推进到 `.2` | `CT-UPDATE-REVIEW-001` | Done |
 | `REV-007` | `REQ-UPDATE-002` | 自托管 Windows x64 Runner 从已冻结的 `.1` 产品 source ref 生成嵌入 Review endpoint 的 NSIS/MSI fresh-install 基线；只覆盖已评审的 Review→MSI 数值版本构建工具并只发布 immutable objects | `CT-UPDATE-REVIEW-001` | Done |
 | `REV-008` | `REQ-UPDATE-002` | 同一 Windows x64 Runner 生成 `.2` signed updater/NSIS/MSI，并在保持现有 Intel entry 与 test channel 不变时把 Windows 平台追加到阶段性 Review manifest | `CT-UPDATE-REVIEW-001` | Done |
+| `REV-009` | `REQ-UPDATE-002` | 完整 Review workflow 使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 原生构建与 Ubuntu 发布，并移除全部自定义 Runner 标签 | `CT-UPDATE-REVIEW-001` | Implemented；workflow contract Pass；完整三目标真实 run Pending |
+| `REV-010` | `REQ-UPDATE-002` | 统一 `0.0.3-review` 产品版本并触发完整 hosted 三目标 latest-last 发布 | `CT-UPDATE-REVIEW-001`, `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Implementing；本地 gate Pass；GitHub Actions run Pending |
 | `REV-003` | `REQ-UPDATE-002` | macOS/Windows Review fresh-install 与后续升级验收 | `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Pending |
 
 ## 验收与证据
 
-- 自动化证明当前所有产品 manifest 与 workspace package version 都是 `0.0.2-review`，历史 `.1` 仍作为安装基线保留。
-- 自动化证明 Review workflow 只读写 `channels/review/latest.json`，并且仍执行三平台、签名、immutable 和 latest-last 校验。
+- 自动化证明当前所有产品 manifest 与 workspace package version 都是 `0.0.3-review`，历史 `.1` 仍作为安装基线保留，`.2` 保留为已发布的中间 Review 更新。
+- 自动化证明 Review workflow 只读写 `channels/review/latest.json`，使用标准 GitHub-hosted 原生架构 Runner 执行三平台、签名、immutable 和 latest-last 校验，且全部发布 workflow 不包含 `self-hosted` 或自定义 Runner 标签。
 - 平台验收从全新安装开始；已有 `0.1.x` 测试安装必须验证不会收到 `0.0.1-review` 自动降级，并按指引手动重装。
 
 自动化证据（2026-08-07）：
+
+- 2026-08-10 完整 Review workflow 固定使用 `macos-15` ARM64、`macos-15-intel` x86_64、`windows-2025` x64 与 `ubuntu-24.04` publisher，并新增 host platform/architecture fail-closed 断言；阶段性 Review publisher 和 experimental package 也迁到标准 GitHub-hosted Runner。全部 workflow YAML parse Pass；`pnpm scripts:test`：78/78 Pass；完整三目标 GitHub Actions run Pending。
+- `0.0.3-review` 触发前本地 gate：五个 pnpm/Tauri manifest 与四个 Rust workspace package 版本一致；`cargo check -p vaultmesh-core -p vaultmesh-ffi -p vaultmesh-agent-mcp -p vaultmesh-tauri-desktop`、`cargo test -p vaultmesh-tauri-desktop --lib`（220 pass、1 ignored）、`pnpm scripts:test`（78/78）、`pnpm tauri:typecheck`、`pnpm docs:check`、workflow YAML parse 与 `git diff --check` Pass。GitHub Actions 三目标 package/R2 latest-last publication Pending。
 
 - `cargo check -p vaultmesh-core -p vaultmesh-ffi -p vaultmesh-agent-mcp -p vaultmesh-tauri-desktop`：Pass；四个 workspace package 均以 `0.0.1-review` 编译，`Cargo.lock` 同步更新。
 - `pnpm scripts:test`：59/59 Pass；`CT-UPDATE-REVIEW-001` 验证五个产品 manifest 与 Rust workspace 版本一致，证明完整 Review workflow 包含三目标构建、source version fail-closed、独立 Review endpoint 和 latest-last 发布；Intel experimental workflow 可以嵌入 Review endpoint，阶段性 baseline generator/workflow 只接受固定 `0.0.1-review` x86_64 descriptor、只在 Review channel 缺失时创建并保持 test channel 不变。

@@ -2,7 +2,7 @@ id: "CHG-2026-029-r2-desktop-updates"
 title: "通过 Cloudflare R2 分发 Tauri 测试更新"
 type: "feature"
 status: "Implementing"
-spec_revision: "0.1.35-active"
+spec_revision: "0.1.44-active"
 target_release: "0.1.0-development"
 requirements:
   - "REQ-UPDATE-001"

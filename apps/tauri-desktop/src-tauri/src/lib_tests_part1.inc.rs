@@ -42,6 +42,71 @@ fn desktop_tray_menu_ids_are_exhaustive_and_reject_unknown_actions() {
     assert_eq!(TrayAction::parse("vaultmesh-tray-lock"), None);
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn macos_desktop_tray_uses_retina_template_artwork() {
+    let icon = Image::from_bytes(crate::desktop_runtime::DESKTOP_TRAY_ICON_BYTES)
+        .expect("decode macOS tray icon");
+    assert_eq!((icon.width(), icon.height()), (36, 36));
+}
+
+#[test]
+fn windows_tray_theme_selects_contrasting_icons_and_safe_fallback() {
+    use crate::windows_tray_theme::{
+        WINDOWS_DARK_TRAY_ICON_BYTES, WINDOWS_LIGHT_TRAY_ICON_BYTES, WindowsSystemTheme,
+        icon_bytes_for_theme, theme_from_system_uses_light_theme,
+    };
+
+    assert_eq!(
+        theme_from_system_uses_light_theme(Some(1)),
+        WindowsSystemTheme::Light
+    );
+    assert_eq!(
+        theme_from_system_uses_light_theme(Some(0)),
+        WindowsSystemTheme::Dark
+    );
+    assert_eq!(
+        theme_from_system_uses_light_theme(Some(2)),
+        WindowsSystemTheme::Dark
+    );
+    assert_eq!(
+        theme_from_system_uses_light_theme(None),
+        WindowsSystemTheme::Dark
+    );
+
+    let light_theme_icon =
+        Image::from_bytes(icon_bytes_for_theme(WindowsSystemTheme::Light)).expect("light icon");
+    let dark_theme_icon =
+        Image::from_bytes(icon_bytes_for_theme(WindowsSystemTheme::Dark)).expect("dark icon");
+    assert_eq!(
+        (light_theme_icon.width(), light_theme_icon.height()),
+        (32, 32)
+    );
+    assert_eq!(
+        (dark_theme_icon.width(), dark_theme_icon.height()),
+        (32, 32)
+    );
+    assert_eq!(
+        first_opaque_rgb(&light_theme_icon),
+        Some([0, 0, 0]),
+        "light Windows theme must use a black tray glyph"
+    );
+    assert_eq!(
+        first_opaque_rgb(&dark_theme_icon),
+        Some([255, 255, 255]),
+        "dark Windows theme and failures must use a white tray glyph"
+    );
+    assert_ne!(WINDOWS_LIGHT_TRAY_ICON_BYTES, WINDOWS_DARK_TRAY_ICON_BYTES);
+}
+
+fn first_opaque_rgb(image: &Image<'_>) -> Option<[u8; 3]> {
+    image
+        .rgba()
+        .chunks_exact(4)
+        .find(|pixel| pixel[3] == 255)
+        .map(|pixel| [pixel[0], pixel[1], pixel[2]])
+}
+
 #[test]
 fn window_blur_policy_locks_unlocked_runtime_and_respects_setting() {
     let path = std::env::temp_dir().join(format!(

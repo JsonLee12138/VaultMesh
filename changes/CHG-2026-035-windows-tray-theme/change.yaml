@@ -1,0 +1,28 @@
+id: "CHG-2026-035-windows-tray-theme"
+title: "Windows 托盘图标跟随系统明暗主题"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.44-active"
+target_release: "0.0.3-review"
+requirements:
+  - "REQ-TAURI-002"
+tests:
+  - "CT-TAURI-TRAY-THEME-001"
+  - "AT-TAURI-WINDOWS-003"
+adrs:
+  - "ADR-0005"
+context_refs:
+  - "docs/02-scope-matrix.md#客户端与平台"
+  - "docs/03-functional-requirements.md#REQ-TAURI-002 Tauri-only 桌面源码与运行时"
+  - "specs/tauri-desktop-migration.md#Tauri-only source Gate"
+  - "docs/07-test-release-plan.md#GATE-3 Desktop runtime"
+  - "docs/08-traceability.md#REQ-TAURI-002"
+related_changes: []
+affected_surfaces:
+  - "Windows Tauri desktop system tray"
+affected_formats: []
+affected_versions:
+  - "0.0.3-review"
+security_impact: "none; the runtime reads only the current user's non-secret Windows personalization setting and does not expose it to the renderer or persist it."
+migration: "none"
+supersedes: []
