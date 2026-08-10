@@ -82,7 +82,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           $changed = @(& git diff --name-only HEAD)
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if ($changed.Count -ne 1 -or $changed[0] -ne "scripts/build-tauri.mjs") {
+          if ($changed.Count -gt 1) {
+            throw "Frozen Review source overlay changed an unexpected file."
+          }
+          if ($changed.Count -eq 1 -and $changed[0] -ne "scripts/build-tauri.mjs") {
             throw "Frozen Review source overlay changed an unexpected file."
           }
           if (-not (Select-String -LiteralPath "scripts/build-tauri.mjs" -SimpleMatch 'prerelease === "review"')) {

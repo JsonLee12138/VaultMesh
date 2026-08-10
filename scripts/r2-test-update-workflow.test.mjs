@@ -106,6 +106,8 @@ test("Windows native package publishes only immutable experimental objects", asy
   assert.match(workflow, /does not match source metadata/);
   assert.match(workflow, /Overlay reviewed MSI build compatibility on frozen source/);
   assert.match(workflow, /git checkout \$env:WORKFLOW_SOURCE_SHA -- scripts\/build-tauri\.mjs/);
+  assert.match(workflow, /\$changed\.Count -gt 1/);
+  assert.match(workflow, /\$changed\.Count -eq 1 -and \$changed\[0\] -ne "scripts\/build-tauri\.mjs"/);
   assert.match(workflow, /Frozen Review source overlay changed an unexpected file/);
   assert.match(workflow, /Select complete Perl for vendored OpenSSL/);
   assert.match(
