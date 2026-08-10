@@ -38,7 +38,7 @@ Review Draft 当前只有桌面安装包，浏览器扩展没有可下载的安�
 | `EXTREL-001` | `REQ-BROWSER-004` | Scope、Requirement、ADR、Browser Spec、Gate 与 Traceability 接受 Firefox 分发边界 | `CT-BROWSER-PACKAGE-001` | Done |
 | `EXTREL-002` | `REQ-BROWSER-004` | WXT 生成版本一致且权限正确的 Chrome/Firefox ZIP | `CT-BROWSER-PACKAGE-001` | Done |
 | `EXTREL-003` | `REQ-BROWSER-004` | macOS/Windows 双 manifest 注册与 Native Host 双身份 fail-closed | `CT-BROWSER-PACKAGE-001`, `AT-BROWSER-001`, `AT-BROWSER-FIREFOX-001` | Implementing |
-| `EXTREL-004` | `REQ-BROWSER-004` | Review workflow 上传同 source SHA 的六个 Draft 安装资产 | `CT-BROWSER-PACKAGE-001` | Implementing |
+| `EXTREL-004` | `REQ-BROWSER-004` | Review workflow 上传同 source SHA 的六个 Draft 安装资产 | `CT-BROWSER-PACKAGE-001` | Done |
 | `EXTREL-005` | `REQ-BROWSER-004` | 目标 OS 上安装 ZIP、pair/revoke、RPC mismatch、重启与卸载验收 | `AT-BROWSER-001`, `AT-BROWSER-FIREFOX-001` | Pending |
 
 ## 验收与证据
@@ -56,6 +56,8 @@ Review Draft 当前只有桌面安装包，浏览器扩展没有可下载的安�
 - 设置 `VAULTMESH_EXTENSION_DISTRIBUTION=sideload-review`、不提供任何商店凭证运行 `scripts/build-browser-extension-release.mjs`：生成 `VaultMesh_0.0.4-review_chrome-extension.zip` 与 `VaultMesh_0.0.4-review_firefox-extension.zip`（约 491 KiB/490 KiB）；两个 ZIP CRC、路径、秘密文件/source map 排除和浏览器特定 manifest 校验均 Pass。产物位于任务临时目录，未写入仓库。
 - Windows target cross-check 在 macOS 上因缺少 Windows SDK headers、Windows link environment 与兼容 OpenSSL Perl 工具链而不可执行；Windows Native Host 编译、MSI/NSIS 注册、真实 Firefox 通信与卸载必须由 `windows-2025` runner 和目标机 AT 证明。
 - Review workflow 已声明扩展与三个桌面构建使用同一 source SHA，并把 Chrome/Firefox ZIP 纳入六资产 Draft gate；按用户确认只发布本地 ZIP，workflow 显式选择仓库固定的 `sideload-review` 公共身份，不读取或要求任何浏览器商店凭证。未显式选择 sideload 模式的 release build 继续 fail closed。
+- GitHub Actions run `31369895049`（source `ffff2d6419dbd9201d1e65713554d5c6fe3762f8`）：Chrome/Firefox ZIP、macOS ARM64、macOS Intel、Windows NSIS/MSI、R2 immutable/latest 与 GitHub Draft jobs 全部 Success。R2 Review manifest 为 `0.0.4-review`，包含 `darwin-aarch64`、`darwin-x86_64`、`windows-x86_64`。
+- GitHub Draft Prerelease `untagged-e0857713c199c221dff8`：六个预期资产均为 `uploaded`，包括 `VaultMesh_0.0.4-review_chrome-extension.zip` 与 `VaultMesh_0.0.4-review_firefox-extension.zip`；远端 `v0.0.4-review` Git Tag 不存在。Draft 只提供本地安装下载，不代表浏览器商店或正式产品发布。
 
 ## 安全与数据生命周期
 
