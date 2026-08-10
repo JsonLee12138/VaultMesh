@@ -44,12 +44,15 @@ export function browserHostBuildIdentity(environment = process.env) {
   if (!/^[a-p]{32}$/.test(extensionId)) {
     throw new Error("VAULTMESH_BROWSER_EXTENSION_ID 必须是 32 位 Chrome 扩展 ID。");
   }
-  return extensionId;
+  return {
+    chromeExtensionId: extensionId,
+    firefoxExtensionId: identityEnvironment.VAULTMESH_FIREFOX_EXTENSION_ID,
+  };
 }
 
 export async function prepareBrowserHostSidecar({ target, environment = process.env } = {}) {
   const resolvedTarget = target ?? (await capture("rustc", ["--print", "host-tuple"])).trim();
-  const extensionId = browserHostBuildIdentity(environment);
+  const identity = browserHostBuildIdentity(environment);
   const paths = browserHostSidecarPaths(resolvedTarget);
   await run("cargo", [
     "build",
@@ -62,12 +65,13 @@ export async function prepareBrowserHostSidecar({ target, environment = process.
     "vaultmesh-native-host",
   ], {
     ...environment,
-    VAULTMESH_BROWSER_EXTENSION_ID: extensionId,
+    VAULTMESH_BROWSER_EXTENSION_ID: identity.chromeExtensionId,
+    VAULTMESH_FIREFOX_EXTENSION_ID: identity.firefoxExtensionId,
   });
   await mkdir(path.dirname(paths.bundled), { recursive: true });
   await copyFile(paths.built, paths.bundled);
   if (!paths.bundled.endsWith(".exe")) await chmod(paths.bundled, 0o755);
-  return { target: resolvedTarget, extensionId, ...paths };
+  return { target: resolvedTarget, extensionId: identity.chromeExtensionId, firefoxExtensionId: identity.firefoxExtensionId, ...paths };
 }
 
 function run(command, arguments_, environment) {

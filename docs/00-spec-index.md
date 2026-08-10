@@ -2,12 +2,12 @@
 
 ## 当前基线
 
-- 规格修订：`0.1.44-active`
-- 产品版本：`0.0.3-review`
+- 规格修订：`0.1.45-active`
+- 产品版本：`0.0.4-review`
 - Vault 格式：`3`（唯一写入和读取格式；所有其他版本在 KDF 前拒绝，不提供迁移或降级）
 - Browser RPC：`2`
 - Native ABI：`1`
-- 状态：Tauri 2 与 Chromium 扩展为当前实现；Electron/Native Preview 源码已移除；`0.0.1-review` 为独立 Review 安装基线，当前 Review 更新版本为 `0.0.3-review`，正式发布门禁未完成
+- 状态：Tauri 2、Chromium MV3 与 Firefox MV2 扩展为当前实现；Firefox 不包含 Chromium-only Passkey proxy；Electron/Native Preview 源码已移除；`0.0.1-review` 为独立 Review 安装基线，当前 Review 更新版本为 `0.0.4-review`，正式发布门禁未完成
 - 最后更新：`2026-08-10`
 
 ## 路由顺序
@@ -57,6 +57,7 @@
 - `../adr/0014-service-hub-format-3-navigation-metadata.md`
 - `../adr/0015-api-environment-target-ownership.md`
 - `../adr/0016-desktop-api-request-network-boundary.md`
+- `../adr/0017-cross-browser-extension-native-messaging.md`
 
 ## Change 与 Release 入口
 

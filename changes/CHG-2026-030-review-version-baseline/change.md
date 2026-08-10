@@ -6,12 +6,12 @@
 
 ## 预期行为
 
-- `REQ-UPDATE-002`：`0.0.1-review` 是 fresh-install 基线；当前 workspace、Tauri desktop、Chromium extension 与 Rust package 必须统一为 `0.0.3-review`，并由 `.1 → .2 → .3` 严格递增。
+- `REQ-UPDATE-002`：`0.0.1-review` 是 fresh-install 基线；当前 workspace、Tauri desktop、Chromium/Firefox extension 与 Rust package 必须统一为 `0.0.4-review`，并由 `.1 → .2 → .3 → .4` 严格递增。
 - Review build 必须使用独立的 `channels/review/latest.json`；首次发布允许该通道没有现有清单，但后续版本仍必须严格递增。
 - 小规模验收可以先发布只含已验证目标平台的阶段性 Review manifest；同一 current version 可以在 immutable artifact 就绪后只追加一个缺失平台，同时保持全部既有字段不变。该路径不计为完整三平台 Review 发布或平台 AT。
 - 现有 `channels/test/latest.json` 和其中的 `0.1.1-test.*` 安装不得被覆盖、删除或降级。已有测试安装加入 Review 必须明确执行手动重装。
 - Review artifact 继续使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 三目标原生构建、Tauri updater 签名、版本对象不可变和 latest-last 发布；全部发布 workflow 不依赖 self-hosted 或自定义 Runner 标签。Review 不等于正式 Stable 发布。
-- 完整 Review workflow 必须为 Windows 同时生成 NSIS 与 MSI；R2 完整发布成功后必须创建或恢复同 source SHA 的 GitHub Draft Prerelease，只上传两个 DMG 与 Windows NSIS/MSI installers。Draft 不得创建 Git Tag，也不得冒充正式发布或平台 AT。
+- 完整 Review workflow 必须为 Windows 同时生成 NSIS 与 MSI；R2 完整发布成功后必须创建或恢复同 source SHA 的 GitHub Draft Prerelease，只上传两个 DMG、Windows NSIS/MSI 与 Chrome/Firefox extension ZIP。Draft 不得创建 Git Tag，也不得冒充正式发布或平台 AT。双浏览器打包与 Host 边界由 `CHG-2026-036` 推进。
 
 ## 非目标
 
@@ -44,6 +44,7 @@
 | `REV-009` | `REQ-UPDATE-002` | 完整 Review workflow 使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 原生构建与 Ubuntu 发布，并移除全部自定义 Runner 标签 | `CT-UPDATE-REVIEW-001` | Done；host/target 断言与完整 hosted run Pass |
 | `REV-010` | `REQ-UPDATE-002` | 统一 `0.0.3-review` 产品版本并触发完整 hosted 三目标 latest-last 发布 | `CT-UPDATE-REVIEW-001`, `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Published；R2 公网校验 Pass；fresh-install/update AT Pending |
 | `REV-011` | `REQ-UPDATE-002` | R2 成功后创建无 Git Tag 的 GitHub Draft Prerelease，并上传双 macOS DMG 与 Windows NSIS/MSI | `CT-UPDATE-REVIEW-001` | Done；workflow contract Pass，`.3` Draft 四资产 uploaded |
+| `REV-012` | `REQ-UPDATE-002`, `REQ-BROWSER-004` | `.4` 完整 hosted Review build 同 source 生成 Chrome/Firefox ZIP 并建立六资产 Draft | `CT-UPDATE-REVIEW-001`, `CT-BROWSER-PACKAGE-001` | Implementing；本地双 ZIP/manifest/CRC Pass，CI 固定 Chrome key Pending |
 | `REV-003` | `REQ-UPDATE-002` | macOS/Windows Review fresh-install 与后续升级验收 | `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Pending |
 
 ## 验收与证据

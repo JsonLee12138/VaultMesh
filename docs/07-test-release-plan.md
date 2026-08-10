@@ -26,6 +26,7 @@ pnpm tauri:build
 pnpm extension:typecheck
 pnpm extension:test
 pnpm extension:build
+pnpm extension:release:zip:all
 pnpm verify:browser-parity
 pnpm verify:tauri-source
 pnpm scripts:test
@@ -50,6 +51,7 @@ pnpm typecheck
 | `CT-API-REQUEST-SEC-001` | Tauri Rust WebPKI、public/private/loopback/metadata/link-local/mixed DNS 分类与固定、native-confirmation predicate、redirect/proxy/compression/header smuggling denial、timeout/quota/JSON depth、secret canary、lock/window/exit cleanup tests；无生产凭据本地 fixture |
 | `CT-SEC-*`、`CT-IMPORT-*`、`CT-SSH-SCAN-*` | Tauri Rust runtime/command tests；`CT-SEC-003` 解析全部产品窗口配置并拒绝 renderer 关闭内容保护 |
 | `CT-BROWSER-*` | Tauri shared policy/capability、Rust broker + extension non-secret preference tests |
+| `CT-BROWSER-PACKAGE-001` | WXT Chrome MV3/Firefox MV2 manifest 与 ZIP contract、固定双 identity、macOS/Windows browser-specific Native Messaging manifest/注册/卸载、Rust Host Chrome origin 与 Firefox manifest-path/Gecko-ID 启动参数拒绝测试、Review workflow 六资产同 source gate |
 | `CT-AUTOFILL-*` | Tauri Rust broker tests + `apps/browser-extension/src/lib/*.test.ts` |
 | `CT-AUTHENTICATOR-*` | extension QR target/UI/protocol/background tests + Tauri Login update/autofill broker regression |
 | `CT-RECOVERY-CODES-*` | core Login payload/reauth/redaction + Tauri typed operation/clipboard/file parse（逐行与 Google 编号双栏）-confirm-delete/foreground-parenting + desktop/extension editor 逐次查看/复制复验和瞬时状态 contract tests |
@@ -120,15 +122,22 @@ pnpm typecheck
 ### GATE-4 Browser
 
 - Extension typecheck/test/build、Rust native-host test 和 browser parity 通过。
+- Chrome/Chromium MV3 与 Firefox MV2 ZIP 必须由同一 source/version 构建；ZIP CRC、内部 manifest、固定
+  identity、浏览器特定 permission 和无秘密/环境/source-map 文件校验通过。Firefox 不得包含
+  `webAuthenticationProxy` 或宣称 Passkey proxy。
 - 固定 ID、native-host install/uninstall、pair/revoke、RPC mismatch、navigation/replay/expiry 和 page fill 验收通过。
+- Firefox 必须额外验证固定 Gecko ID、Mozilla `allowed_extensions` manifest、macOS 用户级目录或
+  Windows HKCU registry、Host manifest path/ID 启动参数、pair/revoke、浏览器重启和卸载清理；使用
+  `AT-BROWSER-FIREFOX-001` 记录目标 OS 证据。
 - Windows 安装态在桌面运行时执行 `pnpm tauri:windows:browser-at`，必须同时验证 Chrome/Edge
   HKCU manifest registration、固定 extension origin、packaged Host 路径和真实 `vault.status` 往返；
   卸载后执行 `pnpm tauri:windows:browser-uninstall-at`，必须确认 registry、manifest 和非秘密 Host
   config 已清除。两个命令都必须在目标 Windows 执行，不能以交叉编译代替。
 - 本地目标机测试包使用 `pnpm tauri:build` 与 `pnpm extension:zip`，两者默认绑定同一固定开发 ID。
   正式发布必须在同一环境提供非开发 `WXT_CHROME_EXTENSION_KEY`，分别执行
-  `pnpm tauri:release:build` 与 `pnpm extension:release:zip`；两条命令必须从 key 派生同一
-  `VAULTMESH_BROWSER_EXTENSION_ID`，显式 ID 不匹配或退回开发 key 时必须在构建前失败。
+  `pnpm tauri:release:build` 与 `pnpm extension:release:zip:all`；两条命令必须从 key 派生同一
+  `VAULTMESH_BROWSER_EXTENSION_ID`，同时固定 Firefox Gecko ID；显式 ID 不匹配、退回开发 key 或
+  Firefox ID 漂移时必须在构建前失败。
 
 ### GATE-5 安全与依赖
 
@@ -146,7 +155,9 @@ pnpm typecheck
 - Test channel 必须完成三目标 updater artifact、Tauri 签名、R2 latest-last 发布及 `AT-UPDATE-*`；该证据不替代正式发布所需的 Apple notarization 或 Windows Authenticode。
 - Test 与 Review 的完整三目标构建必须使用标准 GitHub-hosted 原生架构 Runner；发布 workflow 不得依赖 `self-hosted` 或自定义 Runner 标签。
 - Review 发布必须使用独立 channel；`0.0.1-review` 作为 fresh-install 基线，不得覆盖 test channel 或对已有 `0.1.x` 安装启用 downgrade。
-- Review GitHub Draft Prerelease 可以在 R2 完整发布后创建，但必须保持 Draft、不得创建 Git Tag，并且不得在平台 AT、Work 封存、Release record 门禁完成前公开。
+- Review GitHub Draft Prerelease 可以在 R2 完整发布后创建，但两个 DMG、Windows NSIS/MSI、Chrome ZIP
+  与 Firefox ZIP 必须来自同一 source SHA；Draft 必须保持 Draft、不得创建 Git Tag，并且不得在平台
+  AT、Work 封存、Release record 门禁完成前公开。
 - Release record 与 Git Tag 存在。
 - Release 中引用的 Work 均已列入 `changes/archive.json`，且 `VAULTMESH_ARCHIVE_BASE_REF` 基线校验通过。
 

@@ -20,8 +20,11 @@ export function browserExtensionBuildEnvironment(baseEnvironment = process.env, 
   };
 }
 
-export function browserExtensionBuildInvocation(command, platform = process.platform, environment = process.env) {
-  const pnpmArguments = ["--filter", "@vaultmesh/browser-extension", command];
+export function browserExtensionBuildInvocation(command, target = "chrome", platform = process.platform, environment = process.env) {
+  if (!allowedCommands.has(command) || !["chrome", "firefox"].includes(target)) {
+    throw new Error("浏览器扩展构建目标必须是 chrome 或 firefox。");
+  }
+  const pnpmArguments = ["--filter", "@vaultmesh/browser-extension", "exec", "wxt", command, "-b", target];
   if (platform !== "win32") {
     return { command: "pnpm", arguments: pnpmArguments };
   }
@@ -36,7 +39,8 @@ export async function buildBrowserExtension(command, baseEnvironment = process.e
     throw new Error("用法：build-browser-extension.mjs <build|zip>");
   }
   const environment = browserExtensionBuildEnvironment(baseEnvironment, options);
-  const invocation = browserExtensionBuildInvocation(command, process.platform, environment);
+  const target = options.target ?? "chrome";
+  const invocation = browserExtensionBuildInvocation(command, target, process.platform, environment);
   await new Promise((resolve, reject) => {
     const child = spawn(invocation.command, invocation.arguments, {
       cwd: workspace,
@@ -49,19 +53,25 @@ export async function buildBrowserExtension(command, baseEnvironment = process.e
       else reject(new Error(`${invocation.command} ${signal ? `被 ${signal} 终止` : `退出码 ${code ?? 1}`}`));
     });
   });
-  return environment.VAULTMESH_BROWSER_EXTENSION_ID;
+  return {
+    chromeExtensionId: environment.VAULTMESH_BROWSER_EXTENSION_ID,
+    firefoxExtensionId: environment.VAULTMESH_FIREFOX_EXTENSION_ID,
+    target,
+  };
 }
 
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
   try {
     const extraArguments = process.argv.slice(3);
-    if (extraArguments.some((argument) => argument !== "--release-identity")) {
-      throw new Error("用法：build-browser-extension.mjs <build|zip> [--release-identity]");
+    const targetArgument = extraArguments.find((argument) => ["chrome", "firefox"].includes(argument));
+    if (extraArguments.some((argument) => argument !== "--release-identity" && !["chrome", "firefox"].includes(argument))) {
+      throw new Error("用法：build-browser-extension.mjs <build|zip> [chrome|firefox] [--release-identity]");
     }
-    const extensionId = await buildBrowserExtension(process.argv[2], process.env, {
+    const identity = await buildBrowserExtension(process.argv[2], process.env, {
       requireRelease: extraArguments.includes("--release-identity"),
+      target: targetArgument ?? "chrome",
     });
-    console.log(`Browser extension 已使用固定 ID 构建：${extensionId}`);
+    console.log(`Browser extension ${identity.target} 已使用固定身份构建：${identity.target === "firefox" ? identity.firefoxExtensionId : identity.chromeExtensionId}`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     process.exitCode = 1;

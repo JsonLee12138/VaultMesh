@@ -9,6 +9,7 @@ export function tauriMacOSBrowserHostPlan({
   temporaryDirectory,
   nativeHostPath,
   extensionId,
+  firefoxExtensionId,
   browserProfile,
 }) {
   if (!/^[a-p]{32}$/.test(extensionId)) {
@@ -16,6 +17,9 @@ export function tauriMacOSBrowserHostPlan({
   }
   if (!path.isAbsolute(nativeHostPath)) {
     throw new Error("Tauri Native Host 必须使用绝对路径。");
+  }
+  if (firefoxExtensionId !== "vaultmesh@atlantis-mk.github.io") {
+    throw new Error("VAULTMESH_FIREFOX_EXTENSION_ID 无效。");
   }
   const integrationRoot = path.join(
     userHome, "Library", "Application Support", "com.vaultmesh.desktop",
@@ -30,13 +34,19 @@ export function tauriMacOSBrowserHostPlan({
     path.join(userHome, "Library", "Application Support", "Microsoft Edge", "NativeMessagingHosts"),
     ...(browserProfile ? [path.join(browserProfile, "NativeMessagingHosts")] : []),
   ]);
+  const firefoxManifestDirectory = path.join(
+    userHome, "Library", "Application Support", "Mozilla", "NativeMessagingHosts",
+  );
+  const firefoxManifestPath = path.join(firefoxManifestDirectory, `${tauriHostName}.json`);
   const allowedOrigin = `chrome-extension://${extensionId}/`;
   const config = JSON.stringify({
-    version: 1,
+    version: 2,
     brokerSocket,
     keychainService: tauriPairingService,
     keychainAccount: tauriPairingAccount,
-    allowedOrigin,
+    chromiumAllowedOrigin: allowedOrigin,
+    firefoxExtensionId,
+    firefoxManifestPath,
   });
   const manifest = JSON.stringify({
     name: tauriHostName,
@@ -45,13 +55,23 @@ export function tauriMacOSBrowserHostPlan({
     type: "stdio",
     allowed_origins: [allowedOrigin],
   });
+  const firefoxManifest = JSON.stringify({
+    name: tauriHostName,
+    description: "VaultMesh Tauri protocol v2 native messaging host",
+    path: nativeHostPath,
+    type: "stdio",
+    allowed_extensions: [firefoxExtensionId],
+  });
   return {
     integrationRoot,
     configPath,
     brokerSocket,
     nativeHostPath,
     manifestDirectories,
+    firefoxManifestDirectory,
+    firefoxManifestPath,
     config,
     manifest,
+    firefoxManifest,
   };
 }

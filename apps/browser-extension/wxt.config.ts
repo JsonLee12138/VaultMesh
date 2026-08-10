@@ -12,10 +12,25 @@ export default defineConfig({
         },
       }
     : {}),
-  manifest: {
+  manifest: ({ browser }) => {
+    const isFirefox = browser === "firefox";
+    return {
     name: "VaultMesh",
     description: "Use VaultMesh securely from the browser popup.",
-    minimum_chrome_version: "127",
+    ...(isFirefox ? {} : { minimum_chrome_version: "127" }),
+    ...(isFirefox
+      ? {
+          browser_specific_settings: {
+            gecko: {
+              id: process.env.VAULTMESH_FIREFOX_EXTENSION_ID ?? "vaultmesh@atlantis-mk.github.io",
+              strict_min_version: "128.0",
+              data_collection_permissions: {
+                required: ["none"],
+              },
+            },
+          },
+        }
+      : {}),
     icons: {
       "16": "icon-16.png",
       "32": "icon-32.png",
@@ -28,16 +43,21 @@ export default defineConfig({
         "32": "icon-32.png",
       },
     },
-    permissions: ["activeTab", "alarms", "clipboardRead", "clipboardWrite", "contextMenus", "idle", "nativeMessaging", "notifications", "storage", "webAuthenticationProxy", "webNavigation"],
+    permissions: [
+      "activeTab", "alarms", "clipboardRead", "clipboardWrite", "contextMenus", "idle",
+      "nativeMessaging", "notifications", "storage", "webNavigation",
+      ...(!isFirefox ? ["webAuthenticationProxy" as const] : []),
+    ],
     host_permissions: ["http://*/*", "https://*/*"],
     commands: {
       "request-identity-fill": {
         description: "Fill this form with a selected VaultMesh item"
       }
     },
-    ...(process.env.WXT_CHROME_EXTENSION_KEY
+    ...(!isFirefox && process.env.WXT_CHROME_EXTENSION_KEY
       ? { key: process.env.WXT_CHROME_EXTENSION_KEY }
       : {})
+    };
   },
   vite: () => ({
     plugins: [tailwindcss()]

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import {
   developmentExtensionKey,
   extensionIdFromKey,
+  firefoxExtensionId,
 } from './browser-identity.mjs';
 import { verifyBrowserHost } from './tauri-browser-host-probe.mjs';
 import { startManagedProcess } from './development-process.mjs';
@@ -40,6 +41,7 @@ export function browserDevelopmentEnvironment(baseEnvironment = process.env) {
     WXT_CHROME_EXTENSION_KEY: extensionKey,
     WXT_NATIVE_HOST_NAME: hostName,
     VAULTMESH_BROWSER_EXTENSION_ID: extensionId,
+    VAULTMESH_FIREFOX_EXTENSION_ID: firefoxExtensionId,
   };
 }
 

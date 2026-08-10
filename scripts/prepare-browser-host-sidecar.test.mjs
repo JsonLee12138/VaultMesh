@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFile } from "node:fs/promises";
 
-import { developmentExtensionId, developmentExtensionKey } from "./browser-identity.mjs";
+import { developmentExtensionId, developmentExtensionKey, firefoxExtensionId } from "./browser-identity.mjs";
 import {
   browserHostBuildIdentity,
   browserHostSidecarPaths,
@@ -30,11 +30,14 @@ test("Browser Host sidecar follows Tauri target-triple naming on macOS and Windo
 });
 
 test("Browser Host build identity defaults consistently and rejects key mismatches", () => {
-  assert.equal(browserHostBuildIdentity({}), developmentExtensionId);
-  assert.equal(browserHostBuildIdentity({
+  assert.deepEqual(browserHostBuildIdentity({}), {
+    chromeExtensionId: developmentExtensionId,
+    firefoxExtensionId,
+  });
+  assert.deepEqual(browserHostBuildIdentity({
     WXT_CHROME_EXTENSION_KEY: developmentExtensionKey,
     VAULTMESH_BROWSER_EXTENSION_ID: developmentExtensionId,
-  }), developmentExtensionId);
+  }), { chromeExtensionId: developmentExtensionId, firefoxExtensionId });
   assert.throws(() => browserHostBuildIdentity({
     WXT_CHROME_EXTENSION_KEY: developmentExtensionKey,
     VAULTMESH_BROWSER_EXTENSION_ID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
@@ -45,7 +48,7 @@ test("Browser Host build identity defaults consistently and rejects key mismatch
   const releaseKey = Buffer.from("vaultmesh-test-release-public-key").toString("base64");
   assert.notEqual(browserHostBuildIdentity({
     WXT_CHROME_EXTENSION_KEY: releaseKey,
-  }), developmentExtensionId);
+  }).chromeExtensionId, developmentExtensionId);
 });
 
 test("CT-UPDATE-001 Windows installers register and remove the fixed Host while NSIS also stops it", async () => {
@@ -77,6 +80,7 @@ test("CT-UPDATE-001 Windows installers register and remove the fixed Host while 
   for (const source of [nsisHooks, wixFragment]) {
     assert.match(source, /Google\\Chrome\\NativeMessagingHosts\\com\.vaultmesh\.browser/);
     assert.match(source, /Microsoft\\Edge\\NativeMessagingHosts\\com\.vaultmesh\.browser/);
+    assert.match(source, /Mozilla\\NativeMessagingHosts\\com\.vaultmesh\.browser/);
     assert.match(source, /com\.vaultmesh\.browser\.json/);
   }
   assert.match(nsisHooks, /!macro NSIS_HOOK_PREINSTALL/);
@@ -98,5 +102,6 @@ test("CT-UPDATE-001 Windows installers register and remove the fixed Host while 
   assert.match(wixFragment, /<DirectoryRef Id="TARGETDIR">\s*<Directory Id="AppDataFolder">/);
   assert.doesNotMatch(wixFragment, /<DirectoryRef Id="AppDataFolder">/);
   assert.match(wixFragment, /RemoveBrowserHostManifest/);
+  assert.match(wixFragment, /RemoveFirefoxBrowserHostManifest/);
   assert.match(wixFragment, /RemoveBrowserHostConfig/);
 });

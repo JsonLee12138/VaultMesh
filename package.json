@@ -1,7 +1,7 @@
 {
   "name": "vaultmesh",
-  "version": "0.0.3-review",
-  "description": "Local-first password manager for Tauri 2 desktop and Chromium browsers",
+  "version": "0.0.4-review",
+  "description": "Local-first password manager for Tauri 2 desktop, Chromium and Firefox browsers",
   "private": true,
   "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
@@ -37,6 +37,7 @@
     "extension:build": "node scripts/build-browser-extension.mjs build",
     "extension:zip": "node scripts/build-browser-extension.mjs zip",
     "extension:release:zip": "node scripts/build-browser-extension.mjs zip --release-identity",
+    "extension:release:zip:all": "node scripts/build-browser-extension-release.mjs",
     "extension:test": "pnpm --filter @vaultmesh/browser-extension test",
     "extension:typecheck": "pnpm --filter @vaultmesh/browser-extension typecheck",
     "local:package": "pnpm tauri:local:package",

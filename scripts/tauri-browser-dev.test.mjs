@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { developmentExtensionId, developmentExtensionKey } from './browser-identity.mjs';
+import { developmentExtensionId, developmentExtensionKey, firefoxExtensionId } from './browser-identity.mjs';
 import {
   browserDevelopmentEnvironment,
   defaultBrowserDevelopmentProfile,
@@ -17,11 +17,13 @@ test('CT-BROWSER-001 propagates one fixed identity to WXT and the Tauri Host', (
     temporaryDirectory: '/tmp',
     nativeHostPath: debugTauriHost,
     extensionId: environment.VAULTMESH_BROWSER_EXTENSION_ID,
+    firefoxExtensionId,
     browserProfile: environment.VAULTMESH_BROWSER_PROFILE,
   });
 
   assert.equal(environment.WXT_CHROME_EXTENSION_KEY, developmentExtensionKey);
   assert.equal(environment.VAULTMESH_BROWSER_EXTENSION_ID, developmentExtensionId);
+  assert.equal(environment.VAULTMESH_FIREFOX_EXTENSION_ID, firefoxExtensionId);
   assert.equal(environment.WXT_NATIVE_HOST_NAME, tauriHostName);
   assert.equal(environment.VAULTMESH_BROWSER_PROFILE, defaultBrowserDevelopmentProfile);
   assert.ok(plan.manifestDirectories.has(
@@ -30,6 +32,9 @@ test('CT-BROWSER-001 propagates one fixed identity to WXT and the Tauri Host', (
   assert.deepEqual(JSON.parse(plan.manifest).allowed_origins, [
     `chrome-extension://${developmentExtensionId}/`,
   ]);
+  assert.deepEqual(JSON.parse(plan.firefoxManifest).allowed_extensions, [firefoxExtensionId]);
+  assert.match(plan.firefoxManifestPath, /Mozilla\/NativeMessagingHosts\/com\.vaultmesh\.browser\.json$/);
+  assert.equal(JSON.parse(plan.config).version, 2);
 });
 
 test('CT-BROWSER-001 rejects an ID that does not derive from the configured key', () => {

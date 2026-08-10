@@ -1,6 +1,6 @@
 # Browser integration spec
 
-拥有：`REQ-BROWSER-*`、`REQ-AUTOFILL-*`、`REQ-PASSKEY-001`、`REQ-EMAIL-003` 的浏览器详细机制。Extension 是运行中 desktop app 的 transient remote UI，不打开 Vault。当前唯一 broker 位于 Tauri Rust runtime；111/111 RPC v2 route/policy 自动化 parity 必须持续通过，真实 Chromium 与发布安装仍由 `AT-BROWSER-001` 验收。File dialog、biometric、clipboard、SSH scan、email、Vault Key 和 persistence 均在 active desktop privileged process。
+拥有：`REQ-BROWSER-*`、`REQ-AUTOFILL-*`、`REQ-PASSKEY-001`、`REQ-EMAIL-003` 的浏览器详细机制。Extension 是运行中 desktop app 的 transient remote UI，不打开 Vault。当前唯一 broker 位于 Tauri Rust runtime；111/111 RPC v2 route/policy 自动化 parity 必须持续通过，真实 Chromium 与发布安装由 `AT-BROWSER-001` 验收，Firefox 由 `AT-BROWSER-FIREFOX-001` 验收。File dialog、biometric、clipboard、SSH scan、email、Vault Key 和 persistence 均在 active desktop privileged process。
 
 ## 权威实现定位
 
@@ -21,6 +21,30 @@ macOS 集成开发使用 `pnpm browser:dev`。该命令必须编排仓库的 `pn
 WXT 必须使用固定的专用 development profile；Host manifest 必须同时安装到该 profile 的 `NativeMessagingHosts`，不能依赖 WXT 临时 profile 或普通浏览器 profile。Extension key 与 native-host `allowed_origins` 必须派生同一固定 ID。任一开发子进程失败、退出或收到 Ctrl+C 时，根命令必须回收 Tauri、WXT、开发浏览器和 debug Host，不得留下后台进程。
 
 使用其他 key 时设置 `WXT_CHROME_EXTENSION_KEY`；若同时设置 `VAULTMESH_BROWSER_EXTENSION_ID`，它必须等于派生 ID。Packaged release 必须提供固定 key 并安装签名 host `com.vaultmesh.browser`；development registration 禁止进入 release package。
+
+## 跨浏览器身份、Native Host 与打包
+
+Chrome/Chromium target 使用 MV3、固定 `WXT_CHROME_EXTENSION_KEY` 派生的 32 位 ID、
+`minimum_chrome_version` 与 `webAuthenticationProxy`。Firefox target 使用 WXT Firefox MV2、固定
+`browser_specific_settings.gecko.id`，并且必须省略上述 Chromium-only manifest 字段和 permission。
+两个 target 共享 popup/background/content 源码、Browser RPC v2、瞬态状态与秘密边界；runtime 对缺失
+`webAuthenticationProxy` 的既有 capability detection 必须保持 no-op，所以 Firefox 不宣称 Passkey proxy。
+
+Native Messaging 使用浏览器特定 manifest，不能共享一份宽松 allowlist：
+
+- Chrome/Edge manifest 使用唯一 `allowed_origins: ["chrome-extension://<compiled-id>/"]`。
+- Firefox manifest 使用唯一 `allowed_extensions: ["<compiled-gecko-id>"]`。macOS 位于用户级 Mozilla
+  `NativeMessagingHosts` 目录；Windows 由 HKCU Mozilla `NativeMessagingHosts` registry 指向该 manifest。
+- 同一个 Rust Host binary 必须先识别浏览器官方启动参数，再读取 pairing secret。Chrome 只接受精确
+  origin；Firefox 只接受精确 installed manifest path 加 Gecko ID。缺参、未知 ID、错误路径或混合参数
+  必须返回安全失败，不能尝试兼容或降级。
+- Chrome 与 Firefox Host connection 继续使用既有每连接 authorization/session 生命周期；任一浏览器
+  都不得把配对状态、Vault response 或受保护值写入 extension storage。
+
+`pnpm extension:release:zip:all` 必须从同一 source/version 生成命名稳定的 Chrome 与 Firefox ZIP，
+解析内部 manifest、验证目标/身份/permission/版本、执行 ZIP 完整性检查，并排除 source map、环境文件、
+凭据和非发布输出。完整 Review workflow 只把这两个安装 ZIP加入 GitHub Draft；Firefox store source ZIP
+可以作为 CI 内部构建输出，但不冒充安装包或商店审核完成。
 
 ## Transport 与 authorization
 

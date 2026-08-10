@@ -12,7 +12,11 @@
             <RegistryKey Root="HKCU" Key="Software\Microsoft\Edge\NativeMessagingHosts\com.vaultmesh.browser" Action="createAndRemoveOnUninstall">
               <RegistryValue Type="string" Value="[VaultMeshAppDataFolder]com.vaultmesh.browser.json" />
             </RegistryKey>
+            <RegistryKey Root="HKCU" Key="Software\Mozilla\NativeMessagingHosts\com.vaultmesh.browser" Action="createAndRemoveOnUninstall">
+              <RegistryValue Type="string" Value="[VaultMeshAppDataFolder]com.vaultmesh.browser.firefox.json" />
+            </RegistryKey>
             <RemoveFile Id="RemoveBrowserHostManifest" Name="com.vaultmesh.browser.json" On="uninstall" />
+            <RemoveFile Id="RemoveFirefoxBrowserHostManifest" Name="com.vaultmesh.browser.firefox.json" On="uninstall" />
             <RemoveFile Id="RemoveBrowserHostConfig" Name="browser-host-config.json" On="uninstall" />
             <RemoveFolder Id="RemoveVaultMeshAppDataFolderIfEmpty" On="uninstall" />
           </Component>

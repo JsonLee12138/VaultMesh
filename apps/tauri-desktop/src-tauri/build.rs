@@ -11,6 +11,7 @@ fn load_build_environment() {
         "VAULTMESH_MICROSOFT_OAUTH_CLIENT_ID",
         "VAULTMESH_MICROSOFT_OAUTH_TENANT",
         "VAULTMESH_BROWSER_EXTENSION_ID",
+        "VAULTMESH_FIREFOX_EXTENSION_ID",
     ];
     for key in ALLOWED {
         println!("cargo:rerun-if-env-changed={key}");

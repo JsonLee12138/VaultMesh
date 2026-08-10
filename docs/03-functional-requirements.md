@@ -255,8 +255,8 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 ### REQ-UPDATE-002 Review 发布基线与独立通道
 
 - 必须：`0.0.1-review` 是 fresh-install 基线；每个后续 Review build 的 workspace、Rust package、
-  Tauri desktop 和 Chromium extension 必须统一为同一个严格递增的规范 Review SemVer，当前更新版本为
-  `0.0.3-review`；打包输出和 updater descriptor 不得丢失 `review` prerelease 标识。
+  Tauri desktop、Chromium extension 和 Firefox extension 必须统一为同一个严格递增的规范 Review SemVer，当前更新版本为
+  `0.0.4-review`；打包输出和 updater descriptor 不得丢失 `review` prerelease 标识。
 - 必须：Review build 从编译期固定的 HTTPS `channels/review/latest.json` 检查更新，并继续使用
   `REQ-UPDATE-001` 的 Rust-owned 检查、用户确认、Tauri 签名验证、安装前 lock/cleanup 和 latest-last
   发布约束；完整 Review 发布同样必须使用三个标准 GitHub-hosted 原生架构 Runner，renderer 不得获得
@@ -264,7 +264,8 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 - 必须：Review 与 test channel 独立读取和写入清单。首次 Review 发布可以没有现有 Review manifest，
   后续 Review 版本必须严格递增；不得覆盖、删除或把 `channels/test/latest.json` 复制为 Review 基线。
 - 必须：完整三平台 Review build 与 R2 latest-last 发布成功后，自动化必须为同一 source SHA 创建或恢复
-  GitHub Draft Prerelease，并只上传 Apple Silicon DMG、Intel DMG 与 Windows x64 NSIS/MSI installers。Draft
+  GitHub Draft Prerelease，并只上传 Apple Silicon DMG、Intel DMG、Windows x64 NSIS/MSI installers 与
+  同 source SHA 的 Chrome/Chromium、Firefox extension ZIP。Draft
   必须保持 prerelease 状态且不得创建 Git Tag；它不计为正式 Release、平台 AT 或已发布。只有 GATE-6、
   Work Verified/封存、Release record 与 Tag 门禁全部满足后才可以公开该 Draft。
 - 可以：小规模 Review 验收可以在目标平台 signed updater artifact 已 immutable 发布后，把
@@ -306,6 +307,24 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 - 必须：扩展持久化设置经过 schema 校验；生成结果与历史、搜索/筛选、表单草稿、秘密、
   popup workspace 和授权/确认会话保持瞬态，不得进入 extension storage。
 - 验收：`CT-BROWSER-003`。
+
+### REQ-BROWSER-004 跨浏览器扩展打包与分发
+
+- 必须：同一 WXT 扩展源码生成版本一致的 Chrome/Chromium MV3 ZIP 和 Firefox MV2 ZIP；Chrome
+  使用固定 manifest key 派生 ID，Firefox 使用固定 `browser_specific_settings.gecko.id`。Release
+  构建不得退回开发 Chrome key、空 Firefox ID、目标不匹配的 manifest 或未检查 ZIP。
+- 必须：Firefox manifest 省略 Chromium-only `minimum_chrome_version`、manifest key 和
+  `webAuthenticationProxy` permission；Firefox 不提供 Passkey proxy，其他 Browser RPC、瞬态状态、
+  secret 最小化、lock/revoke 和 assignment 边界与 Chromium 等价。
+- 必须：macOS/Windows 桌面包分别安装 Chrome/Edge `allowed_origins` 与 Firefox
+  `allowed_extensions` Native Messaging manifest。Host 必须在读取配对 secret 前验证精确的编译期
+  Chrome origin，或精确的 Firefox manifest path 与 Gecko ID；缺失、伪造或混合参数必须拒绝。
+- 必须：完整 Review workflow 从同一 source SHA 构建并验证两个扩展 ZIP，并在桌面 R2 发布成功后
+  与四个桌面安装包一起上传到无 Git Tag 的 GitHub Draft Prerelease；扩展 ZIP 不进入桌面 updater
+  manifest，重复执行不得覆盖同名不同内容资产。
+- 失败：任一浏览器 manifest、版本、identity、permission、ZIP CRC、Native Host 注册或 source SHA
+  不一致时不得发布扩展资产；平台 AT 未完成时不得把 Draft 或 ZIP描述为商店签名或正式发布。
+- 验收：`CT-BROWSER-PACKAGE-001`、`AT-BROWSER-001`、`AT-BROWSER-FIREFOX-001`。
 
 ### REQ-AUTOFILL-001 安全 discovery 与 fill
 

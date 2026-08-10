@@ -23,10 +23,10 @@ mod windows_host {
         time::{Duration, Instant},
     };
 
-    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
     use hmac::{Hmac, Mac as _};
     use serde::{Deserialize, Serialize};
-    use serde_json::{json, Map, Value};
+    use serde_json::{Map, Value, json};
     use sha2::Sha256;
     use uuid::Uuid;
     use windows_sys::Win32::{
@@ -35,12 +35,12 @@ mod windows_host {
             INVALID_HANDLE_VALUE, WAIT_TIMEOUT,
         },
         Storage::FileSystem::{
-            CreateFileW, ReadFile, WriteFile, FILE_FLAG_OVERLAPPED, OPEN_EXISTING,
+            CreateFileW, FILE_FLAG_OVERLAPPED, OPEN_EXISTING, ReadFile, WriteFile,
         },
         System::{
+            IO::{CancelIoEx, GetOverlappedResult, GetOverlappedResultEx, OVERLAPPED},
             Pipes::WaitNamedPipeW,
             Threading::CreateEventW,
-            IO::{CancelIoEx, GetOverlappedResult, GetOverlappedResultEx, OVERLAPPED},
         },
     };
     use zeroize::Zeroizing;
@@ -48,6 +48,8 @@ mod windows_host {
     const CONFIG_NAME: &str = "browser-host-config.json";
     const APP_DATA_NAME: &str = "com.vaultmesh.desktop";
     const DEFAULT_EXTENSION_ID: &str = "dmmjcaemejijgkpginfccokjmbknbgif";
+    const DEFAULT_FIREFOX_EXTENSION_ID: &str = "vaultmesh@atlantis-mk.github.io";
+    const FIREFOX_MANIFEST_NAME: &str = "com.vaultmesh.browser.firefox.json";
     const EXPECTED_PIPE: &str = r"\\.\pipe\VaultMesh.BrowserBroker.v2";
     const EXPECTED_KEYCHAIN_SERVICE: &str = "com.vaultmesh.desktop.browser-pairing";
     const EXPECTED_KEYCHAIN_ACCOUNT: &str = "native-host-hmac-v1";
@@ -65,7 +67,9 @@ mod windows_host {
         broker_pipe: String,
         keychain_service: String,
         keychain_account: String,
-        allowed_origin: String,
+        chromium_allowed_origin: String,
+        firefox_extension_id: String,
+        firefox_manifest_path: PathBuf,
     }
 
     #[derive(Serialize)]
@@ -112,8 +116,8 @@ mod windows_host {
 
     fn run() -> Result<(), ()> {
         let config = load_config().map_err(|_| ())?;
-        let origin = std::env::args().nth(1).ok_or(())?;
-        if origin != config.allowed_origin {
+        let launch_arguments: Vec<String> = std::env::args().skip(1).collect();
+        if !valid_browser_launch(&config, &launch_arguments) {
             return Err(());
         }
         let secret = load_pairing_secret(&config).map_err(|_| ())?;
@@ -154,11 +158,14 @@ mod windows_host {
             io::Error::new(io::ErrorKind::InvalidData, "invalid host configuration")
         })?;
         let expected_origin = format!("chrome-extension://{}/", compiled_extension_id()?);
-        if config.version != 1
+        let expected_firefox_manifest = app_data.join(APP_DATA_NAME).join(FIREFOX_MANIFEST_NAME);
+        if config.version != 2
             || config.broker_pipe != EXPECTED_PIPE
             || config.keychain_service != EXPECTED_KEYCHAIN_SERVICE
             || config.keychain_account != EXPECTED_KEYCHAIN_ACCOUNT
-            || config.allowed_origin != expected_origin
+            || config.chromium_allowed_origin != expected_origin
+            || config.firefox_extension_id != compiled_firefox_extension_id()?
+            || config.firefox_manifest_path != expected_firefox_manifest
         {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -173,6 +180,26 @@ mod windows_host {
         (value.len() == 32 && value.bytes().all(|byte| (b'a'..=b'p').contains(&byte)))
             .then_some(value)
             .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "invalid extension ID"))
+    }
+
+    fn compiled_firefox_extension_id() -> io::Result<&'static str> {
+        let value =
+            option_env!("VAULTMESH_FIREFOX_EXTENSION_ID").unwrap_or(DEFAULT_FIREFOX_EXTENSION_ID);
+        (value == DEFAULT_FIREFOX_EXTENSION_ID)
+            .then_some(value)
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidData, "invalid Firefox extension ID")
+            })
+    }
+
+    fn valid_browser_launch(config: &HostConfig, arguments: &[String]) -> bool {
+        if matches!(arguments, [origin] | [origin, _] if origin == &config.chromium_allowed_origin)
+        {
+            return true;
+        }
+        matches!(arguments, [manifest_path, extension_id]
+            if PathBuf::from(manifest_path) == config.firefox_manifest_path
+                && extension_id == &config.firefox_extension_id)
     }
 
     fn load_pairing_secret(config: &HostConfig) -> Result<Zeroizing<[u8; 32]>, ()> {
@@ -473,13 +500,50 @@ mod windows_host {
         use super::*;
         use std::{ptr::null_mut, thread};
         use windows_sys::Win32::{
-            Foundation::{GetLastError, ERROR_PIPE_CONNECTED},
+            Foundation::{ERROR_PIPE_CONNECTED, GetLastError},
             Storage::FileSystem::PIPE_ACCESS_DUPLEX,
             System::Pipes::{
                 ConnectNamedPipe, CreateNamedPipeW, DisconnectNamedPipe, PIPE_READMODE_BYTE,
                 PIPE_TYPE_BYTE, PIPE_WAIT,
             },
         };
+
+        #[test]
+        fn browser_launch_requires_exact_chromium_origin_or_firefox_manifest_and_id() {
+            let config = HostConfig {
+                version: 2,
+                broker_pipe: EXPECTED_PIPE.to_owned(),
+                keychain_service: EXPECTED_KEYCHAIN_SERVICE.to_owned(),
+                keychain_account: EXPECTED_KEYCHAIN_ACCOUNT.to_owned(),
+                chromium_allowed_origin: format!("chrome-extension://{DEFAULT_EXTENSION_ID}/"),
+                firefox_extension_id: DEFAULT_FIREFOX_EXTENSION_ID.to_owned(),
+                firefox_manifest_path: PathBuf::from(
+                    r"C:\Users\test\AppData\Roaming\com.vaultmesh.desktop\com.vaultmesh.browser.firefox.json",
+                ),
+            };
+            assert!(valid_browser_launch(
+                &config,
+                &[config.chromium_allowed_origin.clone()]
+            ));
+            assert!(valid_browser_launch(
+                &config,
+                &[
+                    config.firefox_manifest_path.display().to_string(),
+                    config.firefox_extension_id.clone(),
+                ]
+            ));
+            assert!(!valid_browser_launch(
+                &config,
+                &["chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/".to_owned()]
+            ));
+            assert!(!valid_browser_launch(
+                &config,
+                &[
+                    config.firefox_manifest_path.display().to_string(),
+                    "other@example.test".to_owned(),
+                ]
+            ));
+        }
 
         #[test]
         fn reads_chunked_response_when_broker_disconnects_after_write() {
@@ -562,16 +626,18 @@ mod macos_host {
         time::Duration,
     };
 
-    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
     use hmac::{Hmac, Mac as _};
     use serde::{Deserialize, Serialize};
-    use serde_json::{json, Map, Value};
+    use serde_json::{Map, Value, json};
     use sha2::Sha256;
     use uuid::Uuid;
     use zeroize::Zeroizing;
 
     const CONFIG_NAME: &str = "browser-host-config.json";
     const APP_DATA_NAME: &str = "com.vaultmesh.desktop";
+    const DEFAULT_FIREFOX_EXTENSION_ID: &str = "vaultmesh@atlantis-mk.github.io";
+    const FIREFOX_MANIFEST_NAME: &str = "com.vaultmesh.browser.json";
     const MAX_CONFIG_BYTES: u64 = 4096;
     const MAX_NATIVE_REQUEST_BYTES: usize = 256 * 1024;
     const MAX_NATIVE_RESPONSE_BYTES: usize = 1024 * 1024;
@@ -584,7 +650,9 @@ mod macos_host {
         broker_socket: PathBuf,
         keychain_service: String,
         keychain_account: String,
-        allowed_origin: String,
+        chromium_allowed_origin: String,
+        firefox_extension_id: String,
+        firefox_manifest_path: PathBuf,
     }
 
     #[derive(Serialize)]
@@ -610,8 +678,8 @@ mod macos_host {
 
     fn run() -> Result<(), ()> {
         let config = load_config().map_err(|_| ())?;
-        let origin = std::env::args().nth(1).ok_or(())?;
-        if origin != config.allowed_origin {
+        let launch_arguments: Vec<String> = std::env::args().skip(1).collect();
+        if !valid_browser_launch(&config, &launch_arguments) {
             return Err(());
         }
         let secret = load_pairing_secret(&config).map_err(|_| ())?;
@@ -658,10 +726,18 @@ mod macos_host {
         let config: HostConfig = serde_json::from_slice(&bytes).map_err(|_| {
             io::Error::new(io::ErrorKind::InvalidData, "invalid host configuration")
         })?;
-        if config.version != 1
+        let expected_firefox_manifest = home
+            .join("Library")
+            .join("Application Support")
+            .join("Mozilla")
+            .join("NativeMessagingHosts")
+            .join(FIREFOX_MANIFEST_NAME);
+        if config.version != 2
             || !valid_service_component(&config.keychain_service)
             || !valid_service_component(&config.keychain_account)
-            || !valid_extension_origin(&config.allowed_origin)
+            || !valid_extension_origin(&config.chromium_allowed_origin)
+            || config.firefox_extension_id != compiled_firefox_extension_id()?
+            || config.firefox_manifest_path != expected_firefox_manifest
             || !valid_socket_path(&config.broker_socket)
         {
             return Err(io::Error::new(
@@ -687,6 +763,71 @@ mod macos_host {
             .is_some_and(|id| {
                 id.len() == 32 && id.bytes().all(|byte| (b'a'..=b'p').contains(&byte))
             })
+    }
+
+    fn compiled_firefox_extension_id() -> io::Result<&'static str> {
+        let value =
+            option_env!("VAULTMESH_FIREFOX_EXTENSION_ID").unwrap_or(DEFAULT_FIREFOX_EXTENSION_ID);
+        (value == DEFAULT_FIREFOX_EXTENSION_ID)
+            .then_some(value)
+            .ok_or_else(|| {
+                io::Error::new(io::ErrorKind::InvalidData, "invalid Firefox extension ID")
+            })
+    }
+
+    fn valid_browser_launch(config: &HostConfig, arguments: &[String]) -> bool {
+        if matches!(arguments, [origin] if origin == &config.chromium_allowed_origin) {
+            return true;
+        }
+        matches!(arguments, [manifest_path, extension_id]
+            if PathBuf::from(manifest_path) == config.firefox_manifest_path
+                && extension_id == &config.firefox_extension_id)
+    }
+
+    #[cfg(test)]
+    mod launch_tests {
+        use super::*;
+
+        #[test]
+        fn requires_exact_chromium_origin_or_firefox_manifest_and_id() {
+            let config = HostConfig {
+                version: 2,
+                broker_socket: PathBuf::from("/tmp/vaultmesh-tauri-browser.sock"),
+                keychain_service: "com.vaultmesh.desktop.browser-pairing".to_owned(),
+                keychain_account: "native-host-hmac-v1".to_owned(),
+                chromium_allowed_origin: "chrome-extension://dmmjcaemejijgkpginfccokjmbknbgif/"
+                    .to_owned(),
+                firefox_extension_id: DEFAULT_FIREFOX_EXTENSION_ID.to_owned(),
+                firefox_manifest_path: PathBuf::from(
+                    "/Users/test/Library/Application Support/Mozilla/NativeMessagingHosts/com.vaultmesh.browser.json",
+                ),
+            };
+            assert!(valid_browser_launch(
+                &config,
+                &[config.chromium_allowed_origin.clone()]
+            ));
+            assert!(valid_browser_launch(
+                &config,
+                &[
+                    config.firefox_manifest_path.display().to_string(),
+                    config.firefox_extension_id.clone(),
+                ]
+            ));
+            assert!(!valid_browser_launch(
+                &config,
+                &[
+                    config.firefox_manifest_path.display().to_string(),
+                    "other@example.test".to_owned(),
+                ]
+            ));
+            assert!(!valid_browser_launch(
+                &config,
+                &[
+                    config.chromium_allowed_origin.clone(),
+                    config.firefox_extension_id.clone(),
+                ]
+            ));
+        }
     }
 
     fn valid_socket_path(path: &Path) -> bool {

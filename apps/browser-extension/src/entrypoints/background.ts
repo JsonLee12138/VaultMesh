@@ -76,6 +76,11 @@ let activePluginSecurityPolicy = DEFAULT_PLUGIN_SECURITY_POLICY;
 let emailOtpPollTimer: ReturnType<typeof setInterval> | null = null;
 const emailOtpBoostedTabs = new Map<number, string>();
 const totpCaptures = new TotpCaptureRegistry((operation, input) => backgroundDesktopRpc(operation as import("@/lib/desktop-rpc").Operation, input));
+type BrowserActionApi = typeof browser.action;
+const extensionAction = (browser as unknown as {
+  action?: BrowserActionApi;
+  browserAction?: BrowserActionApi;
+}).action ?? (browser as unknown as { browserAction?: BrowserActionApi }).browserAction;
 
 export default defineBackground(() => {
   // Listener registration is deliberately synchronous: Chromium requires the
@@ -173,13 +178,13 @@ export default defineBackground(() => {
 
   browser.commands.onCommand.addListener((command) => {
     if (command === "request-identity-fill") {
-      void browser.action.openPopup();
+      void extensionAction?.openPopup();
     }
   });
 
   browser.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId === CONTEXT_MENU_ID && tab?.id != null) {
-      void browser.action.openPopup();
+      void extensionAction?.openPopup();
     }
   });
 
@@ -293,7 +298,7 @@ export default defineBackground(() => {
     if (!page) return { status: "unsupported-page" as const, candidates: [] };
     if (parsed.data.kind === "vaultmesh.autofill-state") return getAutofillAvailability();
     if (parsed.data.kind === "vaultmesh.open-unlock") {
-      await browser.action.openPopup();
+      await extensionAction?.openPopup();
       return { status: "opened" as const };
     }
     if (parsed.data.kind === "vaultmesh.autofill-candidates") {
@@ -343,7 +348,7 @@ export default defineBackground(() => {
         requiresPassword: true,
         expiresAt: Date.now() + 60_000,
       };
-      await browser.action.openPopup();
+      await extensionAction?.openPopup();
       return { status: "confirmation-required" as const };
     }
     if (parsed.data.kind === "vaultmesh.save-capture-confirmed") {
@@ -697,9 +702,9 @@ async function pendingSaveCaptureForActiveTab(): Promise<SaveCaptureQueuedRespon
 
 async function setSaveCaptureBadge(tabId: number, visible: boolean): Promise<void> {
   await Promise.allSettled([
-    browser.action.setBadgeBackgroundColor({ tabId, color: "#b42318" }),
-    browser.action.setBadgeText({ tabId, text: visible ? "!" : "" }),
-    browser.action.setTitle({ tabId, title: visible ? "VaultMesh：等待确认保存" : "VaultMesh" }),
+    extensionAction?.setBadgeBackgroundColor({ tabId, color: "#b42318" }),
+    extensionAction?.setBadgeText({ tabId, text: visible ? "!" : "" }),
+    extensionAction?.setTitle({ tabId, title: visible ? "VaultMesh：等待确认保存" : "VaultMesh" }),
   ]);
 }
 

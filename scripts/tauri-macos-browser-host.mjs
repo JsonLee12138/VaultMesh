@@ -2,7 +2,7 @@ import { chmod, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 
-import { developmentExtensionId } from "./browser-identity.mjs";
+import { developmentExtensionId, firefoxExtensionId } from "./browser-identity.mjs";
 import { tauriHostName, tauriMacOSBrowserHostPlan } from "./tauri-macos-browser-host-config.mjs";
 
 const extensionId = process.env.VAULTMESH_BROWSER_EXTENSION_ID ?? developmentExtensionId;
@@ -13,6 +13,7 @@ const plan = tauriMacOSBrowserHostPlan({
   temporaryDirectory: tmpdir(),
   nativeHostPath,
   extensionId,
+  firefoxExtensionId: process.env.VAULTMESH_FIREFOX_EXTENSION_ID ?? firefoxExtensionId,
   browserProfile: process.env.VAULTMESH_BROWSER_PROFILE,
 });
 
@@ -27,8 +28,14 @@ if (process.argv.includes("--uninstall")) {
     } catch {}
   }
   try {
+    const manifest = JSON.parse(await readFile(plan.firefoxManifestPath, "utf8"));
+    if (manifest.name === tauriHostName && manifest.path === plan.nativeHostPath) {
+      await rm(plan.firefoxManifestPath);
+    }
+  } catch {}
+  try {
     const config = JSON.parse(await readFile(plan.configPath, "utf8"));
-    if (config.version === 1 && config.brokerSocket === plan.brokerSocket) {
+    if (config.version === 2 && config.brokerSocket === plan.brokerSocket) {
       await rm(plan.configPath);
     }
   } catch {}
@@ -50,4 +57,7 @@ for (const directory of plan.manifestDirectories) {
   await writeFile(manifestPath, plan.manifest, { mode: 0o600 });
   await chmod(manifestPath, 0o600);
 }
-console.log(`已安装 Tauri Rust browser host；扩展 ID：${extensionId}`);
+await mkdir(plan.firefoxManifestDirectory, { recursive: true, mode: 0o700 });
+await writeFile(plan.firefoxManifestPath, plan.firefoxManifest, { mode: 0o600 });
+await chmod(plan.firefoxManifestPath, 0o600);
+console.log(`已安装 Tauri Rust browser host；Chrome ID：${extensionId}；Firefox ID：${process.env.VAULTMESH_FIREFOX_EXTENSION_ID ?? firefoxExtensionId}`);

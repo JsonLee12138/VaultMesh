@@ -13,6 +13,12 @@ export function extensionIdFromKey(key) {
 }
 
 export const developmentExtensionId = extensionIdFromKey(developmentExtensionKey);
+export const firefoxExtensionId = "vaultmesh@atlantis-mk.github.io";
+
+export function validFirefoxExtensionId(value) {
+  return typeof value === "string"
+    && value === firefoxExtensionId;
+}
 
 export function browserIdentityEnvironment(baseEnvironment = process.env, { requireRelease = false } = {}) {
   const explicitKey = baseEnvironment.WXT_CHROME_EXTENSION_KEY;
@@ -28,9 +34,14 @@ export function browserIdentityEnvironment(baseEnvironment = process.env, { requ
   if (extensionId !== derivedExtensionId) {
     throw new Error("VAULTMESH_BROWSER_EXTENSION_ID 与 manifest key 不匹配。");
   }
+  const geckoId = baseEnvironment.VAULTMESH_FIREFOX_EXTENSION_ID ?? firefoxExtensionId;
+  if (!validFirefoxExtensionId(geckoId)) {
+    throw new Error(`VAULTMESH_FIREFOX_EXTENSION_ID 必须固定为 ${firefoxExtensionId}。`);
+  }
   return {
     ...baseEnvironment,
     WXT_CHROME_EXTENSION_KEY: extensionKey,
     VAULTMESH_BROWSER_EXTENSION_ID: extensionId,
+    VAULTMESH_FIREFOX_EXTENSION_ID: geckoId,
   };
 }

@@ -53,7 +53,7 @@ AI 必须先完整读取 `AGENTS.md`，再按以下顺序建立最小任务上�
 
 ## 3. 产品范围
 
-- VaultMesh 是本地优先、单设备密码管理器；当前工作客户端是 Tauri 2 桌面端和 Chromium MV3 扩展。
+- VaultMesh 是本地优先、单设备密码管理器；当前工作客户端是 Tauri 2 桌面端、Chromium MV3 扩展和 Firefox MV2 扩展。Firefox 不包含 Chromium-only Passkey proxy。
 - 当前范围没有账号、服务器、同步、分享或恢复后门。
 - Tauri 2 是 macOS/Windows 的唯一产品 shell；Electron 与 SwiftUI/WinUI 产品源码已按 `CHG-2026-008` 移除。
 - Optional、Future 和 Out of scope 不得被 AI 自主提升为当前 Required。

@@ -1,0 +1,42 @@
+id: "CHG-2026-036-cross-browser-extension-release"
+title: "发布 Chrome 与 Firefox 浏览器扩展 ZIP"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.45-active"
+target_release: "0.0.4-review"
+requirements:
+  - "REQ-UPDATE-002"
+  - "REQ-BROWSER-004"
+tests:
+  - "CT-UPDATE-REVIEW-001"
+  - "CT-BROWSER-PACKAGE-001"
+  - "AT-BROWSER-001"
+  - "AT-BROWSER-FIREFOX-001"
+adrs:
+  - "ADR-0003"
+  - "ADR-0017"
+context_refs:
+  - "docs/02-scope-matrix.md#客户端与平台"
+  - "docs/02-scope-matrix.md#Browser 能力"
+  - "docs/03-functional-requirements.md#REQ-BROWSER-004 跨浏览器扩展打包与分发"
+  - "specs/browser-integration.md#跨浏览器身份、Native Host 与打包"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/07-test-release-plan.md#GATE-6 平台发布"
+  - "docs/08-traceability.md#REQ-BROWSER-004"
+related_changes:
+  - "CHG-2026-030-review-version-baseline"
+affected_surfaces:
+  - "Chrome/Chromium MV3 extension package"
+  - "Firefox MV2 extension package"
+  - "macOS/Windows Native Messaging registration"
+  - "GitHub Draft Prerelease assets"
+affected_formats:
+  - "Chrome extension manifest v3"
+  - "Firefox extension manifest v2"
+  - "Chrome allowed_origins and Firefox allowed_extensions native manifests"
+affected_versions:
+  - "0.0.3-review"
+  - "0.0.4-review"
+security_impact: "Firefox remains a transient remote UI and receives no Vault key or persistent secret. The native host must authenticate the exact compiled Chrome extension ID or Firefox Gecko ID and reject every other launch argument before loading the pairing secret."
+migration: "No Vault/RPC/ABI migration. Existing Chrome/Edge installations remain compatible; desktop installers add a separate Firefox native manifest and per-user registration. Firefox Passkey proxy remains unsupported because webAuthenticationProxy is Chromium-specific."
+supersedes: []

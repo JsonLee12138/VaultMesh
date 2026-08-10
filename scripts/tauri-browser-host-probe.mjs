@@ -10,6 +10,30 @@ export async function verifyBrowserHost({
     throw new Error('Rust Host probe 缺少有效的路径或扩展 ID。');
   }
 
+  return verifyBrowserHostLaunch({
+    nativeHostPath,
+    launchArguments: [`chrome-extension://${extensionId}/`],
+    timeoutMs,
+  });
+}
+
+export async function verifyFirefoxBrowserHost({
+  nativeHostPath,
+  manifestPath,
+  extensionId,
+  timeoutMs = 10_000,
+}) {
+  if (!nativeHostPath || !manifestPath || extensionId !== 'vaultmesh@atlantis-mk.github.io') {
+    throw new Error('Firefox Rust Host probe 缺少有效路径或固定 Gecko ID。');
+  }
+  return verifyBrowserHostLaunch({
+    nativeHostPath,
+    launchArguments: [manifestPath, extensionId],
+    timeoutMs,
+  });
+}
+
+async function verifyBrowserHostLaunch({ nativeHostPath, launchArguments, timeoutMs }) {
   const now = Date.now();
   const requestId = randomUUID();
   const request = Buffer.from(JSON.stringify({
@@ -27,7 +51,7 @@ export async function verifyBrowserHost({
 
   const output = await communicate(
     nativeHostPath,
-    [`chrome-extension://${extensionId}/`],
+    launchArguments,
     frame,
     timeoutMs,
   );

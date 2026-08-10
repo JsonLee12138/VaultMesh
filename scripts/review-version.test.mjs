@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const workspace = new URL("../", import.meta.url);
-const expectedVersion = "0.0.3-review";
+const expectedVersion = "0.0.4-review";
 
 async function json(relativePath) {
   return JSON.parse(await readFile(new URL(relativePath, workspace), "utf8"));
@@ -27,12 +27,13 @@ test("Review product manifests use one prerelease version", async () => {
 test("Review publication is isolated from the existing test channel", async () => {
   const workflow = await readFile(new URL(".github/workflows/r2-review-release.yml", workspace), "utf8");
   assert.match(workflow, /name: Publish R2 review release/);
-  assert.match(workflow, /default: "0\.0\.3-review"/);
+  assert.match(workflow, /default: "0\.0\.4-review"/);
   assert.match(workflow, /channels\/review\/latest\.json/);
   assert.doesNotMatch(workflow, /channels\/test\/latest\.json/);
   assert.match(workflow, /Review version matches source metadata/);
   assert.match(workflow, /process\.env\.REVIEW_VERSION !== sourceVersion/);
   assert.match(workflow, /--updater-version "\$\{\{ inputs\.version \}\}"/);
+  assert.match(workflow, /Build signed updater artifact and unsigned review installer[\s\S]*?--release-identity/);
   assert.match(workflow, /Publish immutable artifacts then review channel/);
   assert.match(workflow, /runner: macos-15\n\s+target: aarch64-apple-darwin/);
   assert.match(workflow, /runner: macos-15-intel\n\s+target: x86_64-apple-darwin/);
@@ -40,7 +41,11 @@ test("Review publication is isolated from the existing test channel", async () =
   assert.match(workflow, /platform_key: windows-x86_64[\s\S]*?bundles: nsis,msi/);
   assert.match(workflow, /Verify GitHub-hosted runner matches target architecture/);
   assert.match(workflow, /github_prerelease:\n\s+name: Create GitHub draft prerelease/);
-  assert.match(workflow, /needs: \[build, publish\]/);
+  assert.match(workflow, /extension:\n\s+name: Build Chrome and Firefox extensions/);
+  assert.match(workflow, /WXT_CHROME_EXTENSION_KEY: \$\{\{ secrets\.WXT_CHROME_EXTENSION_KEY \}\}/);
+  assert.match(workflow, /build-browser-extension-release\.mjs/);
+  assert.match(workflow, /name: vaultmesh-browser-extensions/);
+  assert.match(workflow, /needs: \[build, publish, extension\]/);
   assert.match(workflow, /permissions:\n\s+contents: write/);
   assert.match(workflow, /--draft\s+\\\n\s+--prerelease/);
   assert.match(workflow, /git ls-remote --exit-code --tags origin/);
@@ -48,6 +53,8 @@ test("Review publication is isolated from the existing test channel", async () =
   assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_darwin-x86_64\.dmg/);
   assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_windows-x86_64-setup\.exe/);
   assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_windows-x86_64-installer\.msi/);
+  assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_chrome-extension\.zip/);
+  assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_firefox-extension\.zip/);
   assert.match(workflow, /\.isDraft.*== "true"/);
   assert.match(workflow, /\.isPrerelease.*== "true"/);
   assert.doesNotMatch(workflow, /gh release upload[^\n]*--clobber/);
@@ -80,7 +87,7 @@ test("Intel staged Review channel starts at the baseline and then advances stric
   );
 
   assert.match(workflow, /runs-on: ubuntu-24\.04/);
-  assert.match(workflow, /default: "0\.0\.3-review"/);
+  assert.match(workflow, /default: "0\.0\.4-review"/);
   assert.match(workflow, /RELEASE_VERSION.*-review/);
   assert.match(workflow, /create-review-baseline-manifest\.mjs/);
   assert.match(workflow, /arguments\+?=\(/);

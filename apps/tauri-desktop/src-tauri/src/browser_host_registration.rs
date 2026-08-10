@@ -14,14 +14,18 @@ pub const BROWSER_PIPE_NAME: &str = r"\\.\pipe\VaultMesh.BrowserBroker.v2";
 pub const BROWSER_PAIRING_SERVICE: &str = "com.vaultmesh.desktop.browser-pairing";
 pub const BROWSER_PAIRING_ACCOUNT: &str = "native-host-hmac-v1";
 pub const DEFAULT_DEVELOPMENT_EXTENSION_ID: &str = "dmmjcaemejijgkpginfccokjmbknbgif";
+pub const FIREFOX_EXTENSION_ID: &str = "vaultmesh@atlantis-mk.github.io";
 const HOST_CONFIG_NAME: &str = "browser-host-config.json";
 const HOST_MANIFEST_NAME: &str = "com.vaultmesh.browser.json";
+const FIREFOX_HOST_MANIFEST_NAME: &str = "com.vaultmesh.browser.firefox.json";
 
 pub struct WindowsBrowserHostPlan {
     pub config_path: PathBuf,
-    pub manifest_path: PathBuf,
+    pub chromium_manifest_path: PathBuf,
+    pub firefox_manifest_path: PathBuf,
     pub config: Vec<u8>,
-    pub manifest: Vec<u8>,
+    pub chromium_manifest: Vec<u8>,
+    pub firefox_manifest: Vec<u8>,
 }
 
 #[cfg(target_os = "windows")]
@@ -57,15 +61,19 @@ pub fn windows_browser_host_plan(
         )
     })?;
     let origin = allowed_origin(extension_id)?;
+    let chromium_manifest_path = app_data.join(HOST_MANIFEST_NAME);
+    let firefox_manifest_path = app_data.join(FIREFOX_HOST_MANIFEST_NAME);
     let config = serde_json::to_vec(&json!({
-        "version": 1,
+        "version": 2,
         "brokerPipe": BROWSER_PIPE_NAME,
         "keychainService": BROWSER_PAIRING_SERVICE,
         "keychainAccount": BROWSER_PAIRING_ACCOUNT,
-        "allowedOrigin": origin,
+        "chromiumAllowedOrigin": origin,
+        "firefoxExtensionId": FIREFOX_EXTENSION_ID,
+        "firefoxManifestPath": firefox_manifest_path,
     }))
     .map_err(io::Error::other)?;
-    let manifest = serde_json::to_vec(&json!({
+    let chromium_manifest = serde_json::to_vec(&json!({
         "name": BROWSER_HOST_NAME,
         "description": "VaultMesh Tauri protocol v2 native messaging host",
         "path": native_host_path,
@@ -73,11 +81,21 @@ pub fn windows_browser_host_plan(
         "allowed_origins": [origin],
     }))
     .map_err(io::Error::other)?;
+    let firefox_manifest = serde_json::to_vec(&json!({
+        "name": BROWSER_HOST_NAME,
+        "description": "VaultMesh Tauri protocol v2 native messaging host",
+        "path": native_host_path,
+        "type": "stdio",
+        "allowed_extensions": [FIREFOX_EXTENSION_ID],
+    }))
+    .map_err(io::Error::other)?;
     Ok(WindowsBrowserHostPlan {
         config_path: app_data.join(HOST_CONFIG_NAME),
-        manifest_path: app_data.join(HOST_MANIFEST_NAME),
+        chromium_manifest_path,
+        firefox_manifest_path,
         config,
-        manifest,
+        chromium_manifest,
+        firefox_manifest,
     })
 }
 
@@ -114,12 +132,16 @@ pub fn install_windows_browser_host(app_data: &Path) -> io::Result<()> {
     }
     let plan = windows_browser_host_plan(app_data, &native_host, configured_extension_id()?)?;
     write_atomic(&plan.config_path, &plan.config)?;
-    write_atomic(&plan.manifest_path, &plan.manifest)?;
-    register_native_host_manifest(&plan.manifest_path)
+    write_atomic(&plan.chromium_manifest_path, &plan.chromium_manifest)?;
+    write_atomic(&plan.firefox_manifest_path, &plan.firefox_manifest)?;
+    register_native_host_manifests(&plan.chromium_manifest_path, &plan.firefox_manifest_path)
 }
 
 #[cfg(target_os = "windows")]
-fn register_native_host_manifest(manifest_path: &Path) -> io::Result<()> {
+fn register_native_host_manifests(
+    chromium_manifest_path: &Path,
+    firefox_manifest_path: &Path,
+) -> io::Result<()> {
     use std::{ffi::OsStr, os::windows::ffi::OsStrExt, ptr::null};
     use windows_sys::Win32::System::Registry::{
         HKEY, HKEY_CURRENT_USER, KEY_SET_VALUE, REG_OPTION_NON_VOLATILE, REG_SZ, RegCloseKey,
@@ -139,8 +161,12 @@ fn register_native_host_manifest(manifest_path: &Path) -> io::Result<()> {
         value.encode_wide().chain(Some(0)).collect()
     }
 
-    let manifest = wide(manifest_path.as_os_str());
-    for browser in ["Google\\Chrome", "Microsoft\\Edge"] {
+    for (browser, manifest_path) in [
+        ("Google\\Chrome", chromium_manifest_path),
+        ("Microsoft\\Edge", chromium_manifest_path),
+        ("Mozilla", firefox_manifest_path),
+    ] {
+        let manifest = wide(manifest_path.as_os_str());
         let subkey = wide(OsStr::new(&format!(
             r"Software\{browser}\NativeMessagingHosts\{BROWSER_HOST_NAME}"
         )));
@@ -190,15 +216,36 @@ mod tests {
         let plan = windows_browser_host_plan(app_data, host, DEFAULT_DEVELOPMENT_EXTENSION_ID)
             .expect("plan");
         let config: serde_json::Value = serde_json::from_slice(&plan.config).expect("config");
-        let manifest: serde_json::Value = serde_json::from_slice(&plan.manifest).expect("manifest");
+        let chromium_manifest: serde_json::Value =
+            serde_json::from_slice(&plan.chromium_manifest).expect("manifest");
+        let firefox_manifest: serde_json::Value =
+            serde_json::from_slice(&plan.firefox_manifest).expect("firefox manifest");
         let origin = format!("chrome-extension://{DEFAULT_DEVELOPMENT_EXTENSION_ID}/");
         assert_eq!(plan.config_path, app_data.join(HOST_CONFIG_NAME));
-        assert_eq!(plan.manifest_path, app_data.join(HOST_MANIFEST_NAME));
+        assert_eq!(
+            plan.chromium_manifest_path,
+            app_data.join(HOST_MANIFEST_NAME)
+        );
+        assert_eq!(
+            plan.firefox_manifest_path,
+            app_data.join(FIREFOX_HOST_MANIFEST_NAME)
+        );
+        assert_eq!(config["version"], 2);
         assert_eq!(config["brokerPipe"], BROWSER_PIPE_NAME);
-        assert_eq!(config["allowedOrigin"], origin);
-        assert_eq!(manifest["name"], BROWSER_HOST_NAME);
-        assert_eq!(manifest["path"], host.to_str().expect("host path"));
-        assert_eq!(manifest["allowed_origins"], json!([origin]));
+        assert_eq!(config["chromiumAllowedOrigin"], origin);
+        assert_eq!(config["firefoxExtensionId"], FIREFOX_EXTENSION_ID);
+        assert_eq!(
+            config["firefoxManifestPath"].as_str(),
+            plan.firefox_manifest_path.to_str()
+        );
+        assert_eq!(chromium_manifest["name"], BROWSER_HOST_NAME);
+        assert_eq!(chromium_manifest["path"], host.to_str().expect("host path"));
+        assert_eq!(chromium_manifest["allowed_origins"], json!([origin]));
+        assert_eq!(firefox_manifest["name"], BROWSER_HOST_NAME);
+        assert_eq!(
+            firefox_manifest["allowed_extensions"],
+            json!([FIREFOX_EXTENSION_ID])
+        );
     }
 
     #[test]

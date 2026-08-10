@@ -6,7 +6,7 @@ on:
       version:
         description: "Review SemVer without a leading v (must start at 0.0.1-review)"
         required: true
-        default: "0.0.3-review"
+        default: "0.0.4-review"
         type: string
       notes:
         description: "Short reviewer-facing release notes"
@@ -21,6 +21,36 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  extension:
+    name: Build Chrome and Firefox extensions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      WXT_CHROME_EXTENSION_KEY: ${{ secrets.WXT_CHROME_EXTENSION_KEY }}
+      VAULTMESH_FIREFOX_EXTENSION_ID: vaultmesh@atlantis-mk.github.io
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.1.1
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build and validate Chrome and Firefox Review ZIPs
+        run: >-
+          node scripts/build-browser-extension-release.mjs
+          --output "$RUNNER_TEMP/vaultmesh-browser-extensions"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vaultmesh-browser-extensions
+          path: ${{ runner.temp }}/vaultmesh-browser-extensions
+          if-no-files-found: error
+          retention-days: 7
+
   build:
     name: Build ${{ matrix.platform_key }}
     strategy:
@@ -56,6 +86,8 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
       VAULTMESH_UPDATER_PUBLIC_KEY: ${{ vars.TAURI_UPDATER_PUBLIC_KEY }}
       VAULTMESH_UPDATER_ENDPOINT: ${{ vars.R2_PUBLIC_BASE_URL }}/channels/review/latest.json
+      WXT_CHROME_EXTENSION_KEY: ${{ secrets.WXT_CHROME_EXTENSION_KEY }}
+      VAULTMESH_FIREFOX_EXTENSION_ID: vaultmesh@atlantis-mk.github.io
     defaults:
       run:
         shell: bash
@@ -112,6 +144,7 @@ jobs:
       - name: Build signed updater artifact and unsigned review installer
         run: >-
           node scripts/build-tauri.mjs
+          --release-identity
           --target "${{ matrix.target }}"
           --bundles "${{ matrix.bundles }}"
           --updater-version "${{ inputs.version }}"
@@ -233,7 +266,7 @@ jobs:
 
   github_prerelease:
     name: Create GitHub draft prerelease
-    needs: [build, publish]
+    needs: [build, publish, extension]
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -254,6 +287,10 @@ jobs:
           pattern: vaultmesh-update-*
           path: ${{ runner.temp }}/vaultmesh-update
           merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: vaultmesh-browser-extensions
+          path: ${{ runner.temp }}/vaultmesh-update
       - name: Create or resume GitHub draft prerelease
         env:
           RELEASE_TARGET: ${{ github.sha }}
@@ -266,6 +303,8 @@ jobs:
             "VaultMesh_${RELEASE_VERSION}_darwin-x86_64.dmg"
             "VaultMesh_${RELEASE_VERSION}_windows-x86_64-setup.exe"
             "VaultMesh_${RELEASE_VERSION}_windows-x86_64-installer.msi"
+            "VaultMesh_${RELEASE_VERSION}_chrome-extension.zip"
+            "VaultMesh_${RELEASE_VERSION}_firefox-extension.zip"
           )
           for asset in "${assets[@]}"; do
             [[ -f "$asset_directory/$asset" ]] || {
