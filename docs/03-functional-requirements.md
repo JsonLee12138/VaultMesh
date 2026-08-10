@@ -263,6 +263,10 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
   updater plugin capability。
 - 必须：Review 与 test channel 独立读取和写入清单。首次 Review 发布可以没有现有 Review manifest，
   后续 Review 版本必须严格递增；不得覆盖、删除或把 `channels/test/latest.json` 复制为 Review 基线。
+- 必须：完整三平台 Review build 与 R2 latest-last 发布成功后，自动化必须为同一 source SHA 创建或恢复
+  GitHub Draft Prerelease，并只上传 Apple Silicon DMG、Intel DMG 与 Windows x64 NSIS/MSI installers。Draft
+  必须保持 prerelease 状态且不得创建 Git Tag；它不计为正式 Release、平台 AT 或已发布。只有 GATE-6、
+  Work Verified/封存、Release record 与 Tag 门禁全部满足后才可以公开该 Draft。
 - 可以：小规模 Review 验收可以在目标平台 signed updater artifact 已 immutable 发布后，把
   `channels/review/latest.json` 原子发布为只含已验证目标平台的阶段性 manifest；该 manifest 必须从
   `0.0.1-review` 开始并保持版本严格递增，使已安装基线先返回“无更新”，再从 `.1` 发现并安装 `.2`。

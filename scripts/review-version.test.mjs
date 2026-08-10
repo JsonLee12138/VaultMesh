@@ -37,7 +37,20 @@ test("Review publication is isolated from the existing test channel", async () =
   assert.match(workflow, /runner: macos-15\n\s+target: aarch64-apple-darwin/);
   assert.match(workflow, /runner: macos-15-intel\n\s+target: x86_64-apple-darwin/);
   assert.match(workflow, /runner: windows-2025\n\s+target: x86_64-pc-windows-msvc/);
+  assert.match(workflow, /platform_key: windows-x86_64[\s\S]*?bundles: nsis,msi/);
   assert.match(workflow, /Verify GitHub-hosted runner matches target architecture/);
+  assert.match(workflow, /github_prerelease:\n\s+name: Create GitHub draft prerelease/);
+  assert.match(workflow, /needs: \[build, publish\]/);
+  assert.match(workflow, /permissions:\n\s+contents: write/);
+  assert.match(workflow, /--draft\s+\\\n\s+--prerelease/);
+  assert.match(workflow, /git ls-remote --exit-code --tags origin/);
+  assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_darwin-aarch64\.dmg/);
+  assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_darwin-x86_64\.dmg/);
+  assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_windows-x86_64-setup\.exe/);
+  assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_windows-x86_64-installer\.msi/);
+  assert.match(workflow, /\.isDraft.*== "true"/);
+  assert.match(workflow, /\.isPrerelease.*== "true"/);
+  assert.doesNotMatch(workflow, /gh release upload[^\n]*--clobber/);
   assert.doesNotMatch(workflow, /self-hosted/);
 });
 

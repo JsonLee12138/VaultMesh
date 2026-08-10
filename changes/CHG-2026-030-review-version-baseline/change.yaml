@@ -24,6 +24,7 @@ affected_surfaces:
   - "Workspace package versions"
   - "Tauri desktop and Chromium extension packaging"
   - "Cloudflare R2 updater channel"
+  - "GitHub Draft Prerelease assets"
   - "Windows x64 Review packaging"
 affected_formats:
   - "Tauri v2 updater static JSON"

@@ -46,7 +46,7 @@ jobs:
             platform_key: windows-x86_64
             host_platform: win32
             host_arch: x64
-            bundles: nsis
+            bundles: nsis,msi
             apple_signing_identity: ""
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
@@ -229,3 +229,85 @@ jobs:
             echo "- [Windows x64 installer](${base}/VaultMesh_${RELEASE_VERSION}_windows-x86_64-setup.exe)"
             echo "- [Updater manifest](${R2_PUBLIC_BASE_URL%/}/channels/review/latest.json)"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  github_prerelease:
+    name: Create GitHub draft prerelease
+    needs: [build, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_NOTES: ${{ inputs.notes }}
+      RELEASE_VERSION: ${{ inputs.version }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: vaultmesh-update-*
+          path: ${{ runner.temp }}/vaultmesh-update
+          merge-multiple: true
+      - name: Create or resume GitHub draft prerelease
+        env:
+          RELEASE_TARGET: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          tag="v${RELEASE_VERSION}"
+          asset_directory="$RUNNER_TEMP/vaultmesh-update"
+          assets=(
+            "VaultMesh_${RELEASE_VERSION}_darwin-aarch64.dmg"
+            "VaultMesh_${RELEASE_VERSION}_darwin-x86_64.dmg"
+            "VaultMesh_${RELEASE_VERSION}_windows-x86_64-setup.exe"
+            "VaultMesh_${RELEASE_VERSION}_windows-x86_64-installer.msi"
+          )
+          for asset in "${assets[@]}"; do
+            [[ -f "$asset_directory/$asset" ]] || {
+              echo "Missing GitHub prerelease asset: $asset" >&2
+              exit 1
+            }
+          done
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Refusing to create a Review draft for an existing Git tag: $tag" >&2
+            exit 1
+          fi
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            notes_file="$RUNNER_TEMP/github-prerelease-notes.md"
+            {
+              echo "$RELEASE_NOTES"
+              echo
+              echo "Review build for manual platform acceptance. This draft is not a Stable release and does not create a Git tag."
+            } > "$notes_file"
+            gh release create "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$RELEASE_TARGET" \
+              --title "VaultMesh ${RELEASE_VERSION}" \
+              --notes-file "$notes_file" \
+              --draft \
+              --prerelease
+          fi
+          release_state="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,targetCommitish)"
+          [[ "$(jq -r '.isDraft' <<<"$release_state")" == "true" ]]
+          [[ "$(jq -r '.isPrerelease' <<<"$release_state")" == "true" ]]
+          [[ "$(jq -r '.targetCommitish' <<<"$release_state")" == "$RELEASE_TARGET" ]]
+          mapfile -t published_assets < <(
+            gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name'
+          )
+          for asset in "${assets[@]}"; do
+            if printf '%s\n' "${published_assets[@]}" | grep -Fxq "$asset"; then
+              echo "Draft asset already exists; skipping: $asset"
+              continue
+            fi
+            gh release upload "$tag" "$asset_directory/$asset" --repo "$GITHUB_REPOSITORY"
+          done
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            echo "Draft prerelease unexpectedly created a Git tag: $tag" >&2
+            exit 1
+          fi
+          release_url="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json url --jq '.url')"
+          echo "GitHub Draft Prerelease: $release_url" >> "$GITHUB_STEP_SUMMARY"

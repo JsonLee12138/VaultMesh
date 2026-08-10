@@ -64,7 +64,7 @@ pnpm typecheck
 | `CT-TAURI-TRAY-THEME-001` | Windows light/dark/unknown 主题选择、黑白托盘资源尺寸/解码、macOS Retina 模板资源保持测试 |
 | `CT-DESKTOP-STARTUP-*` | Tauri Rust autostart owner、固定参数、初始化标记、隐藏窗口配置、typed adapter 与设置 UI contract tests |
 | `CT-UPDATE-001` | Rust-owned updater/no-renderer-capability、release-only HTTPS config、macOS/Windows 原生“检查更新…”菜单、主动/自动检查互斥、主动检查无更新/失败反馈、用户确认、安装前 lock/exit cleanup、Windows NSIS 覆盖复制前 Native Host 注销/停止与安装后恢复注册，以及标准 GitHub-hosted `macos-15` ARM64、`macos-15-intel` x86_64、`windows-2025` x64 原生目标/host 架构绑定、发布 workflow 无 `self-hosted` 标签、manifest 的 SemVer/platform/signature/不可变 URL/三平台完整性与 latest-last publish contract tests；Windows target experimental package 必须只发布 immutable objects、保持 test channel 不变且不计入 Windows AT |
-| `CT-UPDATE-REVIEW-001` | `0.0.1-review` fresh-install baseline 与当前 `0.0.3-review` build 的 workspace/Rust/Tauri/extension 版本一致性；Review workflow 固定使用 `channels/review/latest.json`，保留完整发布的三目标、签名、immutable 与 latest-last 约束；阶段性 manifest 只引用已发布的 signed immutable artifact、首次从 `.1` 创建且后续严格递增，并允许在相同 current version 下只追加一个缺失平台，同时保持顶层字段、既有平台和 test channel 不变；阶段性清单不得计为完整发布或平台 AT |
+| `CT-UPDATE-REVIEW-001` | `0.0.1-review` fresh-install baseline 与当前 `0.0.3-review` build 的 workspace/Rust/Tauri/extension 版本一致性；Review workflow 固定使用 `channels/review/latest.json`，保留完整发布的三目标、签名、immutable 与 latest-last 约束，并为 Windows 同时生成 NSIS/MSI；R2 成功后只创建不含 Git Tag 的 GitHub Draft Prerelease，并上传两个 DMG 与 Windows NSIS/MSI installers；阶段性 manifest 只引用已发布的 signed immutable artifact、首次从 `.1` 创建且后续严格递增，并允许在相同 current version 下只追加一个缺失平台，同时保持顶层字段、既有平台和 test channel 不变；阶段性清单和 Draft Prerelease 均不得计为完整正式发布或平台 AT |
 | `CT-OSS-001` | 历史证据：`scripts/open-source-metadata.test.mjs` 保留原 AGPLv3-or-later 标准正文、首次公开 Work 封存记录和精确秘密扫描例外；该 ID 不再代表当前版本的许可元数据 |
 | `CT-LICENSE-001` | `scripts/source-license-metadata.test.mjs` 验证 PolyForm Noncommercial 1.0.0 标准正文、Rust/pnpm SPDX、source-available/非商业表述、商业授权入口、历史 AGPL 权利与第三方权利边界一致，并保持 workspace package `private: true` |
 | `CT-HISTORY-001` | `scripts/repository-history-policy.test.mjs` 验证当前 Git refs 不再包含已知 AGPL 发布提交、`main` 根快照使用 PolyForm Noncommercial，并保留当前许可证元数据 |
@@ -146,6 +146,7 @@ pnpm typecheck
 - Test channel 必须完成三目标 updater artifact、Tauri 签名、R2 latest-last 发布及 `AT-UPDATE-*`；该证据不替代正式发布所需的 Apple notarization 或 Windows Authenticode。
 - Test 与 Review 的完整三目标构建必须使用标准 GitHub-hosted 原生架构 Runner；发布 workflow 不得依赖 `self-hosted` 或自定义 Runner 标签。
 - Review 发布必须使用独立 channel；`0.0.1-review` 作为 fresh-install 基线，不得覆盖 test channel 或对已有 `0.1.x` 安装启用 downgrade。
+- Review GitHub Draft Prerelease 可以在 R2 完整发布后创建，但必须保持 Draft、不得创建 Git Tag，并且不得在平台 AT、Work 封存、Release record 门禁完成前公开。
 - Release record 与 Git Tag 存在。
 - Release 中引用的 Work 均已列入 `changes/archive.json`，且 `VAULTMESH_ARCHIVE_BASE_REF` 基线校验通过。
 

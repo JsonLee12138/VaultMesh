@@ -11,6 +11,7 @@
 - 小规模验收可以先发布只含已验证目标平台的阶段性 Review manifest；同一 current version 可以在 immutable artifact 就绪后只追加一个缺失平台，同时保持全部既有字段不变。该路径不计为完整三平台 Review 发布或平台 AT。
 - 现有 `channels/test/latest.json` 和其中的 `0.1.1-test.*` 安装不得被覆盖、删除或降级。已有测试安装加入 Review 必须明确执行手动重装。
 - Review artifact 继续使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 三目标原生构建、Tauri updater 签名、版本对象不可变和 latest-last 发布；全部发布 workflow 不依赖 self-hosted 或自定义 Runner 标签。Review 不等于正式 Stable 发布。
+- 完整 Review workflow 必须为 Windows 同时生成 NSIS 与 MSI；R2 完整发布成功后必须创建或恢复同 source SHA 的 GitHub Draft Prerelease，只上传两个 DMG 与 Windows NSIS/MSI installers。Draft 不得创建 Git Tag，也不得冒充正式发布或平台 AT。
 
 ## 非目标
 
@@ -42,6 +43,7 @@
 | `REV-008` | `REQ-UPDATE-002` | 同一 Windows x64 Runner 生成 `.2` signed updater/NSIS/MSI，并在保持现有 Intel entry 与 test channel 不变时把 Windows 平台追加到阶段性 Review manifest | `CT-UPDATE-REVIEW-001` | Done |
 | `REV-009` | `REQ-UPDATE-002` | 完整 Review workflow 使用标准 GitHub-hosted macOS ARM64、macOS Intel、Windows x64 原生构建与 Ubuntu 发布，并移除全部自定义 Runner 标签 | `CT-UPDATE-REVIEW-001` | Done；host/target 断言与完整 hosted run Pass |
 | `REV-010` | `REQ-UPDATE-002` | 统一 `0.0.3-review` 产品版本并触发完整 hosted 三目标 latest-last 发布 | `CT-UPDATE-REVIEW-001`, `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Published；R2 公网校验 Pass；fresh-install/update AT Pending |
+| `REV-011` | `REQ-UPDATE-002` | R2 成功后创建无 Git Tag 的 GitHub Draft Prerelease，并上传双 macOS DMG 与 Windows NSIS/MSI | `CT-UPDATE-REVIEW-001` | Implementing；Draft 已有三资产，`.3` MSI build/upload Pending |
 | `REV-003` | `REQ-UPDATE-002` | macOS/Windows Review fresh-install 与后续升级验收 | `AT-UPDATE-REVIEW-MACOS-001`, `AT-UPDATE-REVIEW-WINDOWS-001` | Pending |
 
 ## 验收与证据
@@ -57,6 +59,8 @@
 - GitHub Actions run `31351302181`：Fail closed；标准 hosted `macos-15` ARM64 与 `macos-15-intel` x86_64 均完成 signed updater、DMG、artifact normalize/upload，`windows-2025` x64 在编译 Windows 托盘主题模块时发现私有子模块函数的 re-export 可见性错误。publisher job 被依赖门禁跳过，未上传 R2 immutable objects、未修改 Review channel。修复把两个平台函数提升为 `pub(crate)` 并收窄非 Windows 的 `Image` import；修复后本地 `cargo test -p vaultmesh-tauri-desktop --lib`（220 pass、1 ignored）、workspace `cargo check`、`pnpm scripts:test`（78/78）、`pnpm docs:check` 与 `git diff --check` Pass，完整 hosted 复跑 Pending。
 - GitHub Actions run `31352257713`（source `4592da1`）：Pass；标准 hosted macOS ARM64、Windows x64、macOS Intel 分别在 10m01s、22m37s、25m33s 完成原生 signed updater 与 Review installer 构建、normalize 和 artifact upload，Windows 实际编译通过托盘主题 cfg 分支并生成 NSIS `setup.exe`。Ubuntu publisher 在三者全部成功后才上传 immutable version objects，并最后写入、readback 校验 `channels/review/latest.json`。
 - 独立公网校验：Review manifest 为 `0.0.3-review`，平台键恰为 `darwin-aarch64`、`darwin-x86_64`、`windows-x86_64`；三个 updater URL、Apple Silicon DMG、Intel DMG 与 Windows NSIS installer 均返回 HTTP 200。完整 workflow 未声明 MSI，因此该 run 不产生 MSI；这不改变当前三平台 Review 发布契约。
+- GitHub Draft Prerelease 自动化只在 build 与 R2 publisher 全部成功后运行，要求 `contents: write` 仅属于该 job；它验证两个 DMG 与 Windows NSIS/MSI、Draft/prerelease/source SHA 状态与远端 Tag 不存在，并以不覆盖既有资产的方式支持失败 job 重跑。公开 Prerelease 仍受 GATE-6、Work 封存、Release record 与 Git Tag 门禁约束。
+- GitHub Draft Prerelease `untagged-53638acaa8f1260a1fbf`：target commit 为 `4592da1`，Apple Silicon DMG、Intel DMG 与 Windows x64 NSIS 三个资产均为 `uploaded`；MSI 正在通过同 source 的原生 Windows experimental workflow 补建。API 状态为 Draft + Prerelease，远端 `v0.0.3-review` Git Tag 不存在。该 Draft 只供维护者人工验收，不计为公开或正式发布。
 
 - `cargo check -p vaultmesh-core -p vaultmesh-ffi -p vaultmesh-agent-mcp -p vaultmesh-tauri-desktop`：Pass；四个 workspace package 均以 `0.0.1-review` 编译，`Cargo.lock` 同步更新。
 - `pnpm scripts:test`：59/59 Pass；`CT-UPDATE-REVIEW-001` 验证五个产品 manifest 与 Rust workspace 版本一致，证明完整 Review workflow 包含三目标构建、source version fail-closed、独立 Review endpoint 和 latest-last 发布；Intel experimental workflow 可以嵌入 Review endpoint，阶段性 baseline generator/workflow 只接受固定 `0.0.1-review` x86_64 descriptor、只在 Review channel 缺失时创建并保持 test channel 不变。
