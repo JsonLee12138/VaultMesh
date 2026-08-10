@@ -31,7 +31,8 @@ Client Secret 不构成安全或鉴权边界；授权安全必须依赖 system b
 所有生成可分发 Tauri 安装包的 CI workflow 必须显式注入
 `VAULTMESH_GOOGLE_OAUTH_CLIENT_ID` 和 Provider 为该 Desktop Client 签发的
 `VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET` repository Secret，并在缺失、格式无效或 Provider
-不接受该 credential pair 时于编译前 fail closed；不得发布运行后才显示“尚未配置”的安装包。已经缺少该编译期配置的 immutable Review/Test
+不接受该 credential pair 时于编译前 fail closed。可分发构建还必须把 Client ID 绑定到已接受的
+VaultMesh Desktop client identity，不能只验证任意 Google Client ID/Secret 是有效配对；不得发布运行后才显示“尚未配置”或因其他项目权限返回 403 的安装包。已经缺少或绑定错误编译期配置的 immutable Review/Test
 产物不得原地覆盖，必须用严格递增版本重新构建。
 
 ## Outlook/Microsoft 365

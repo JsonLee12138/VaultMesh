@@ -2,15 +2,20 @@ import { pathToFileURL } from "node:url";
 
 const googleDesktopClientIdPattern = /^[A-Za-z0-9._-]+\.apps\.googleusercontent\.com$/;
 const placeholderClientIds = new Set(["your-desktop-client.apps.googleusercontent.com"]);
+const vaultMeshDesktopClientIdPrefix = "782717115403-u63d";
 const googleTokenEndpoint = "https://oauth2.googleapis.com/token";
 const oauthCredentialError =
   "Google Desktop OAuth build credentials must form a provider-accepted client pair before packaging.";
 
 export function validateDesktopOAuthBuildConfig(environment = process.env) {
   const clientId = environment.VAULTMESH_GOOGLE_OAUTH_CLIENT_ID ?? "";
-  if (!googleDesktopClientIdPattern.test(clientId) || placeholderClientIds.has(clientId)) {
+  if (
+    !googleDesktopClientIdPattern.test(clientId) ||
+    placeholderClientIds.has(clientId) ||
+    !clientId.startsWith(vaultMeshDesktopClientIdPrefix)
+  ) {
     throw new Error(
-      "VAULTMESH_GOOGLE_OAUTH_CLIENT_ID must be configured as a GitHub Actions repository secret before packaging.",
+      "VAULTMESH_GOOGLE_OAUTH_CLIENT_ID must match the approved VaultMesh Desktop client before packaging.",
     );
   }
   const clientSecret = environment.VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET ?? "";

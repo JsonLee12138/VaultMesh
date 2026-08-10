@@ -5823,7 +5823,7 @@ dependencies = [
 
 [[package]]
 name = "vaultmesh-agent-mcp"
-version = "0.0.6-review"
+version = "0.0.7-review"
 dependencies = [
  "libc",
  "serde",
@@ -5833,7 +5833,7 @@ dependencies = [
 
 [[package]]
 name = "vaultmesh-core"
-version = "0.0.6-review"
+version = "0.0.7-review"
 dependencies = [
  "argon2",
  "base64 0.22.1",
@@ -5852,7 +5852,7 @@ dependencies = [
 
 [[package]]
 name = "vaultmesh-ffi"
-version = "0.0.6-review"
+version = "0.0.7-review"
 dependencies = [
  "atomic-write-file",
  "serde",
@@ -5865,7 +5865,7 @@ dependencies = [
 
 [[package]]
 name = "vaultmesh-tauri-desktop"
-version = "0.0.6-review"
+version = "0.0.7-review"
 dependencies = [
  "aes-gcm",
  "atomic-write-file",

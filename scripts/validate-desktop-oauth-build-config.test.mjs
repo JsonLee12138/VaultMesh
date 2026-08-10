@@ -7,16 +7,18 @@ import {
 } from "./validate-desktop-oauth-build-config.mjs";
 
 const configurationError =
-  /VAULTMESH_GOOGLE_OAUTH_CLIENT_ID must be configured as a GitHub Actions repository secret before packaging/;
+  /VAULTMESH_GOOGLE_OAUTH_CLIENT_ID must match the approved VaultMesh Desktop client before packaging/;
+
+const approvedClientId = "782717115403-u63d-example.apps.googleusercontent.com";
 
 test("desktop packaging accepts configured Google Desktop OAuth build credentials", () => {
   assert.deepEqual(
     validateDesktopOAuthBuildConfig({
-      VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: "1234567890-example.apps.googleusercontent.com",
+      VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: approvedClientId,
       VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET: "desktop-client-secret",
     }),
     {
-      clientId: "1234567890-example.apps.googleusercontent.com",
+      clientId: approvedClientId,
       clientSecret: "desktop-client-secret",
     },
   );
@@ -27,6 +29,7 @@ for (const [name, value] of [
   ["empty", ""],
   ["placeholder", "your-desktop-client.apps.googleusercontent.com"],
   ["wrong provider", "desktop-client.example.com"],
+  ["different valid Google client", "1234567890-example.apps.googleusercontent.com"],
   ["surrounding whitespace", " 1234567890-example.apps.googleusercontent.com "],
 ]) {
   test(`desktop packaging rejects a ${name} Google OAuth client ID`, () => {
@@ -55,7 +58,7 @@ for (const [name, value] of [
     assert.throws(
       () =>
         validateDesktopOAuthBuildConfig({
-          VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: "1234567890-example.apps.googleusercontent.com",
+          VAULTMESH_GOOGLE_OAUTH_CLIENT_ID: approvedClientId,
           ...(value === undefined ? {} : { VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET: value }),
         }),
       /VAULTMESH_GOOGLE_OAUTH_CLIENT_SECRET must be configured as a GitHub Actions repository secret before packaging/,
@@ -64,7 +67,7 @@ for (const [name, value] of [
 }
 
 const credentials = {
-  clientId: "1234567890-example.apps.googleusercontent.com",
+  clientId: approvedClientId,
   clientSecret: "desktop-client-secret",
 };
 
