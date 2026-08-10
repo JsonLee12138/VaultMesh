@@ -47,6 +47,11 @@ Rust runtime 是系统主题读取和托盘更新唯一 owner；renderer 不获�
 - 独立最小 `x86_64-pc-windows-msvc` 类型检查已通过 Win32 registry API 与 Tauri tray 更新调用；完整应用在
   macOS 交叉检查时被既有 vendored OpenSSL/AWS-LC/ring 所需 Windows C SDK/toolchain 阻止，必须由目标 Windows
   build 与 `AT-TAURI-WINDOWS-003` 完成最终验证。
+- GitHub Actions run `31351302181` 的 `windows-2025` x64 原生编译发现私有 `platform` 子模块函数不能以
+  `pub(crate)` 重新导出；双 macOS hosted jobs Pass，publisher 因 Windows 失败被跳过且未修改 R2。两个 Windows
+  平台函数已直接提升为 crate 可见，并收窄非 Windows 的 `Image` import；修复后桌面端 220 tests Pass、1 ignored，
+  workspace `cargo check`、`pnpm scripts:test`（78/78）、`pnpm docs:check` 与 `git diff --check` Pass，Windows hosted
+  复跑与 packaged 动态切换 AT 仍 Pending。
 
 ## 安全与数据生命周期
 

@@ -109,12 +109,12 @@ mod platform {
         let _ = tray.set_icon(Some(icon));
     }
 
-    pub(super) fn current_tray_icon() -> tauri::Result<Image<'static>> {
+    pub(crate) fn current_tray_icon() -> tauri::Result<Image<'static>> {
         let key = open_personalize_key();
         Image::from_bytes(icon_bytes_for_theme(current_theme_from_key(key.as_ref())))
     }
 
-    pub(super) fn start_tray_theme_watcher(app: AppHandle) {
+    pub(crate) fn start_tray_theme_watcher(app: AppHandle) {
         let watcher_app = app.clone();
         let watcher = thread::Builder::new()
             .name("vaultmesh-windows-tray-theme".to_owned())
