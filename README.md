@@ -2,6 +2,8 @@
 
 VaultMesh 是一个本地优先、单设备、源码可见的密码管理器。当前客户端是 Tauri 2 桌面端（macOS / Windows）和 Chromium MV3 扩展；Vault 的加密、格式、模型与解锁会话由共享 Rust core 统一拥有。
 
+项目详情：[VaultMesh 产品详情页](https://blog.atlankj.com/products/vaultmesh)
+
 > [!WARNING]
 > 当前版本是 `0.0.2-review`。正式公开发布所需的独立密码学/内存审计、目标平台签名与安装验收等门禁尚未全部完成。请把源码和 review build 视为开发中软件，不要将其当作已经完成安全审计的生产密码管理器。
 
