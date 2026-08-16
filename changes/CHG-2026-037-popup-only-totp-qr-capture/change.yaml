@@ -1,0 +1,35 @@
+id: "CHG-2026-037-popup-only-totp-qr-capture"
+title: "二维码识别仅由插件 Popup 主动触发"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.48-active"
+target_release: null
+requirements:
+  - "REQ-ITEM-001"
+  - "REQ-AUTOFILL-002"
+  - "NFR-PRIV-001"
+tests:
+  - "CT-AUTHENTICATOR-001"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/02-scope-matrix.md#Browser 能力"
+  - "docs/03-functional-requirements.md#REQ-ITEM-001 Login"
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-002 显式选择与捕获"
+  - "docs/03-functional-requirements.md#NFR-PRIV-001 秘密最小化"
+  - "specs/browser-integration.md#Authenticator QR capture"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/08-traceability.md#REQ-ITEM-001"
+related_changes:
+  - "CHG-2026-006-inline-totp-qr-capture"
+affected_surfaces:
+  - "Chromium MV3 extension content script"
+  - "Firefox MV2 extension content script"
+  - "browser extension popup"
+affected_formats: []
+affected_versions:
+  - "0.0.8-review"
+security_impact: "Removes automatic page-level QR discovery UI and its secret-bearing inline capture session; TOTP QR decoding remains a transient popup action explicitly initiated by the user."
+migration: "No Vault format, Browser RPC, IPC or ABI migration; existing encrypted Login TOTP values are unchanged."
+supersedes:
+  - "CHG-2026-006-inline-totp-qr-capture"

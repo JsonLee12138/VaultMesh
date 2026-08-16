@@ -1,8 +1,10 @@
-import { accessibleShadowRoot, discoverFields, classifyControl, hasLoginFields, isEmailAccountControl, isNewPasswordControl, loginFormSignature, pageContextForControl, pageContextForFields, shouldPreserveExistingLoginAccount } from "@/lib/form-discovery";
+import { accessibleShadowRoot, analyzeControlSemantics, credentialFieldRole, discoverFields, classifyControl, hasLoginFields, isEmailAccountControl, isNewPasswordControl, loginFormSignature, passwordFieldGroup, selectAutofillPageContext, shouldPreserveExistingLoginAccount } from "@/lib/form-discovery";
 import { InlineAutofillMenu } from "@/lib/inline-autofill";
 import { InlineAutofillTrigger } from "@/lib/inline-autofill-trigger";
+import { fillResultStatus, inlineFillFailureMessage } from "@/lib/autofill-selection";
 import { fillGeneratedLogin, fillGeneratedPassword } from "@/lib/generated-login-fill";
-import { AutofillAvailabilityResponseSchema, AutofillCandidatesResponseSchema, SaveCaptureDecisionResponseSchema, SaveCapturePendingResponseSchema, SaveCaptureQueuedResponseSchema, type InlineAutofillCandidate } from "@/lib/protocol";
+import { generatePassword } from "@/lib/generated-credentials";
+import { AutofillAvailabilityResponseSchema, AutofillCandidatesResponseSchema, SaveCaptureDecisionResponseSchema, SaveCapturePendingResponseSchema, SaveCaptureQueuedResponseSchema, type AutofillCandidate, type InlineAutofillCandidate } from "@/lib/protocol";
 import { loadPasswordGeneratorOptions, loadUsernameGeneratorOptions } from "@/lib/generator-preferences";
 import { captureSubmittedData, capturedDataSignature, hasCapturedData, submittedDataContext, type CapturedSaveData } from "@/lib/save-capture";
 import { SaveCapturePrompt } from "@/lib/save-capture-prompt";
@@ -33,23 +35,13 @@ export function startAutofillPage(document: Document, documentId: string, sendMe
       void sendMessage({ kind: "vaultmesh.email-otp-select", candidateId: candidate.id });
       return;
     }
-    const replaceExistingAccount = candidate.kind === "login" && !shouldPreserveExistingLoginAccount(target);
-    void sendMessage({
-      kind: "vaultmesh.autofill-select",
-      selectedItem: {
-        kind: candidate.kind,
-        id: candidate.id,
-        title: candidate.title,
-        ...(candidate.masterPasswordReprompt ? { masterPasswordReprompt: true } : {}),
-      },
-      ...(replaceExistingAccount ? { replaceExistingAccount: true } : {}),
-    });
+    void selectCandidate(candidate, target);
   }, (login, target) => {
     generatedCapture = { username: login.username, password: login.password, pageContext: "signup" };
     void fillGeneratedLogin(document, documentId, login, target);
   }, (password, target) => {
     if (target instanceof HTMLInputElement) {
-      const context = pageContextForControl(target);
+      const context = analyzeControlSemantics(target).context;
       if (context === "signup" || context === "password-change" || context === "password-reset") {
         const loginId = filledFormStates.get(formRoot(target))?.loginId;
         generatedCapture = { password, pageContext: context, ...(context !== "signup" && loginId ? { loginId } : {}) };
@@ -81,6 +73,27 @@ export function startAutofillPage(document: Document, documentId: string, sendMe
     }
     return result;
   });
+
+  async function selectCandidate(candidate: AutofillCandidate, target: HTMLElement) {
+    const replaceExistingAccount = candidate.kind === "login" && !shouldPreserveExistingLoginAccount(target);
+    const response = await sendMessage({
+      kind: "vaultmesh.autofill-select",
+      selectedItem: {
+        kind: candidate.kind,
+        id: candidate.id,
+        title: candidate.title,
+        ...(candidate.masterPasswordReprompt ? { masterPasswordReprompt: true } : {}),
+      },
+      ...(replaceExistingAccount ? { replaceExistingAccount: true } : {}),
+    }).catch(() => null);
+    if (disposed || !target.isConnected) return;
+    if (fillResultStatus(response) === "unlock-required") {
+      availability = "locked";
+      trigger.setLocked(true);
+    }
+    const failure = inlineFillFailureMessage(response);
+    if (failure) menu.showStatus(target, failure);
+  }
 
   async function resumePendingCapture() {
     pendingCaptureResumeTimer = null;
@@ -137,7 +150,7 @@ export function startAutofillPage(document: Document, documentId: string, sendMe
     observeOpenRoots(document);
     const { descriptors } = discoverFields(document);
     if (!hasLoginFields(descriptors)) return;
-    const pageContext = pageContextForFields(descriptors);
+    const pageContext = selectAutofillPageContext(descriptors);
     if (pageContext !== "login" && pageContext !== "otp") return;
     const signature = loginFormSignature(descriptors);
     if (signature) void sendMessage({ kind: "vaultmesh.autofill-page-ready", documentId, signature, pageContext });
@@ -180,7 +193,7 @@ export function startAutofillPage(document: Document, documentId: string, sendMe
     }
     const fieldKind = classifyControl(target);
     if (!fieldKind) return;
-    const pageContext = pageContextForControl(target);
+    const pageContext = analyzeControlSemantics(target).context;
     // Signup account fields create a new credential. Never offer existing
     // vault logins here; show the local random account/password generator.
     if (fieldKind === "login" && pageContext === "signup") {
@@ -416,14 +429,50 @@ export function startAutofillPage(document: Document, documentId: string, sendMe
     }
   }
 
-  return { dispose, menu, trigger, savePrompt, scan: scheduleScan, refreshOtpCandidates, recordFilledItem, recordEditedItem, showPendingCapture };
+  async function completePasswordChange(item: { kind: string; id: string }, controls: Iterable<Element> = []) {
+    if (item.kind !== "login" || disposed) return { status: "not-applicable" as const };
+    const currentPassword = Array.from(controls).find((control): control is HTMLInputElement => {
+      if (!(control instanceof HTMLInputElement) || control.type !== "password") return false;
+      const semantics = analyzeControlSemantics(control);
+      return semantics.context === "password-change" && semantics.confidence !== "low" && credentialFieldRole(control) === "current-password";
+    });
+    if (!currentPassword) return { status: "not-applicable" as const };
+
+    const emptyNewPasswordFields = () => passwordFieldGroup(currentPassword)
+      .filter((control) => isNewPasswordControl(control));
+    let newPasswordFields = emptyNewPasswordFields();
+    if (newPasswordFields.length === 0) return { status: "not-applicable" as const };
+    if (newPasswordFields.some((control) => control.value !== "")) return { status: "preserved-existing" as const };
+
+    try {
+      const options = await loadPasswordGeneratorOptions();
+      if (disposed || !currentPassword.isConnected) return { status: "cancelled" as const };
+      newPasswordFields = emptyNewPasswordFields();
+      if (newPasswordFields.length === 0) return { status: "not-applicable" as const };
+      if (newPasswordFields.some((control) => control.value !== "")) return { status: "preserved-existing" as const };
+
+      const password = generatePassword(options);
+      generatedCapture = { password, pageContext: "password-change", loginId: item.id };
+      const result = await fillGeneratedPassword(document, documentId, newPasswordFields[0]!, password);
+      if (result.results.length !== newPasswordFields.length || result.results.some((entry) => entry.status !== "filled")) {
+        generatedCapture = null;
+        return { status: "failed" as const };
+      }
+      return { status: "generated" as const };
+    } catch {
+      generatedCapture = null;
+      return { status: "failed" as const };
+    }
+  }
+
+  return { dispose, menu, trigger, savePrompt, scan: scheduleScan, refreshOtpCandidates, recordFilledItem, completePasswordChange, recordEditedItem, showPendingCapture };
 }
 
 function segmentedOtpAnchor(target: HTMLElement) {
   if (!(target instanceof HTMLInputElement)) return target;
   for (let container = target.parentElement; container; container = container.parentElement) {
     const otpInputs = Array.from(container.querySelectorAll<HTMLInputElement>("input"))
-      .filter((input) => pageContextForControl(input) === "otp");
+      .filter((input) => analyzeControlSemantics(input).context === "otp");
     if (otpInputs.length >= 2 && otpInputs.includes(target)) return container;
     if (container.matches('form,[role="form"],body,html')) break;
   }

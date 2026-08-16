@@ -43,9 +43,11 @@ Native Messaging 使用浏览器特定 manifest，不能共享一份宽松 allow
 
 `pnpm extension:release:zip:all` 必须从同一 source/version 生成命名稳定的 Chrome 与 Firefox ZIP，
 解析内部 manifest、验证目标/身份/permission/版本、执行 ZIP 完整性检查，并排除 source map、环境文件、
-凭据和非发布输出。完整 Review workflow 显式使用 `sideload-review` 身份，只把这两个本地安装 ZIP加入
-GitHub Draft；不提交任何浏览器商店。Firefox store source ZIP可以作为 CI 内部构建输出，但不冒充
-安装包或商店审核完成。
+凭据和非发布输出。完整 Review workflow 显式使用 `sideload-review` 身份，在三个桌面目标成功后把两个
+本地安装 ZIP 发布到同一版本的不可变 R2 `releases/v<version>/` 路径；publisher 必须验证公开 URL 下载
+内容与构建产物逐字节一致，并在 Actions 摘要输出 Chrome/Chromium 与 Firefox 的直接链接。相同 ZIP
+也加入 GitHub Draft，但不进入桌面 updater manifest、不提交任何浏览器商店。Firefox store source ZIP
+可以作为 CI 内部构建输出，但不冒充安装包或商店审核完成。
 
 ## Transport 与 authorization
 
@@ -90,6 +92,8 @@ Extension local storage 只可以保存 schema-validated、renderer-safe 的用�
 
 Discovery 只允许 field metadata、origin/document identity、handle 和 empty bit，禁止当前 value。Top-page origin 与 target-frame origin 必须在 discovery、authorization 和 assignment 全程分离绑定。
 
+场景识别必须以字段角色和表单簇为先：content script 在同一真实 form，或无 form 时的最小可见伪表单容器内识别 account、current-password、new-password、confirmation-password 和 OTP；再按显式 `autocomplete`/直接字段元数据、同簇密码结构、form action/page path/submit 语义、排除导航链接后的弱上下文分层判定。弱页面文案不得跨表单覆盖局部强信号，尤其“注册/创建账户”导航链接不得把账号 + 当前密码 + 登录提交按钮的簇判为 signup。冲突或低置信度必须保守回落；只有可靠 new-password 角色可以展示密码生成器。可靠 password-change 簇内的显式 Login 选择成功填入 current-password 后，content script 可以按本地生成器设置生成一次新密码，并且必须只同步写入同簇、仍为空的 new-password/confirmation-password；任一目标已有值时不得自动生成或覆盖。诊断结果只能包含有限理由代码和分数，不得包含字段 value。
+
 Content script 可以处理标准 input、textarea、select、contenteditable、open shadow root、extension 可访问的 closed root 以及允许执行的 same/cross-origin frame。DOM mutation 和 same-document navigation 后 debounce rescan。Canvas-only control 和不可访问 closed root 为 unsupported。
 
 写入必须使用 native value setter 并 dispatch `input`/`change`。Page-load fill 仅限 login/OTP context、stored preference、one-shot 和 empty field；signup、password change/reset、card、identity、secret、SSH、re-prompt 和 overwrite 均禁止自动 disclosure。排序：exact path > exact origin > same-protocol host，remembered login 优先。
@@ -114,22 +118,21 @@ Submission observation 可以对新生成或用户编辑的 login/card/identity 
 
 ## Authenticator QR capture
 
-Content script 可以在动态出现且可见的疑似验证器 QR 容器旁显示隔离的 VaultMesh 入口，
-但只能在用户点击后解码按钮绑定的单个目标。隐藏 loading placeholder、非 TOTP QR、跨
-origin 不可读取图像、已移除目标和不受支持的 TOTP profile 必须 fail closed。Mutation
-observation 只发现候选，不持续解码页面图片。
+Content script 不得因为动态或静态页面出现疑似验证器 QR 而插入 VaultMesh 按钮、菜单或其他
+QR UI，也不得仅为 QR 发现持续观察或修改网页。只有用户在插件 popup 内主动发起当前页面识别，
+或在 Login 编辑器点击“从当前网页扫描验证器二维码”后，content script 才可以对当前 HTTP(S)
+tab 的可访问 frame 执行一次可见 QR 扫描。隐藏来源、非 TOTP QR、跨 origin 不可读取图像和不受
+支持的 TOTP profile 必须 fail closed。
 
-解码成功后，扩展必须让用户选择现有 Login；same-origin/path 候选优先，但不得静默选择、
-新建 Login 或创建独立 authenticator secret。已有 TOTP 时必须确认覆盖。待处理 URI 必须绑定
-tab、frame origin、document ID、target handle 和短 expiry；navigation、pagehide、lock、
-disconnect、cancel、failure、success 或 expiry 清除。URI 不得进入 DOM attribute、extension
-storage、日志、通知正文或非秘密 settings。
+扫描得到一个 TOTP URI 时，把它加入当前 popup 的捕获或 Login 编辑草稿；多个结果必须让用户明确选择。目标
+Login 已有 TOTP 时必须确认覆盖，但扫描本身不得写入 Vault。只有用户保存 Login 后才复用既有
+`items.update`，保留其他字段，并由 core 规范化 TOTP 和执行原子持久化。不得静默保存、创建
+独立 authenticator secret 或提交网站表单。
 
-保存复用既有 `items.list`、`items.detail` 和 `items.update`，保留 Login 其他字段，并由 core
-规范化 TOTP 和执行原子持久化。成功后当前文档的 OTP inline candidate 必须重新查询 broker；
-选择刚更新的 Login 仍通过 `browser.autofill.execute` 获得一次性 assignment，且不覆盖非空
-字段、不返回 seed、不提交表单。页内 UI 使用 extension shadow root，键盘、Escape、失焦、
-resize/scroll、目标销毁和重复点击必须有确定行为。
+TOTP URI 只可在本次 content response、当前 popup React state 和 desktop privileged update 的
+有界内存中短暂存在；不得进入网页 DOM、background inline capture registry、extension storage、
+日志、通知正文或非秘密 settings。关闭 popup、取消编辑、lock、disconnect、failure 或保存完成
+后不得保留额外副本。已有 OTP discovery/fill assignment 行为不变。
 
 ## Passkey
 

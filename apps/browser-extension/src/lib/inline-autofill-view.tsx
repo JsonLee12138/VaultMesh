@@ -18,6 +18,7 @@ export function InlineAutofillView({
   generatedLoginKey,
   generatedMode,
   generatedEmailRequired = false,
+  statusMessage = null,
   passwordGeneratorOptions = DEFAULT_PASSWORD_GENERATOR_OPTIONS,
   usernameGeneratorOptions = DEFAULT_USERNAME_GENERATOR_OPTIONS,
   onGeneratedPasswordSelect,
@@ -30,6 +31,7 @@ export function InlineAutofillView({
   generatedLoginKey: number;
   generatedMode: "none" | "login" | "password";
   generatedEmailRequired?: boolean;
+  statusMessage?: string | null;
   passwordGeneratorOptions?: PasswordGeneratorOptions;
   usernameGeneratorOptions?: UsernameGeneratorOptions;
   onGeneratedPasswordSelect: (password: string) => void;
@@ -39,6 +41,7 @@ export function InlineAutofillView({
   const groups = candidateGroups(candidates, currentHost, currentHostname);
   return (
     <div className="panel" role="listbox" aria-label="VaultMesh 自动填充建议">
+      {statusMessage ? <div className="status" role="status" aria-live="polite">{statusMessage}</div> : null}
       <ScrollArea className="candidate-scroll">
         {generatedMode === "password"
           ? <GeneratedPasswordOption key={generatedLoginKey} options={passwordGeneratorOptions} onSelect={onGeneratedPasswordSelect} />
@@ -52,13 +55,13 @@ export function InlineAutofillView({
               onSelect={onGeneratedSelect}
             />
           : null}
-        {groups.length === 0 && generatedMode === "none" ? <div className="empty">当前站点没有可用项目</div> : null}
+        {groups.length === 0 && generatedMode === "none" && !statusMessage ? <div className="empty">当前站点没有可用项目</div> : null}
         <div className="groups">
           {groups.map((group) => (
             <section className="group" role="group" aria-label={group.label ?? undefined} key={group.key}>
               {group.label ? <div className="group-label">{group.label}</div> : null}
               {group.candidates.map((candidate) => (
-                <button className="option" type="button" role="option" key={`${candidate.kind}:${candidate.id}`} onClick={() => onSelect(candidate)}>
+                <button className="option" type="button" role="option" key={`${candidate.kind}:${candidate.id}`} onPointerDown={(event) => event.preventDefault()} onClick={() => onSelect(candidate)}>
                   <span className="mark" aria-hidden="true">{candidate.kind === "email-otp" ? "码" : "V"}</span>
                   <span className="text">
                     <span className="name">{candidate.title}</span>
@@ -80,9 +83,9 @@ function GeneratedPasswordOption({ options, onSelect }: { options: PasswordGener
     <section className="generated" role="group" aria-label="随机生成的密码">
       <div className="generated-heading">
         <span>随机生成的密码</span>
-        <button className="refresh" type="button" aria-label="刷新随机密码" title="刷新随机密码" onClick={() => setPassword(generatePassword(options))}>↻</button>
+        <button className="refresh" type="button" aria-label="刷新随机密码" title="刷新随机密码" onPointerDown={(event) => event.preventDefault()} onClick={() => setPassword(generatePassword(options))}>↻</button>
       </div>
-      <button className="option generated-option" type="button" role="option" onClick={() => onSelect(password)}>
+      <button className="option generated-option" type="button" role="option" onPointerDown={(event) => event.preventDefault()} onClick={() => onSelect(password)}>
         <span className="mark generated-mark" aria-hidden="true">G</span>
         <span className="text">
           <span className="name">填充已生成的密码</span>
@@ -110,9 +113,9 @@ function GeneratedLoginOption({
     <section className="generated" role="group" aria-label="随机生成的账号密码">
       <div className="generated-heading">
         <span>随机生成的账号密码</span>
-        <button className="refresh" type="button" aria-label="刷新随机账号和密码" title="刷新随机账号和密码" onClick={() => setLogin(generate())}>↻</button>
+        <button className="refresh" type="button" aria-label="刷新随机账号和密码" title="刷新随机账号和密码" onPointerDown={(event) => event.preventDefault()} onClick={() => setLogin(generate())}>↻</button>
       </div>
-      <button className="option generated-option" type="button" role="option" onClick={() => onSelect(login)}>
+      <button className="option generated-option" type="button" role="option" onPointerDown={(event) => event.preventDefault()} onClick={() => onSelect(login)}>
         <span className="mark generated-mark" aria-hidden="true">G</span>
         <span className="text">
           <span className="name generated-username">{login.username}</span>

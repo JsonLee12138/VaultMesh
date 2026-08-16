@@ -284,7 +284,11 @@ fn card_capture_status(session: &VaultSession, input: &Value) -> Result<Value, V
                     .unwrap_or(false)
             })
             .collect();
-        (matches.len() == 1).then_some(matches[0].id)
+        if matches.len() == 1 {
+            Some(matches[0].id)
+        } else {
+            None
+        }
     };
     let Some(id) = matched else {
         return Ok(json!({ "status": "new" }));

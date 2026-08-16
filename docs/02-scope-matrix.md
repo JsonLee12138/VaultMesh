@@ -47,7 +47,7 @@
 | Login/card/identity/secret/SSH 显式填充 | Required |
 | 策略控制的 login/OTP page-load fill | Required |
 | Popup/OTP 字段页内图标显示并显式选择全局未过期邮箱 OTP | Required |
-| 用户触发的页内 TOTP QR 识别、附加到 Login 与同页 OTP 候选刷新 | Required |
+| 插件 popup 内用户主动触发的 TOTP QR 识别与附加到 Login | Required |
 | Save/Ignore capture | Required |
 | Chromium 127+ ES256 Passkey proxy | Required |
 | 自动表单提交、SMS OTP、conditional mediation、largeBlob/PRF | Out |

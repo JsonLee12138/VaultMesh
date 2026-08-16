@@ -34,6 +34,52 @@ describe("candidateGroups", () => {
     expect(groups[0]?.candidates).toEqual([emailOtp]);
   });
 
+  it("renders bounded fill feedback without inventing an empty candidate message", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    await act(async () => root.render(createElement(InlineAutofillView, {
+      candidates: [],
+      currentHost: "example.test",
+      currentHostname: "example.test",
+      generatedLoginKey: 1,
+      generatedMode: "none",
+      statusMessage: "页面已经变化，请重新选择要填充的项目。",
+      onGeneratedPasswordSelect: vi.fn(),
+      onGeneratedSelect: vi.fn(),
+      onSelect: vi.fn(),
+    })));
+
+    expect(container.querySelector('[role="status"]')?.textContent).toContain("页面已经变化");
+    expect(container.querySelector(".empty")).toBeNull();
+    await act(async () => root.unmount());
+  });
+
+  it("keeps modal focus traps from destroying a pointer-selected candidate before click", async () => {
+    const container = document.createElement("div");
+    const root = createRoot(container);
+    const onSelect = vi.fn();
+    await act(async () => root.render(createElement(InlineAutofillView, {
+      candidates: [exact],
+      currentHost: "example.test",
+      currentHostname: "example.test",
+      generatedLoginKey: 1,
+      generatedMode: "none",
+      onGeneratedPasswordSelect: vi.fn(),
+      onGeneratedSelect: vi.fn(),
+      onSelect,
+    })));
+    const option = container.querySelector<HTMLButtonElement>('[role="option"]')!;
+    const pointerDown = new Event("pointerdown", { bubbles: true, cancelable: true, composed: true });
+
+    await act(async () => option.dispatchEvent(pointerDown));
+    expect(pointerDown.defaultPrevented).toBe(true);
+    expect(onSelect).not.toHaveBeenCalled();
+
+    await act(async () => option.click());
+    expect(onSelect).toHaveBeenCalledWith(exact);
+    await act(async () => root.unmount());
+  });
+
   it("shows and refreshes a selectable generated login when no candidates exist", async () => {
     const container = document.createElement("div");
     const root = createRoot(container);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ContentMessageSchema, DiscoveryFrameResponseSchema, DiscoveryFrameSchema, FillRequestSchema, PageInformationDetectionResponseSchema, PopupMessageSchema, SaveCapturePendingResponseSchema, SaveCaptureReadyMessageSchema, TotpCaptureBeginResponseSchema, TotpCaptureSaveResponseSchema, TotpQrScanResponseSchema } from "./protocol";
+import { ContentMessageSchema, DiscoveryFrameResponseSchema, DiscoveryFrameSchema, FillRequestSchema, PageInformationDetectionResponseSchema, PopupMessageSchema, SaveCapturePendingResponseSchema, SaveCaptureReadyMessageSchema, TotpQrScanResponseSchema } from "./protocol";
 
 describe("browser form discovery protocol", () => {
   it("accepts a content-script response before the background attaches frameId", () => {
@@ -127,24 +127,6 @@ describe("browser form discovery protocol", () => {
       status: "found",
       values: [{ uri: "otpauth://totp/Example:ada?secret=JBSWY3DPEHPK3PXP&digits=8", issuer: "Example", account: "ada" }],
     }).success).toBe(false);
-  });
-
-  it("binds inline TOTP capture messages and responses to operation, document, target, and login IDs", () => {
-    const documentId = crypto.randomUUID();
-    const targetHandle = crypto.randomUUID();
-    const operationId = crypto.randomUUID();
-    const loginId = crypto.randomUUID();
-    const value = { uri: "otpauth://totp/GitHub:ada?secret=JBSWY3DPEHPK3PXP&issuer=GitHub", issuer: "GitHub", account: "ada" };
-    expect(PopupMessageSchema.safeParse({ kind: "vaultmesh.totp-capture.begin", documentId, targetHandle, value }).success).toBe(true);
-    expect(PopupMessageSchema.safeParse({ kind: "vaultmesh.totp-capture.begin", documentId, targetHandle, value: { ...value, uri: "otpauth://totp/GitHub?secret=BAD-SECRET" } }).success).toBe(false);
-    expect(PopupMessageSchema.safeParse({ kind: "vaultmesh.totp-capture.save", operationId, documentId, targetHandle, loginId, overwrite: false }).success).toBe(true);
-    expect(PopupMessageSchema.safeParse({ kind: "vaultmesh.totp-capture.cancel", operationId, documentId, targetHandle }).success).toBe(true);
-    expect(PopupMessageSchema.safeParse({ kind: "vaultmesh.totp-capture.save", operationId, documentId, targetHandle, loginId }).success).toBe(false);
-    expect(TotpCaptureBeginResponseSchema.safeParse({
-      status: "ready", operationId, expiresAt: new Date(Date.now() + 60_000).toISOString(),
-      candidates: [{ id: loginId, title: "GitHub", username: "ada", url: "https://github.com/login", hasTotpSecret: false, matchScope: "origin" }],
-    }).success).toBe(true);
-    expect(TotpCaptureSaveResponseSchema.safeParse({ status: "overwrite-required", loginId, title: "GitHub" }).success).toBe(true);
   });
 
   it("accepts captured API secrets and SSH key material", () => {

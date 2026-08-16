@@ -89,8 +89,9 @@ popup，保存后当前 OTP 输入框的候选也不会主动刷新。
 - `AT-AUTOFILL-002` 必须在受支持 Chromium 的真实 GitHub 2FA setup DOM 和一个通用动态 QR
   fixture 上执行；正式发布仍受现有 extension/host 安装签名 Gate 约束。
 
-当前状态为 Implementing；Accepted 行为已合并到主规格和 Traceability，自动化实现已完成，
-真实 Chromium AT 与下列 workspace baseline gate 尚未完成。
+最终状态为 Rejected。页内入口的历史自动化实现与证据保留如下，但产品行为已由
+`CHG-2026-037-popup-only-totp-qr-capture` 替代：二维码识别只允许由用户在插件 popup 内主动发起，
+网页不得自动展示 QR 按钮或菜单。因此本 Work 不再执行真实 Chromium AT，也不得重新启用页内入口。
 
 ### 自动化证据
 

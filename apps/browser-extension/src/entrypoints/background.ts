@@ -22,7 +22,7 @@ import { presentBrowserSaveConfirmation } from "@/lib/browser-save-confirmation"
 import { SAVE_CAPTURE_DECISION_TIMEOUT_MS } from "@/lib/save-capture-countdown";
 import { SAVE_CONFIRMATION_WINDOW_HEIGHT, SAVE_CONFIRMATION_WINDOW_WIDTH, saveConfirmationWindowPosition } from "@/lib/save-confirmation-window";
 import { rememberedLoginSelection, rememberLoginSelection } from "@/lib/autofill-preferences";
-import { chooseAutomaticLogin, fieldsForLoginSelection, rankLoginCandidates, shouldReplaceExistingFields, shouldWaitForLoginPair } from "@/lib/autofill-selection";
+import { chooseAutomaticLogin, fieldsForLoginSelection, rankLoginCandidates, requiresFillConfirmation, shouldQueueFillConfirmation, shouldReplaceExistingFields, shouldWaitForLoginPair } from "@/lib/autofill-selection";
 import { sameOriginFrameIds } from "@/lib/frame-origin";
 import type { CapturedCard, CapturedIdentity, CapturedLogin, CapturedSaveData, CapturedSecret, CapturedSshCredential } from "@/lib/save-capture";
 import { cardCaptureStatusInput } from "@/lib/save-capture-card";
@@ -40,7 +40,6 @@ import {
 } from "@/lib/plugin-security-policy";
 import { installPasskeyProxy } from "@/lib/passkey-proxy";
 import { PopupWorkspaceMemoryCache } from "@/lib/popup-workspace-cache";
-import { TotpCaptureRegistry } from "@/lib/totp-capture-session";
 import {
   accountStageKey,
   currentLoginAccounts,
@@ -75,7 +74,6 @@ let pendingPluginFill: PendingPluginFill | null = null;
 let activePluginSecurityPolicy = DEFAULT_PLUGIN_SECURITY_POLICY;
 let emailOtpPollTimer: ReturnType<typeof setInterval> | null = null;
 const emailOtpBoostedTabs = new Map<number, string>();
-const totpCaptures = new TotpCaptureRegistry((operation, input) => backgroundDesktopRpc(operation as import("@/lib/desktop-rpc").Operation, input));
 type BrowserActionApi = typeof browser.action;
 const extensionAction = (browser as unknown as {
   action?: BrowserActionApi;
@@ -91,7 +89,6 @@ export default defineBackground(() => {
   persistentNativeConnection.start();
   persistentNativeConnection.onDisconnected(() => {
     popupWorkspaceCache.clear();
-    totpCaptures.discardAll();
     stopEmailOtpPolling();
   });
   void warmPopupWorkspaceCache();
@@ -124,7 +121,6 @@ export default defineBackground(() => {
     for (const key of currentLoginAccounts.keys()) if (key.startsWith(`${tabId}:`)) currentLoginAccounts.delete(key);
     for (const [captureId, pending] of pendingCredentialCaptures) if (pending.tabId === tabId) discardSaveCapture(captureId);
     for (const [captureId, preparing] of preparingCredentialCaptures) if (preparing.tabId === tabId) discardPreparingSaveCapture(captureId);
-    totpCaptures.discardForTab(tabId);
     void stopEmailOtpBoostForTab(tabId);
   });
   browser.webNavigation.onCommitted.addListener((details) => {
@@ -132,10 +128,8 @@ export default defineBackground(() => {
       automaticAttempts.reset(details.tabId);
       void stopEmailOtpBoostForTab(details.tabId);
     }
-    totpCaptures.discardForFrame(details.tabId, details.frameId);
   });
   browser.webNavigation.onHistoryStateUpdated.addListener((details) => {
-    totpCaptures.discardForFrame(details.tabId, details.frameId);
     if (details.frameId === 0) {
       automaticAttempts.reset(details.tabId);
       void browser.tabs.sendMessage(details.tabId, { kind: "vaultmesh.autofill-rescan" }, { frameId: 0 }).catch(() => undefined);
@@ -199,7 +193,6 @@ export default defineBackground(() => {
       if (['vault.create', 'vault.unlock', 'biometric.unlock', 'pin.unlock'].includes(message.request.operation)) void passkeyProxy.sync();
       if (['vault.create', 'vault.unlock', 'biometric.unlock', 'pin.unlock'].includes(message.request.operation)) startEmailOtpPolling();
       if (message.request.operation === 'vault.lock' || message.request.operation === 'browser.pairing.revoke') {
-        totpCaptures.discardAll();
         stopEmailOtpPolling();
       }
       if (message.request.operation === 'vault.lock') void passkeyProxy.detach();
@@ -311,9 +304,6 @@ export default defineBackground(() => {
       if (page.fillOrigin !== page.topOrigin) return { status: "unsupported-page" as const };
       return fillEmailOtpForTab(page.tabId, page.topOrigin, page.framePageUrl, parsed.data.candidateId);
     }
-    if (parsed.data.kind === "vaultmesh.totp-capture.begin") return totpCaptures.begin(parsed.data, page);
-    if (parsed.data.kind === "vaultmesh.totp-capture.save") return totpCaptures.save(parsed.data, page);
-    if (parsed.data.kind === "vaultmesh.totp-capture.cancel") return totpCaptures.cancel(parsed.data, page);
     if (parsed.data.kind === "vaultmesh.save-capture-pending") return pendingSaveCaptureForPage(page, sender.frameId);
     if (parsed.data.kind === "vaultmesh.otp-watch-requested") {
       try {
@@ -327,7 +317,7 @@ export default defineBackground(() => {
       return { status: result.status === "ready" ? "watching" as const : result.status };
     }
     if (parsed.data.kind === "vaultmesh.autofill-select") {
-      if (parsed.data.selectedItem.kind !== "card") {
+      if (!requiresFillConfirmation(parsed.data.selectedItem)) {
         const result = await startFillForTab(page.tabId, parsed.data.selectedItem, {
           mode: "selection",
           targetOrigin: page.fillOrigin,
@@ -337,7 +327,10 @@ export default defineBackground(() => {
         if (result.status === "filled" && parsed.data.selectedItem.kind === "login") {
           await rememberLoginSelection(page.fillOrigin, parsed.data.selectedItem.id).catch(() => undefined);
         }
-        return result;
+        // The desktop remains authoritative for the stored item's re-prompt
+        // policy. A stale candidate summary must fall back to confirmation,
+        // never turn a required re-prompt into a silent failure.
+        if (!shouldQueueFillConfirmation(parsed.data.selectedItem, result.status)) return result;
       }
       pendingPluginFill = {
         token: crypto.randomUUID(),
@@ -419,7 +412,6 @@ async function lockExtension(onLocked: () => void | Promise<void> = () => {}): P
   popupWorkspaceCache.clear();
   try {
     await backgroundDesktopRpc("vault.lock");
-    totpCaptures.discardAll();
     await onLocked();
     return true;
   } catch {

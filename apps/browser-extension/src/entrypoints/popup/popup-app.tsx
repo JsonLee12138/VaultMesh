@@ -30,6 +30,7 @@ import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/comp
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { confirmedDesktopRpc, desktopRpc, DesktopRpcError, getDesktopStatus, getEmailOtpCandidates, type DesktopState, type EmailOtpCandidate, type FillEvent, type Operation, type WorkspaceSnapshot } from "@/lib/desktop-rpc";
+import { requiresFillConfirmation } from "@/lib/autofill-selection";
 import { PageInformationDetectionResponseSchema, PageInformationSaveResponseSchema, SaveCaptureDecisionResponseSchema, SaveCapturePendingResponseSchema, TotpQrScanResponseSchema, type PageInformationDetectionResponse, type SaveCaptureQueuedResponse, type TotpQrCode } from "@/lib/protocol";
 import { loginCopyOptions } from "@/lib/login-copy-options";
 import { loadCachedPopupWorkspace, loadPopupWorkspace, shouldShowDesktopConnection } from "@/lib/popup-workspace";
@@ -287,7 +288,7 @@ export function PopupApp({ initialWorkspace = null }: { initialWorkspace?: Initi
   }
 
   async function requestFill(item: VaultItem) {
-    if (item.type !== "支付卡") {
+    if (!requiresFillPassword(item)) {
       await executeFill(item);
       return;
     }
@@ -323,7 +324,7 @@ export function PopupApp({ initialWorkspace = null }: { initialWorkspace?: Initi
     setFillOutcome(null);
     setFillState("pending");
     try {
-      const kind = item.type === "登录" ? "login" : item.type === "支付卡" ? "card" : item.type === "身份" ? "identity" : item.type === "机密" ? "secret" : "ssh";
+      const kind = itemKindForType(item.type);
       const response = await browser.runtime.sendMessage({
         kind: "vaultmesh.start-fill",
         selectedItem: { kind, id: item.id, title: item.title },
@@ -349,18 +350,13 @@ export function PopupApp({ initialWorkspace = null }: { initialWorkspace?: Initi
     const password = requiresFillPassword(fillConfirmation) ? fillConfirmationPassword : undefined;
     setFillConfirmationBusy(true);
     setFillConfirmationError(null);
-    // sendMessage hands the work to the MV3 background worker synchronously.
-    // Close the browser-action popup immediately after that handoff; waiting
-    // here would leave the confirmation dialog visible while the content
-    // script types each card field.
-    const responsePromise = executeFill(fillConfirmation, password, fillConfirmationToken ?? undefined);
-    window.close();
-    const response = await responsePromise;
+    const response = await executeFill(fillConfirmation, password, fillConfirmationToken ?? undefined);
     setFillConfirmationPassword("");
     setFillConfirmationBusy(false);
     if (response?.status === "filled") {
       setFillConfirmation(null);
       setFillConfirmationToken(null);
+      window.close();
       return;
     }
     setFillConfirmationError(typeof response?.errorMessage === "string" ? response.errorMessage : `${fillConfirmation.type}填充失败，请重试。`);
@@ -823,8 +819,15 @@ function itemTypeForKind(kind: "login" | "card" | "identity" | "secret" | "ssh")
   return kind === "login" ? "登录" : kind === "card" ? "支付卡" : kind === "identity" ? "身份" : kind === "secret" ? "机密" : "SSH";
 }
 
-function requiresFillPassword(item: VaultItem): boolean {
-  return item.type === "支付卡";
+function itemKindForType(type: VaultItem["type"]): "login" | "card" | "identity" | "secret" | "ssh" {
+  return type === "登录" ? "login" : type === "支付卡" ? "card" : type === "身份" ? "identity" : type === "机密" ? "secret" : "ssh";
+}
+
+export function requiresFillPassword(item: Pick<VaultItem, "type" | "masterPasswordReprompt">): boolean {
+  return requiresFillConfirmation({
+    kind: itemKindForType(item.type),
+    masterPasswordReprompt: item.masterPasswordReprompt,
+  });
 }
 
 function FillItemIcon({ item }: { item: VaultItem }) {

@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const workspace = new URL("../", import.meta.url);
-const expectedVersion = "0.0.8-review";
+const expectedVersion = "0.0.9-review";
 
 async function json(relativePath) {
   return JSON.parse(await readFile(new URL(relativePath, workspace), "utf8"));
@@ -27,7 +27,7 @@ test("Review product manifests use one prerelease version", async () => {
 test("Review publication is isolated from the existing test channel", async () => {
   const workflow = await readFile(new URL(".github/workflows/r2-review-release.yml", workspace), "utf8");
   assert.match(workflow, /name: Publish R2 review release/);
-  assert.match(workflow, /default: "0\.0\.8-review"/);
+  assert.match(workflow, /default: "0\.0\.9-review"/);
   assert.match(workflow, /channels\/review\/latest\.json/);
   assert.doesNotMatch(workflow, /channels\/test\/latest\.json/);
   assert.match(workflow, /Review version matches source metadata/);
@@ -51,8 +51,8 @@ test("Review publication is isolated from the existing test channel", async () =
   assert.match(buildJob, /name: Remove workspace release objects before saving dependency cache[\s\S]*cargo clean --release --target/);
   assert.ok(buildJob.indexOf("uses: actions/upload-artifact@v7") < buildJob.indexOf("name: Remove workspace release objects before saving dependency cache"));
   assert.doesNotMatch(workflow, /vaultmesh-cargo-v1-|hashFiles\(|sccache/);
-  assert.match(workflow, /publish:\n\s+name: Publish immutable artifacts then review channel\n\s+needs: build\n\s+if: \$\{\{ always\(\) && !cancelled\(\) \}\}/);
-  assert.match(workflow, /name: Require successful platform builds[\s\S]*BUILD_RESULT: \$\{\{ needs\.build\.result \}\}/);
+  assert.match(workflow, /publish:\n\s+name: Publish immutable artifacts then review channel\n\s+needs: \[build, extension\]\n\s+if: \$\{\{ always\(\) && !cancelled\(\) \}\}/);
+  assert.match(workflow, /name: Require successful platform and extension builds[\s\S]*BUILD_RESULT: \$\{\{ needs\.build\.result \}\}[\s\S]*EXTENSION_RESULT: \$\{\{ needs\.extension\.result \}\}/);
   assert.match(workflow, /github_prerelease:\n\s+name: Create GitHub draft prerelease/);
   assert.match(workflow, /needs: \[build, publish, extension\]\n\s+if: \$\{\{ always\(\) && !cancelled\(\) \}\}/);
   assert.match(workflow, /name: Require successful build, publish, and extension jobs/);
@@ -76,6 +76,12 @@ test("Review publication is isolated from the existing test channel", async () =
   assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_windows-x86_64-installer\.msi/);
   assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_chrome-extension\.zip/);
   assert.match(workflow, /VaultMesh_\$\{RELEASE_VERSION\}_firefox-extension\.zip/);
+  assert.match(workflow, /releases\/v\$\{RELEASE_VERSION\}\/\$\{asset\}/);
+  assert.match(workflow, /"application\/zip"/);
+  assert.match(workflow, /curl --fail --silent --show-error[\s\S]*releases\/v\$\{RELEASE_VERSION\}\/\$\{asset\}/);
+  assert.match(workflow, /cmp "\$RUNNER_TEMP\/vaultmesh-browser-extensions\/\$asset" "\$published"/);
+  assert.match(workflow, /Chrome\/Chromium extension ZIP/);
+  assert.match(workflow, /Firefox extension ZIP/);
   assert.match(workflow, /\.isDraft.*== "true"/);
   assert.match(workflow, /\.isPrerelease.*== "true"/);
   assert.doesNotMatch(workflow, /gh release upload[^\n]*--clobber/);

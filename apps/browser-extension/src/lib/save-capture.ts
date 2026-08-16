@@ -1,4 +1,4 @@
-import { isNewPasswordControl, pageContextForControl, type SupportedControl } from "@/lib/form-discovery";
+import { analyzeFormSemantics, isNewPasswordControl, type SupportedControl } from "@/lib/form-discovery";
 import type { PageContext } from "@/lib/protocol";
 
 export type CapturedLogin = {
@@ -237,13 +237,8 @@ function controlsWithValues(root: ParentNode): SupportedControl[] {
 }
 
 function inferContext(controls: SupportedControl[]): PageContext {
-  const contexts = controls.map(pageContextForControl);
-  // A current-password control commonly appears before the new-password
-  // controls and classifies as a generic login in isolation. Let the
-  // form-wide password-change signal win without reordering unrelated mixed
-  // forms such as a login page that also exposes a TOTP setup field.
-  if (contexts.includes("password-change")) return "password-change";
-  return contexts.find((context) => context !== "unknown") ?? "unknown";
+  const representative = controls[0];
+  return representative ? analyzeFormSemantics(representative).context : "unknown";
 }
 
 function accountValue(controls: SupportedControl[]): string {

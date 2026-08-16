@@ -1,5 +1,9 @@
 import type { AutofillCandidate, FieldDescriptor } from "@/lib/protocol";
 
+type FillConfirmationItem = Pick<AutofillCandidate, "kind"> & {
+  masterPasswordReprompt?: boolean;
+};
+
 export type AutomaticLoginChoice = {
   candidate: AutofillCandidate;
   mode: "selection" | "automatic";
@@ -7,6 +11,31 @@ export type AutomaticLoginChoice = {
 
 export function inlineSelectionMode(_kind: AutofillCandidate["kind"]): "selection" {
   return "selection";
+}
+
+export function requiresFillConfirmation(item: FillConfirmationItem): boolean {
+  return item.kind === "card" || item.masterPasswordReprompt === true;
+}
+
+export function shouldQueueFillConfirmation(item: FillConfirmationItem, resultStatus?: string): boolean {
+  return requiresFillConfirmation(item) || resultStatus === "re-prompt-required";
+}
+
+export function fillResultStatus(response: unknown): string | null {
+  if (!response || typeof response !== "object" || !("status" in response)) return null;
+  return typeof response.status === "string" ? response.status : null;
+}
+
+export function inlineFillFailureMessage(response: unknown): string | null {
+  const status = fillResultStatus(response);
+  if (status === "filled" || status === "confirmation-required") return null;
+  if (status === "unlock-required") return "VaultMesh 插件已锁定，请点击字段图标解锁后重试。";
+  if (status === "re-prompt-required") return "需要在 VaultMesh 插件中输入主密码后重试。";
+  if (status === "no-supported-fields") return "当前页面没有可安全填充的字段。";
+  if (status === "document-changed" || status === "approval-rejected" || status === "request-expired") return "页面已经变化，请重新选择要填充的项目。";
+  if (status === "cancelled") return "已取消本次自动填充。";
+  if (status === "desktop-unavailable") return "无法连接 VaultMesh 桌面端，请确认应用正在运行。";
+  return "自动填充失败，请重新打开 VaultMesh 插件后重试。";
 }
 
 export function shouldReplaceExistingFields(

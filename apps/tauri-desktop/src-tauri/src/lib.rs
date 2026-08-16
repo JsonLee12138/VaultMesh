@@ -10,11 +10,11 @@ use std::{
 use base64::Engine as _;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+#[cfg(any(target_os = "macos", test))]
+use tauri::image::Image;
 #[cfg(any(target_os = "windows", test))]
 use tauri::menu::Submenu;
 use tauri::{AppHandle, Emitter, Manager, RunEvent, State, WindowEvent};
-#[cfg(any(target_os = "macos", test))]
-use tauri::image::Image;
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 use tauri::{
     menu::{Menu, MenuItem, PredefinedMenuItem},

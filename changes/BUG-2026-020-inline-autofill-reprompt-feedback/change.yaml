@@ -1,0 +1,36 @@
+id: "BUG-2026-020-inline-autofill-reprompt-feedback"
+title: "修改密码自动填充、重新验证与失败反馈"
+type: "bug"
+status: "Implementing"
+spec_revision: "0.1.0-draft"
+target_release: null
+requirements:
+  - "REQ-AUTOFILL-001"
+  - "REQ-AUTOFILL-002"
+tests:
+  - "CT-AUTOFILL-001"
+  - "CT-AUTOFILL-002"
+  - "CT-AUTOFILL-003"
+  - "AT-AUTOFILL-001"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-001 安全 discovery 与 fill"
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-002 显式选择与捕获"
+  - "specs/browser-integration.md#Transport 与 authorization"
+  - "specs/browser-integration.md#Discovery 与 fill"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/08-traceability.md#REQ-AUTOFILL-001"
+  - "docs/08-traceability.md#REQ-AUTOFILL-002"
+related_changes:
+  - "CHG-2026-038-form-semantic-classification"
+affected_surfaces:
+  - "browser-extension-content"
+  - "browser-extension-background"
+  - "browser-extension-popup"
+affected_formats: []
+affected_versions:
+  - "0.0.8-review"
+security_impact: "medium: explicit login fill can require fresh master-password revalidation; failures must remain non-secret and visible"
+migration: "none"
+supersedes: []

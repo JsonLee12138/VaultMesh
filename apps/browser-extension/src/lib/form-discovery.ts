@@ -6,6 +6,16 @@ export type SupportedControl = NativeControl | HTMLElement;
 type DiscoveryRoot = Document | ShadowRoot;
 export type AutofillFieldKind = "login" | "card" | "identity" | "secret" | "ssh";
 export type PasswordFieldPurpose = "current" | "new";
+export type CredentialFieldRole = "account" | "current-password" | "new-password" | "confirmation-password" | "otp" | "other";
+export type SemanticConfidence = "high" | "medium" | "low";
+export type ControlSemanticAnalysis = {
+  context: PageContext;
+  role: CredentialFieldRole;
+  confidence: SemanticConfidence;
+  score: number;
+  competingScore: number;
+  reasons: string[];
+};
 
 const MAX_FIELDS = 300;
 const MAX_OPTIONS = 200;
@@ -20,9 +30,15 @@ const SENSITIVE_METADATA = /\b(ssn|social[\s-]?security|tax|passport|national[\s
 const CURRENT_PASSWORD_METADATA = /\b(current|old|existing|previous|login)\s*[\s_-]*pass(word|code)\b|当前密码|原密码|旧密码|登录密码/i;
 const NEW_PASSWORD_METADATA = /\b(new|set|create|choose|reset|confirm|repeat|verify|re[\s_-]*enter)\s*[\s_-]*pass(word|code)\b|password[\s_-]*(confirmation|confirm)|新密码|设置密码|创建密码|重置密码|确认密码|再次(?:输入)?密码|重复密码/i;
 const CONFIRM_PASSWORD_METADATA = /\b(confirm|repeat|verify|re[\s_-]*enter)\s*[\s_-]*pass(word|code)\b|password[\s_-]*(confirmation|confirm)|确认密码|再次(?:输入)?密码|重复密码/i;
-const SIGNUP_PASSWORD_CONTEXT = /\b(sign[\s_-]*up|register|registration|create\s+(an?\s+)?account|join\s+now)\b|注册|创建账号|创建账户/i;
-const NEW_PASSWORD_CONTEXT = /\b(sign[\s_-]*up|register|registration|create\s+(an?\s+)?account|reset\s+pass(word|code)|set\s+(a\s+)?new\s+pass(word|code))\b|注册|创建账号|设置新密码|重置密码|找回密码/i;
 const OTP_METADATA = /\b(?:otp|totp|2fa|mfa)\b|one[\s_-]?time[\s_-]?(?:code|password|passcode|token)|(?:verification|authentication|authenticator)[\s_-]?(?:code|passcode|token|pin)|two[\s_-]?factor|验证码|动态码|认证码/i;
+const LOGIN_SEMANTICS = /\b(?:log[\s_-]*in|sign[\s_-]*in|account[\s_-]*login)\b|登录|登入/i;
+const SIGNUP_SEMANTICS = /\b(?:sign[\s_-]*up|register|registration|create\s+(?:an?\s+)?account|join\s+now)\b|注册|创建账号|创建账户/i;
+const RESET_SEMANTICS = /\b(?:forgot|recover|reset|set\s+(?:a\s+)?new)\s*(?:pass(?:word|code))?\b|忘记密码|找回密码|重置密码|设置新密码/i;
+const CHANGE_PASSWORD_SEMANTICS = /\b(?:change|update)\s+pass(?:word|code)\b|修改密码|更改密码|更新密码/i;
+const LOGIN_ROUTE = /(?:^|\/)(?:login|log-in|signin|sign-in|auth)(?:\/|$)/i;
+const SIGNUP_ROUTE = /(?:^|\/)(?:signup|sign-up|register|registration|create-account)(?:\/|$)/i;
+const RESET_ROUTE = /(?:^|\/)(?:forgot-password|recover-password|reset-password|password-reset)(?:\/|$)/i;
+const CHANGE_PASSWORD_ROUTE = /(?:^|\/)(?:change-password|password-change|update-password)(?:\/|$)/i;
 
 export function discoverFields(root: DiscoveryRoot) {
   const handles = new Map<string, SupportedControl>();
@@ -69,96 +85,327 @@ export function classifyControl(control: Element): AutofillFieldKind | null {
   const metadata = getMetadata(control);
   const tokens = metadata.autocomplete;
   const text = [metadata.label, metadata.name, metadata.id, metadata.placeholder].join(" ");
-  const context = pageContextForControl(control);
-  if (/private[\s_-]*key|public[\s_-]*key|ssh[\s_-]*(key|user|password|host|port)|passphrase|authorized[\s_-]*keys|私钥|公钥|私钥口令/i.test(text)) return "ssh";
-  if (context === "ssh-console" && /\bhost(?:name)?\b|\bserver\b|\bport\b|主机|服务器|端口/i.test(text)) return "ssh";
-  if (/api[\s_-]*key|access[\s_-]*token|client[\s_-]*secret|webhook[\s_-]*(secret|token)|bearer[\s_-]*token|authenticator[\s_-]*(key|secret)|接口密钥|访问令牌|客户端密钥|认证密钥/i.test(text)) return "secret";
-  if (context === "otp") return "login";
-  if (tokens.some((token) => token.startsWith("cc-")) || /card.?number|card.?holder|cvv|cvc|security.?code|expir|billing.?address|卡号|持卡人|安全码|有效期|账单地址/i.test(text)) return "card";
-  // Once a form is explicitly identified as a developer-secret or SSH form,
-  // its supporting account/password fields belong to that item type rather
-  // than to the generic login classifier below.
+  const semantics = analyzeControlSemantics(control);
+  const context = semantics.context;
   if (context === "developer-secret") return "secret";
   if (context === "ssh-console") return "ssh";
-  if (OTP_METADATA.test(text)) return "login";
-  if (control instanceof HTMLInputElement && control.type === "password") return "login";
-  if (tokens.includes("username") || tokens.includes("current-password") || tokens.includes("one-time-code") || /user(name)?|login|account|用户名|账号|密码/i.test(text)) return "login";
-  const form = control.closest("form");
-  // An email next to a password is the account identifier for that credential,
-  // including on signup forms. Treating signup email as identity data makes the
-  // inline menu offer personal-profile records instead of login/generator UI.
-  if ((tokens.includes("email") || control instanceof HTMLInputElement && control.type === "email") && form?.querySelector('input[type="password"], input[autocomplete~="current-password"]')) return "login";
+  if (context === "checkout") return "card";
+  if (["login", "signup", "password-change", "password-reset", "otp"].includes(context) && semantics.role !== "other") return "login";
   if (tokens.some((token) => IDENTITY_AUTOCOMPLETE.has(token)) || /name|e-?mail|phone|tel|address|city|state|province|postal|zip|country|department|姓名|邮箱|电话|手机|地址|城市|省|邮编|国家|部门/i.test(text)) return "identity";
   return null;
 }
 
-export function pageContextForFields(fields: FieldDescriptor[]): PageContext {
-  const priority: PageContext[] = ["password-change", "signup", "password-reset", "otp", "login", "checkout", "developer-secret", "ssh-console", "profile", "unknown"];
-  return priority.find((context) => fields.some((field) => field.context === context)) ?? "unknown";
+export function selectAutofillPageContext(fields: FieldDescriptor[]): PageContext {
+  // Only fillable contexts participate in page-ready selection. Other form
+  // clusters do not compete in one global scene classifier.
+  if (fields.some((field) => field.context === "login")) return "login";
+  if (fields.some((field) => field.context === "otp")) return "otp";
+  return "unknown";
 }
 
-export function pageContextForControl(control: SupportedControl): PageContext {
-  const contextualParent = control.parentElement && !control.parentElement.matches('body,html') ? control.parentElement : control;
-  const container = control.closest("form") ?? control.closest('[role="form"],dialog,[role="dialog"]') ?? contextualParent;
-  const controlMetadata = getMetadata(control);
-  // A verification-code control can remain inside the same form as an earlier
-  // signup or password-reset step. Its own semantics must win over stale
-  // new-password controls elsewhere in that form, otherwise focusing an OTP
-  // digit opens the generated-credential menu.
-  if (controlMetadata.autocomplete.includes("one-time-code") || OTP_METADATA.test(metadataText(controlMetadata))) return "otp";
-  const text = `${metadataText(controlMetadata)} ${limit(container?.textContent ?? "", 2_000)}`;
-  const passwords = container ? Array.from(container.querySelectorAll<HTMLInputElement>('input[type="password"]')).filter(isSupportedControl) : [];
-  const hasCurrent = passwords.some((entry) => getMetadata(entry).autocomplete.includes("current-password") || CURRENT_PASSWORD_METADATA.test(metadataText(getMetadata(entry))));
-  const hasNew = passwords.some((entry) => getMetadata(entry).autocomplete.includes("new-password") || NEW_PASSWORD_METADATA.test(metadataText(getMetadata(entry))));
-  if (hasCurrent && hasNew) return "password-change";
-  if (hasNew && /sign[\s_-]*up|register|registration|create\s+(an?\s+)?account|join\s+now|注册|创建账号|创建账户/i.test(text)) return "signup";
-  if (hasNew && /reset|forgot|recover|set\s+(a\s+)?new\s+pass|重置|找回|忘记密码/i.test(text)) return "password-reset";
-  if (hasNew && container?.querySelector('[autocomplete~="name"],[autocomplete~="given-name"],[autocomplete~="family-name"],[autocomplete~="tel"]')) return "signup";
-  if (OTP_METADATA.test(text)) return "otp";
-  if (/api[\s_-]*key|access[\s_-]*token|client[\s_-]*secret|webhook[\s_-]*secret|接口密钥|访问令牌/i.test(text)) return "developer-secret";
-  if (/ssh|private[\s_-]*key|public[\s_-]*key|authorized[\s_-]*keys|私钥|公钥/i.test(text)) return "ssh-console";
-  if (controlMetadata.autocomplete.some((token) => token.startsWith("cc-")) || /card.?number|checkout|billing|payment|卡号|支付|账单/i.test(text)) return "checkout";
-  if (hasNew) return "password-reset";
-  if (control instanceof HTMLInputElement && control.type === "password") return isNewPasswordControl(control) ? "password-reset" : "login";
-  if (controlMetadata.autocomplete.includes("username") || controlMetadata.autocomplete.includes("current-password") || /user(?:name)?|login|account|用户名|账号/i.test(metadataText(controlMetadata))) return "login";
-  if (passwords.length > 0 || /login|sign[\s_-]*in|登录/i.test(text)) return "login";
-  if (/profile|contact|address|姓名|联系|地址/i.test(text)) return "profile";
-  return "unknown";
+type SemanticCluster = {
+  root: ParentNode;
+  controls: SupportedControl[];
+};
+
+type CredentialContext = "login" | "signup" | "password-change" | "password-reset" | "otp";
+
+export function analyzeControlSemantics(control: SupportedControl): ControlSemanticAnalysis {
+  const cluster = semanticCluster(control);
+  const role = credentialFieldRole(control, cluster);
+  if (role === "otp" || isSegmentedOtpCluster(cluster)) {
+    return {
+      context: "otp",
+      role: "otp",
+      confidence: "high",
+      score: 240,
+      competingScore: 0,
+      reasons: ["field:otp"],
+    };
+  }
+
+  const directText = metadataText(getMetadata(control));
+  const clusterText = clusterSemanticText(cluster);
+  if (/api[\s_-]*key|access[\s_-]*token|client[\s_-]*secret|webhook[\s_-]*secret|接口密钥|访问令牌/i.test(`${directText} ${clusterText}`)) {
+    return { context: "developer-secret", role: "other", confidence: "high", score: 180, competingScore: 0, reasons: ["cluster:developer-secret"] };
+  }
+  if (/ssh|private[\s_-]*key|public[\s_-]*key|authorized[\s_-]*keys|私钥|公钥/i.test(`${directText} ${clusterText}`)) {
+    return { context: "ssh-console", role: "other", confidence: "high", score: 180, competingScore: 0, reasons: ["cluster:ssh"] };
+  }
+  if (getMetadata(control).autocomplete.some((token) => token.startsWith("cc-")) || /card.?number|checkout|billing|payment|卡号|支付|账单/i.test(`${directText} ${clusterText}`)) {
+    return { context: "checkout", role: "other", confidence: "high", score: 180, competingScore: 0, reasons: ["cluster:checkout"] };
+  }
+  const clusterHasPassword = cluster.controls.some((candidate) => candidate instanceof HTMLInputElement && candidate.type === "password");
+  const clusterHasIdentityDetails = cluster.controls.some((candidate) => getMetadata(candidate).autocomplete.some((token) =>
+    IDENTITY_AUTOCOMPLETE.has(token) && token !== "email" && token !== "tel",
+  ));
+  if (!clusterHasPassword && (clusterHasIdentityDetails || /profile|contact|shipping\s+address|姓名|联系|收货地址/i.test(clusterText))) {
+    return { context: "profile", role: "other", confidence: "high", score: 150, competingScore: 0, reasons: ["cluster:identity-fields"] };
+  }
+
+  const scores = new Map<CredentialContext, number>();
+  const reasons = new Map<CredentialContext, string[]>();
+  const add = (context: CredentialContext, score: number, reason: string) => {
+    scores.set(context, (scores.get(context) ?? 0) + score);
+    const entries = reasons.get(context) ?? [];
+    if (!entries.includes(reason)) entries.push(reason);
+    reasons.set(context, entries);
+  };
+  const roles = cluster.controls.map((candidate) => credentialFieldRole(candidate, cluster));
+  const accountCount = roles.filter((candidate) => candidate === "account").length;
+  const currentCount = roles.filter((candidate) => candidate === "current-password").length;
+  const newCount = roles.filter((candidate) => candidate === "new-password" || candidate === "confirmation-password").length;
+  const confirmationCount = roles.filter((candidate) => candidate === "confirmation-password").length;
+  const otpCount = roles.filter((candidate) => candidate === "otp").length;
+
+  if (currentCount > 0 && newCount > 0) {
+    add("password-change", 220, "structure:current-and-new-password");
+  } else if (newCount > 0) {
+    if (accountCount > 0) {
+      add("signup", 85, "structure:account-and-new-password");
+      add("password-reset", 25, "structure:new-password");
+    } else {
+      add("password-reset", confirmationCount > 0 ? 65 : 80, "structure:new-password-without-account");
+      if (confirmationCount > 0) add("signup", 65, "structure:confirmed-new-password");
+    }
+  } else if (currentCount > 0) {
+    add("login", accountCount > 0 ? 130 : 105, accountCount > 0 ? "structure:account-and-current-password" : "structure:current-password");
+  } else if (accountCount > 0) {
+    add("login", 55, "structure:account-only");
+  }
+  if (otpCount > 0 && currentCount === 0 && newCount === 0) add("otp", 100, "structure:otp-only");
+
+  for (const path of semanticPaths(cluster, control.ownerDocument)) {
+    if (LOGIN_ROUTE.test(path)) add("login", 70, "route:login");
+    if (SIGNUP_ROUTE.test(path)) add("signup", 70, "route:signup");
+    if (RESET_ROUTE.test(path)) add("password-reset", 70, "route:password-reset");
+    if (CHANGE_PASSWORD_ROUTE.test(path)) add("password-change", 70, "route:password-change");
+  }
+
+  const submitText = semanticSubmitText(cluster);
+  if (LOGIN_SEMANTICS.test(submitText)) add("login", 55, "submit:login");
+  if (SIGNUP_SEMANTICS.test(submitText)) add("signup", 55, "submit:signup");
+  if (RESET_SEMANTICS.test(submitText)) add("password-reset", 55, "submit:password-reset");
+  if (CHANGE_PASSWORD_SEMANTICS.test(submitText)) add("password-change", 55, "submit:password-change");
+
+  const headingText = semanticHeadingText(cluster);
+  if (LOGIN_SEMANTICS.test(headingText)) add("login", 30, "heading:login");
+  if (SIGNUP_SEMANTICS.test(headingText)) add("signup", 30, "heading:signup");
+  if (RESET_SEMANTICS.test(headingText)) add("password-reset", 30, "heading:password-reset");
+  if (CHANGE_PASSWORD_SEMANTICS.test(headingText)) add("password-change", 30, "heading:password-change");
+
+  if (LOGIN_SEMANTICS.test(directText)) add("login", 20, "field:login-metadata");
+  if (SIGNUP_SEMANTICS.test(directText)) add("signup", 20, "field:signup-metadata");
+  if (RESET_SEMANTICS.test(directText)) add("password-reset", 20, "field:password-reset-metadata");
+
+  const ranked = Array.from(scores.entries()).sort((left, right) => right[1] - left[1]);
+  const winner = ranked[0];
+  if (!winner || winner[1] < 45) {
+    if (/profile|contact|address|姓名|联系|地址/i.test(clusterText)) {
+      return { context: "profile", role: "other", confidence: "medium", score: 70, competingScore: winner?.[1] ?? 0, reasons: ["cluster:profile"] };
+    }
+    return { context: "unknown", role, confidence: "low", score: winner?.[1] ?? 0, competingScore: ranked[1]?.[1] ?? 0, reasons: winner ? reasons.get(winner[0]) ?? [] : [] };
+  }
+  const competingScore = ranked[1]?.[1] ?? 0;
+  const margin = winner[1] - competingScore;
+  const confidence: SemanticConfidence = winner[1] >= 110 && margin >= 35
+    ? "high"
+    : winner[1] >= 70 && margin >= 20
+      ? "medium"
+      : "low";
+  return {
+    context: winner[0],
+    role,
+    confidence,
+    score: winner[1],
+    competingScore,
+    reasons: (reasons.get(winner[0]) ?? []).slice(0, 8),
+  };
+}
+
+export function analyzeFormSemantics(control: SupportedControl): ControlSemanticAnalysis {
+  const cluster = semanticCluster(control);
+  const representative = cluster.controls.find((candidate) => credentialFieldRole(candidate, cluster) !== "otp") ?? control;
+  return analyzeControlSemantics(representative);
+}
+
+export function credentialFieldRole(control: SupportedControl, cluster = semanticCluster(control)): CredentialFieldRole {
+  const metadata = getMetadata(control);
+  const directText = metadataText(metadata);
+  if (metadata.autocomplete.includes("one-time-code") || OTP_METADATA.test(directText)) return "otp";
+
+  if (control instanceof HTMLInputElement && control.type === "password") {
+    if (metadata.autocomplete.includes("current-password") || CURRENT_PASSWORD_METADATA.test(directText)) return "current-password";
+    if (CONFIRM_PASSWORD_METADATA.test(directText)) return "confirmation-password";
+    if (metadata.autocomplete.includes("new-password") || NEW_PASSWORD_METADATA.test(directText)) return "new-password";
+
+    const passwords = cluster.controls.filter((candidate): candidate is HTMLInputElement =>
+      candidate instanceof HTMLInputElement && candidate.type === "password",
+    );
+    const index = passwords.indexOf(control);
+    const confirmationIndex = passwords.findIndex((candidate) => CONFIRM_PASSWORD_METADATA.test(metadataText(getMetadata(candidate))));
+    const explicitNewIndex = passwords.findIndex((candidate) => {
+      const candidateMetadata = getMetadata(candidate);
+      const candidateText = metadataText(candidateMetadata);
+      return !CONFIRM_PASSWORD_METADATA.test(candidateText) &&
+        (candidateMetadata.autocomplete.includes("new-password") || NEW_PASSWORD_METADATA.test(candidateText));
+    });
+    if (explicitNewIndex >= 0 && index >= 0) return index < explicitNewIndex ? "current-password" : "new-password";
+    if (confirmationIndex > 0 && index >= 0) return index < confirmationIndex ? "new-password" : "confirmation-password";
+
+    const intent = strongClusterIntent(cluster, control.ownerDocument);
+    const hasAccount = cluster.controls.some((candidate) => candidate !== control && credentialFieldRoleWithoutStructure(candidate) === "account");
+    if (passwords.length === 1 && hasAccount && intent === "signup") return "new-password";
+    if (passwords.length === 1 && (intent === "password-reset" || intent === "password-change")) return "new-password";
+    return "current-password";
+  }
+
+  return credentialFieldRoleWithoutStructure(control);
+}
+
+function credentialFieldRoleWithoutStructure(control: SupportedControl): CredentialFieldRole {
+  const metadata = getMetadata(control);
+  const text = metadataText(metadata);
+  if (metadata.autocomplete.includes("one-time-code") || OTP_METADATA.test(text)) return "otp";
+  if (metadata.autocomplete.includes("username") || metadata.autocomplete.includes("email")) return "account";
+  if (control instanceof HTMLInputElement && (control.type === "email" || control.type === "tel")) return "account";
+  if (/user(name)?|login|account|apple[\s_-]*id|e-?mail|phone|mobile|用户名|账号|邮箱|电话|手机/i.test(text)) return "account";
+  return "other";
+}
+
+function semanticCluster(control: SupportedControl): SemanticCluster {
+  const explicit = control instanceof HTMLInputElement && control.form
+    ? control.form
+    : control.closest('form,[role="form"],dialog,[role="dialog"],fieldset');
+  if (explicit) return { root: explicit, controls: semanticControls(explicit) };
+
+  const treeRoot = control.getRootNode();
+  let fallback: ParentNode = control;
+  for (let ancestor = control.parentElement; ancestor && !ancestor.matches("body,html"); ancestor = ancestor.parentElement) {
+    const controls = semanticControls(ancestor);
+    if (controls.length === 0 || !controls.includes(control)) continue;
+    fallback = ancestor;
+    const passwordCount = controls.filter((candidate) => candidate instanceof HTMLInputElement && candidate.type === "password").length;
+    const accountCount = controls.filter((candidate) => credentialFieldRoleWithoutStructure(candidate) === "account").length;
+    const hasSubmit = semanticSubmitControls(ancestor).length > 0;
+    if (passwordCount > 0 && (controls.length > 1 || accountCount > 0 || hasSubmit)) return { root: ancestor, controls };
+    if (controls.length > 1 && ancestor.matches('section,article,main,[role="group"],[data-form],[class*="form"],[class*="login"],[class*="auth"]')) {
+      return { root: ancestor, controls };
+    }
+  }
+  return { root: fallback, controls: semanticControls(fallback) };
+}
+
+function semanticControls(root: ParentNode) {
+  const descendants = Array.from(root.querySelectorAll<SupportedControl>('input,textarea,select,[contenteditable="true"]'));
+  const controls = root instanceof Element && root.matches('input,textarea,select,[contenteditable="true"]')
+    ? [root as SupportedControl, ...descendants]
+    : descendants;
+  return controls
+    .filter(isSemanticallyEligibleControl)
+    .slice(0, 80);
+}
+
+function semanticPaths(cluster: SemanticCluster, document: Document) {
+  const paths: string[] = [];
+  const pagePath = document.defaultView?.location.pathname;
+  if (pagePath) paths.push(limit(pagePath, 512));
+  if (cluster.root instanceof HTMLFormElement) {
+    const action = cluster.root.getAttribute("action");
+    if (action) {
+      try {
+        paths.push(limit(new URL(action, document.defaultView?.location.href ?? "https://invalid.local/").pathname, 512));
+      } catch {
+        // Invalid actions are ignored; form classification remains local and
+        // must not make a network request to resolve them.
+      }
+    }
+  }
+  return [...new Set(paths)];
+}
+
+function semanticSubmitControls(root: ParentNode) {
+  return Array.from(root.querySelectorAll<HTMLElement>('button,input[type="submit"],input[type="button"],[role="button"]'))
+    .filter(isSemanticallyVisible)
+    .filter((candidate) => {
+      if (candidate instanceof HTMLButtonElement) return candidate.type === "submit" || candidate.type === "button";
+      return true;
+    })
+    .slice(0, 20);
+}
+
+function semanticSubmitText(cluster: SemanticCluster) {
+  return semanticSubmitControls(cluster.root).map((candidate) => {
+    if (candidate instanceof HTMLInputElement) return candidate.getAttribute("value") ?? candidate.getAttribute("aria-label") ?? "";
+    return `${candidate.getAttribute("aria-label") ?? ""} ${candidate.textContent ?? ""}`;
+  }).join(" ").slice(0, 1_000);
+}
+
+function semanticHeadingText(cluster: SemanticCluster) {
+  const rootLabel = cluster.root instanceof Element
+    ? `${cluster.root.getAttribute("aria-label") ?? ""} ${cluster.root.getAttribute("name") ?? ""}`
+    : "";
+  const headings = Array.from(cluster.root.querySelectorAll<HTMLElement>('h1,h2,h3,h4,legend,[role="heading"]'))
+    .filter(isSemanticallyVisible)
+    .map((candidate) => candidate.textContent ?? "")
+    .join(" ");
+  return `${rootLabel} ${headings}`.slice(0, 1_000);
+}
+
+function clusterSemanticText(cluster: SemanticCluster) {
+  const fieldText = cluster.controls.map((candidate) => metadataText(getMetadata(candidate))).join(" ");
+  return `${semanticHeadingText(cluster)} ${semanticSubmitText(cluster)} ${fieldText}`.slice(0, 2_000);
+}
+
+function strongClusterIntent(cluster: SemanticCluster, document: Document): CredentialContext | null {
+  const matches = new Set<CredentialContext>();
+  for (const path of semanticPaths(cluster, document)) {
+    if (LOGIN_ROUTE.test(path)) matches.add("login");
+    if (SIGNUP_ROUTE.test(path)) matches.add("signup");
+    if (RESET_ROUTE.test(path)) matches.add("password-reset");
+    if (CHANGE_PASSWORD_ROUTE.test(path)) matches.add("password-change");
+  }
+  const submitText = semanticSubmitText(cluster);
+  if (LOGIN_SEMANTICS.test(submitText)) matches.add("login");
+  if (SIGNUP_SEMANTICS.test(submitText)) matches.add("signup");
+  if (RESET_SEMANTICS.test(submitText)) matches.add("password-reset");
+  if (CHANGE_PASSWORD_SEMANTICS.test(submitText)) matches.add("password-change");
+  return matches.size === 1 ? [...matches][0]! : null;
+}
+
+function isSegmentedOtpCluster(cluster: SemanticCluster) {
+  const headingSuggestsOtp = OTP_METADATA.test(semanticHeadingText(cluster));
+  const digitControls = cluster.controls.filter((candidate) => candidate instanceof HTMLInputElement &&
+    candidate.maxLength === 1 && ["", "text", "tel", "number"].includes(candidate.type));
+  const hasPassword = cluster.controls.some((candidate) => candidate instanceof HTMLInputElement && candidate.type === "password");
+  return digitControls.length >= 4 && (headingSuggestsOtp || !hasPassword);
+}
+
+function isSemanticallyEligibleControl(control: SupportedControl) {
+  if ((isNativeControl(control) && control.disabled) ||
+    ((control instanceof HTMLInputElement || control instanceof HTMLTextAreaElement) && control.readOnly) ||
+    !isSemanticallyVisible(control)) return false;
+  if (control instanceof HTMLInputElement && !TEXT_INPUT_TYPES.has(control.type)) return false;
+  const metadata = getMetadata(control);
+  return !SENSITIVE_METADATA.test([metadata.label, metadata.name, metadata.id, metadata.placeholder].join(" "));
+}
+
+function isSemanticallyVisible(control: HTMLElement) {
+  const view = control.ownerDocument.defaultView;
+  if (!view) return false;
+  for (let element: Element | null = control; element; element = composedParentElement(element)) {
+    const style = view.getComputedStyle(element);
+    if (element.hasAttribute("hidden") || element.getAttribute("aria-hidden")?.toLowerCase() === "true") return false;
+    if (style.display === "none" || style.visibility === "hidden" || style.visibility === "collapse") return false;
+    if (element !== control && clipsCollapsedContent(style)) return false;
+  }
+  return true;
 }
 
 export function passwordFieldPurpose(control: Element): PasswordFieldPurpose | null {
   if (!(control instanceof HTMLInputElement) || control.type !== "password" || !isSupportedControl(control)) return null;
-  const metadata = getMetadata(control);
-  if (metadata.autocomplete.includes("new-password")) return "new";
-  if (metadata.autocomplete.includes("current-password")) return "current";
-
-  const directMetadata = metadataText(metadata);
-  if (CURRENT_PASSWORD_METADATA.test(directMetadata)) return "current";
-  if (NEW_PASSWORD_METADATA.test(directMetadata)) return "new";
-
-  const group = passwordFieldGroup(control);
-  const confirmationIndex = group.findIndex((candidate) =>
-    CONFIRM_PASSWORD_METADATA.test(metadataText(getMetadata(candidate))),
-  );
-  const firstNewPassword = group.findIndex((candidate) => {
-    const candidateMetadata = getMetadata(candidate);
-    return candidateMetadata.autocomplete.includes("new-password") || NEW_PASSWORD_METADATA.test(metadataText(candidateMetadata));
-  });
-
-  const containerText = limit((control.form ?? control.parentElement)?.textContent ?? "", 1_000);
-  // A two-field Password + Confirm Password pair is a new credential even
-  // when the site leaves the primary input as a generic `name="password"`.
-  // Direct current/old-password metadata returned above still wins for real
-  // password-change forms.
-  if (group.length === 2 && confirmationIndex === 1) return "new";
-  if (SIGNUP_PASSWORD_CONTEXT.test(containerText) && !group.some((candidate) => {
-    const candidateMetadata = getMetadata(candidate);
-    return candidateMetadata.autocomplete.includes("current-password") || CURRENT_PASSWORD_METADATA.test(metadataText(candidateMetadata));
-  })) return "new";
-  if (firstNewPassword >= 0) {
-    return group.indexOf(control) < firstNewPassword ? "current" : "new";
-  }
-  return NEW_PASSWORD_CONTEXT.test(containerText) && !CURRENT_PASSWORD_METADATA.test(containerText) ? "new" : "current";
+  const role = credentialFieldRole(control, semanticCluster(control));
+  return role === "new-password" || role === "confirmation-password" ? "new" : "current";
 }
 
 export function isNewPasswordControl(control: Element) {
@@ -367,7 +614,7 @@ function buildDescriptor(control: SupportedControl): FieldDescriptor | null {
     name: metadata.name,
     id: metadata.id,
     placeholder: metadata.placeholder,
-    context: pageContextForControl(control),
+    context: analyzeControlSemantics(control).context,
   };
 
   if (control instanceof HTMLInputElement) {

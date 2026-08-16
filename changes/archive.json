@@ -257,6 +257,24 @@
         "changes/CHG-2026-034-recreate-github-repository/change.md": "sha256:ba18471a718b1aa25508a57ac0eb11c6db82ba9059bad1527a1036b3d9fe6ae4",
         "changes/CHG-2026-034-recreate-github-repository/change.yaml": "sha256:4d12b72fb13e41c5509a18675634c2e7238229d28e7df5c2286a6d50ae81a057"
       }
+    },
+    {
+      "work_id": "CHG-2026-006-inline-totp-qr-capture",
+      "status": "Rejected",
+      "archived_at": "2026-08-14T20:27:38.504Z",
+      "files": {
+        "changes/CHG-2026-006-inline-totp-qr-capture/change.md": "sha256:23e011feeea7d695d139d8e35c22da2c662546ada5e3d6240f822152b3292780",
+        "changes/CHG-2026-006-inline-totp-qr-capture/change.yaml": "sha256:57a713ccee4b4370d75371e7843b481419aea555fbf248a9ca7a8db6b55e77b2"
+      }
+    },
+    {
+      "work_id": "CHG-2026-038-form-semantic-classification",
+      "status": "Verified",
+      "archived_at": "2026-08-14T20:58:39.679Z",
+      "files": {
+        "changes/CHG-2026-038-form-semantic-classification/change.md": "sha256:6e6bdebb61c6566618de3938223ebf9d1e5b09707196068955606d65400963c9",
+        "changes/CHG-2026-038-form-semantic-classification/change.yaml": "sha256:643b1924d68f049a46345d8a3a132f3d1df4b3cbfc81c50724a98ada5ef48f13"
+      }
     }
   ]
 }

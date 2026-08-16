@@ -2,8 +2,8 @@ id: "CHG-2026-036-cross-browser-extension-release"
 title: "发布 Chrome 与 Firefox 浏览器扩展 ZIP"
 type: "feature"
 status: "Implementing"
-spec_revision: "0.1.45-active"
-target_release: "0.0.4-review"
+spec_revision: "0.1.50-active"
+target_release: "0.0.9-review"
 requirements:
   - "REQ-UPDATE-002"
   - "REQ-BROWSER-004"
@@ -30,6 +30,7 @@ affected_surfaces:
   - "Firefox MV2 extension package"
   - "macOS/Windows Native Messaging registration"
   - "GitHub Draft Prerelease assets"
+  - "Cloudflare R2 public extension ZIPs"
 affected_formats:
   - "Chrome extension manifest v3"
   - "Firefox extension manifest v2"
@@ -37,6 +38,7 @@ affected_formats:
 affected_versions:
   - "0.0.3-review"
   - "0.0.4-review"
+  - "0.0.9-review"
 security_impact: "Firefox remains a transient remote UI and receives no Vault key or persistent secret. The native host must authenticate the exact compiled Chrome extension ID or Firefox Gecko ID and reject every other launch argument before loading the pairing secret."
 migration: "No Vault/RPC/ABI migration. Existing Chrome/Edge installations remain compatible; desktop installers add a separate Firefox native manifest and per-user registration. Firefox Passkey proxy remains unsupported because webAuthenticationProxy is Chromium-specific."
 supersedes: []

@@ -148,31 +148,6 @@ export const TotpQrScanResponseSchema = z.discriminatedUnion("status", [
   z.object({ status: z.literal("unsupported-page") }),
 ]);
 
-export const TotpCaptureLoginSchema = z.object({
-  id: z.string().uuid(),
-  title: boundedText(256),
-  username: boundedText(2_048),
-  url: httpUrlSchema.nullable(),
-  hasTotpSecret: z.boolean(),
-  matchScope: z.enum(["path", "origin", "domain"]).optional(),
-});
-
-export const TotpCaptureBeginResponseSchema = z.discriminatedUnion("status", [
-  z.object({
-    status: z.literal("ready"),
-    operationId: z.string().uuid(),
-    expiresAt: z.string().datetime(),
-    candidates: z.array(TotpCaptureLoginSchema).max(200),
-  }),
-  z.object({ status: z.enum(["locked", "unavailable", "unsupported-page"]) }),
-]);
-
-export const TotpCaptureSaveResponseSchema = z.discriminatedUnion("status", [
-  z.object({ status: z.literal("saved"), loginId: z.string().uuid(), title: boundedText(256) }),
-  z.object({ status: z.literal("overwrite-required"), loginId: z.string().uuid(), title: boundedText(256) }),
-  z.object({ status: z.enum(["cancelled", "expired", "locked", "unavailable", "unsupported-page"]) }),
-]);
-
 export const AutofillCandidateSchema = z.object({
   id: z.string().uuid(),
   kind: AutofillItemKindSchema,
@@ -311,26 +286,6 @@ export const PopupMessageSchema = z.discriminatedUnion("kind", [
     selectedItem: selectedItemSchema,
     replaceExistingAccount: z.boolean().optional(),
   }),
-  z.object({
-    kind: z.literal("vaultmesh.totp-capture.begin"),
-    documentId: z.string().uuid(),
-    targetHandle: z.string().uuid(),
-    value: TotpQrCodeSchema,
-  }),
-  z.object({
-    kind: z.literal("vaultmesh.totp-capture.save"),
-    operationId: z.string().uuid(),
-    documentId: z.string().uuid(),
-    targetHandle: z.string().uuid(),
-    loginId: z.string().uuid(),
-    overwrite: z.boolean(),
-  }),
-  z.object({
-    kind: z.literal("vaultmesh.totp-capture.cancel"),
-    operationId: z.string().uuid(),
-    documentId: z.string().uuid(),
-    targetHandle: z.string().uuid(),
-  }),
   z.object({ kind: z.literal("vaultmesh.save-capture-pending") }),
   z.object({
     kind: z.literal("vaultmesh.save-capture-decision"),
@@ -411,5 +366,4 @@ export type AutofillItemKind = z.infer<typeof AutofillItemKindSchema>;
 export type PageContext = z.infer<typeof PageContextSchema>;
 export type PageInformationDetectionResponse = z.infer<typeof PageInformationDetectionResponseSchema>;
 export type TotpQrCode = z.infer<typeof TotpQrCodeSchema>;
-export type TotpCaptureLogin = z.infer<typeof TotpCaptureLoginSchema>;
 export type SaveCaptureQueuedResponse = z.infer<typeof SaveCaptureQueuedResponseSchema>;

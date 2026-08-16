@@ -37,8 +37,9 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 - 必须：支持把 2FA 恢复码作为 Login 的受保护字段保存；summary/detail 只能返回存在性，
   桌面端与浏览器扩展每次查看或复制都必须由 core 重新验证主密码，不受 Login 普通 re-prompt 设置影响；插件查看值只能在当前 popup 内存中短暂存在，插件复制必须由桌面特权 runtime 写入带过期清理的系统剪贴板。
 - 必须：桌面 Login 新建/编辑与插件 Login 编辑可通过特权 runtime 选择 UTF-8 文本文件；普通文本按换行解析并保留每个非空码，完整识别为 Google 编号双栏下载格式时必须忽略说明文字、拆分两列并按编号排序。插件发起时必须先恢复、显示并聚焦 VaultMesh 主窗口，文件选择和删除确认框必须以主窗口为 parent。解析后必须由原生确认框询问是否删除源文件，只有用户明确同意且文件未变时才可删除。完整路径不得进入 renderer 或插件，插件解析结果只能保留在当前 popup 编辑草稿。
-- 必须：浏览器扩展只在用户点击后识别可见的 TOTP QR，并在用户选择现有 Login 后附加密钥；
-  已有 TOTP 必须确认覆盖，取消、失败或重复操作不得改变 Login。
+- 必须：浏览器扩展不得因页面出现 TOTP QR 而向网页插入识别按钮、菜单或其他 QR UI；只有用户在
+  插件 popup 内主动发起当前页面识别或在 Login 编辑器点击扫描后，才可以识别当前页面可见的
+  TOTP QR，并把密钥加入当前 popup 草稿。已有 TOTP 必须确认覆盖，取消、失败或重复操作不得改变 Login。
 - 验收：`CT-ITEM-001`、`CT-AUTHENTICATOR-001`、`CT-RECOVERY-CODES-001`、
   `AT-ITEM-001`、`AT-RECOVERY-CODES-001`。
 
@@ -263,7 +264,7 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 
 - 必须：`0.0.1-review` 是 fresh-install 基线；每个后续 Review build 的 workspace、Rust package、
   Tauri desktop、Chromium extension 和 Firefox extension 必须统一为同一个严格递增的规范 Review SemVer，当前更新版本为
-  `0.0.8-review`；打包输出和 updater descriptor 不得丢失 `review` prerelease 标识。
+  `0.0.9-review`；打包输出和 updater descriptor 不得丢失 `review` prerelease 标识。
 - 必须：Review build 从编译期固定的 HTTPS `channels/review/latest.json` 检查更新，并继续使用
   `REQ-UPDATE-001` 的 Rust-owned 检查、用户确认、Tauri 签名验证、安装前 lock/cleanup 和 latest-last
   发布、Cargo cache 与失败任务恢复约束；完整 Review 发布同样必须使用三个标准 GitHub-hosted 原生架构
@@ -328,9 +329,10 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 - 必须：macOS/Windows 桌面包分别安装 Chrome/Edge `allowed_origins` 与 Firefox
   `allowed_extensions` Native Messaging manifest。Host 必须在读取配对 secret 前验证精确的编译期
   Chrome origin，或精确的 Firefox manifest path 与 Gecko ID；缺失、伪造或混合参数必须拒绝。
-- 必须：完整 Review workflow 从同一 source SHA 构建并验证两个扩展 ZIP，并在桌面 R2 发布成功后
-  与四个桌面安装包一起上传到无 Git Tag 的 GitHub Draft Prerelease；扩展 ZIP 不进入桌面 updater
-  manifest，重复执行不得覆盖同名不同内容资产。
+- 必须：完整 Review workflow 从同一 source SHA 构建并验证两个扩展 ZIP，并在桌面 R2 发布成功后，
+  先把它们发布到同一版本的不可变 R2 `releases/v<version>/` 路径并验证公网下载内容，再与四个桌面
+  安装包一起上传到无 Git Tag 的 GitHub Draft Prerelease；扩展 ZIP 不进入桌面 updater manifest，
+  重复执行不得覆盖同名不同内容资产。
 - 失败：任一浏览器 manifest、版本、identity、permission、ZIP CRC、Native Host 注册或 source SHA
   不一致时不得发布扩展资产；平台 AT 未完成时不得把 Draft 或 ZIP描述为商店签名或正式发布。
 - 验收：`CT-BROWSER-PACKAGE-001`、`AT-BROWSER-001`、`AT-BROWSER-FIREFOX-001`。
@@ -338,17 +340,20 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 ### REQ-AUTOFILL-001 安全 discovery 与 fill
 
 - 必须：discovery 不发送页面现有值；assignment 绑定 origin/tab/frame/document/handle/expiry；自动填充仅限符合策略的空 login/OTP 字段且不提交表单。
+- 必须：content script 先在同一真实或最小可见伪表单内识别账号、当前密码、新密码、确认密码和 OTP 字段角色，再按显式字段语义、同表单结构、form action/page path/submit 语义与排除导航链接后的弱上下文依次推导场景；表单外或导航注册链接不得把登录表单识别为注册，密码生成只允许可靠的新密码角色。
 - 必须：同页保存 TOTP 后使 OTP 候选重新查询 broker；填充仍使用绑定文档的一次性 assignment，
-  不覆盖非空字段且不提交表单。
-- 验收：`CT-AUTOFILL-001`、`CT-AUTHENTICATOR-001`、`AT-AUTOFILL-001`。
+  不覆盖非空字段且不提交表单。可靠识别为修改密码表单时，用户显式选择 Login 并成功填入当前密码后，
+  content script 必须使用本地密码生成器自动生成一次新密码并同步填入同簇的空新密码与确认密码字段；
+  已有任一新密码值、低置信度角色、失败 assignment 或非显式/page-load fill 不得触发或覆盖。
+- 验收：`CT-AUTOFILL-001`、`CT-AUTOFILL-003`、`CT-AUTHENTICATOR-001`、`AT-AUTOFILL-001`。
 
 ### REQ-AUTOFILL-002 显式选择与捕获
 
 - 必须：显式选择经 desktop revalidation 后产生一次性 assignment；捕获只在用户 Save/Ignore 后写入，不把观察到的 submit 当作服务端成功。
 - 必须：插件从网页识别并经用户确认保存 developer/service secret 时默认关闭主密码二次验证；
   用户可以在保存后显式开启，既有项目保持原设置。
-- 必须：页内 TOTP QR 捕获绑定用户手势和被点击的目标；解码后必须由用户选择现有 Login，
-  不得静默选择、静默覆盖或创建独立 Secret。
+- 必须：TOTP QR 捕获必须由用户在插件 popup 内主动发起；content script 不得自动展示 QR 入口。
+  解码结果只加入当前 Login 编辑草稿，不得静默保存、静默覆盖或创建独立 Secret。
 - 验收：`CT-AUTOFILL-002`、`CT-AUTHENTICATOR-001`、`AT-AUTOFILL-002`。
 
 ### REQ-PASSKEY-001 软件 Passkey
@@ -618,8 +623,8 @@ managed web 或 protected-action 工具完成受支持的任务。
 ### NFR-PRIV-001 秘密最小化
 
 - 必须：秘密不进入日志、telemetry、crash data、扩展 storage、非秘密 settings 或测试 snapshot。
-- 必须：页内识别的 TOTP URI 只能在绑定 tab/frame/origin/document/target/expiry 的有界操作中
-  短暂存在；导航、锁定、断开、取消、失败、成功或过期必须清除。
+- 必须：popup 主动识别的 TOTP URI 只能在当前 popup 编辑状态和既有特权更新调用中短暂存在；
+  不得建立 background inline capture session，关闭 popup、锁定、断开、取消、失败或保存完成必须清除。
 - 验收：`CT-PRIV-001`、`CT-NATIVE-MEMORY-001`、`CT-AUTHENTICATOR-001`、`CT-RECOVERY-CODES-001`、`AT-NATIVE-MACOS-002`。
 
 ### NFR-AGENT-001 Agent 边界秘密最小化

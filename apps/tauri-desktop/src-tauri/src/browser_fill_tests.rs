@@ -28,6 +28,13 @@ fn maps_account_name_field_to_login_username() {
 }
 
 #[test]
+fn identity_heuristic_handles_zero_or_ambiguous_matches_without_panicking() {
+    assert_eq!(identity_heuristic("save button"), None);
+    assert_eq!(identity_heuristic("email field"), Some("email"));
+    assert_eq!(identity_heuristic("email phone field"), None);
+}
+
+#[test]
 fn rejects_cross_origin_and_duplicate_handles() {
     let id = Uuid::new_v4();
     let document = Uuid::new_v4();

@@ -62,6 +62,36 @@ describe("startAutofillPage save capture", () => {
     controller.dispose();
   });
 
+  it("captures an automatically generated password change against the filled Login id", async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = `
+      <form id="modifyPwdForm">
+        <label for="oldPwd">原密码</label><input type="password" name="old_password" id="oldPwd" value="stored password">
+        <label for="pwd">新密码</label><input type="password" name="password" id="pwd">
+        <label for="rePwd">重复新密码</label><input type="password" name="re_password" id="rePwd">
+      </form>
+    `;
+    document.querySelectorAll<HTMLInputElement>("input").forEach(makeVisible);
+    const sendMessage = vi.fn(async () => ({}));
+    const controller = startAutofillPage(document, crypto.randomUUID(), sendMessage);
+    const oldPassword = document.querySelector<HTMLInputElement>("#oldPwd")!;
+    const loginId = crypto.randomUUID();
+    controller.recordFilledItem({ kind: "login", id: loginId }, [oldPassword]);
+
+    const completion = controller.completePasswordChange({ kind: "login", id: loginId }, [oldPassword]);
+    await vi.runAllTimersAsync();
+    expect(await completion).toEqual({ status: "generated" });
+    const generatedPassword = document.querySelector<HTMLInputElement>("#pwd")!.value;
+
+    document.querySelector("form")!.dispatchEvent(new SubmitEvent("submit", { bubbles: true, cancelable: true }));
+    expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "vaultmesh.save-capture",
+      pageContext: "password-change",
+      data: { login: { username: "", password: generatedPassword, loginId } },
+    }));
+    controller.dispose();
+  });
+
   it("dispatches the full capture without showing a second page confirmation", async () => {
     document.body.innerHTML = `<form><h1>Sign in</h1><input autocomplete="username" value="ada@example.test"><input type="password" autocomplete="current-password" value="saved password"></form>`;
     let promptVisibleWhenCaptureStarted: boolean | null = null;

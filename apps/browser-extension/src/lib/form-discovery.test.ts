@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyAssignments, classifyControl, discoverFields, hasLoginFields, isNewPasswordControl, loginFormSignature, pageContextForControl, pageContextForFields, shouldPreserveExistingLoginAccount } from "./form-discovery";
+import { analyzeControlSemantics, applyAssignments, classifyControl, discoverFields, hasLoginFields, isNewPasswordControl, loginFormSignature, selectAutofillPageContext, shouldPreserveExistingLoginAccount } from "./form-discovery";
 
 function makeVisible(element: HTMLElement) {
   Object.defineProperty(element, "getClientRects", {
@@ -177,7 +177,56 @@ describe("discoverFields", () => {
     expect(classifyControl(document.querySelector("#api-key")!)).toBe("secret");
     expect(byId("ssh-key")).toMatchObject({ control: "contenteditable", context: "ssh-console" });
     expect(byId("expiry")).toMatchObject({ inputType: "month", context: "checkout" });
-    expect(pageContextForFields(descriptors.filter((entry) => ["signup-email", "signup-password"].includes(entry.id)))).toBe("signup");
+    expect(selectAutofillPageContext(descriptors.filter((entry) => ["signup-email", "signup-password"].includes(entry.id)))).toBe("unknown");
+  });
+
+  it("keeps an rcvps-style email login form in login context when registration links are nearby", () => {
+    document.body.innerHTML = `
+      <section class="account-panel">
+        <form id="email-login" action="/login?action=email">
+          <h2>邮箱登录</h2>
+          <label for="email">邮箱</label><input id="email" name="email" placeholder="请输入您的邮箱或ID">
+          <label for="password">密码</label><input id="password" name="password" type="password">
+          <a href="/register">还没有账户？现在注册</a>
+          <button type="submit">登录</button>
+        </form>
+        <a href="/register">创建账户</a>
+      </section>
+    `;
+    document.querySelectorAll<HTMLElement>("input").forEach(makeVisible);
+
+    const email = document.querySelector<HTMLInputElement>("#email")!;
+    const password = document.querySelector<HTMLInputElement>("#password")!;
+    const emailAnalysis = analyzeControlSemantics(email);
+    const passwordAnalysis = analyzeControlSemantics(password);
+
+    expect(emailAnalysis).toMatchObject({ context: "login", role: "account", confidence: "high" });
+    expect(passwordAnalysis).toMatchObject({ context: "login", role: "current-password", confidence: "high" });
+    expect(emailAnalysis.reasons).toEqual(expect.arrayContaining(["structure:account-and-current-password", "route:login", "submit:login"]));
+    expect(emailAnalysis.reasons).not.toContain("heading:signup");
+  });
+
+  it("selects a real login cluster independently from a signup form on the same page", () => {
+    document.body.innerHTML = `
+      <form id="login" action="/login"><input autocomplete="username"><input type="password" autocomplete="current-password"><button>Sign in</button></form>
+      <form id="signup" action="/register"><input autocomplete="email"><input type="password" autocomplete="new-password"><button>Create account</button></form>
+    `;
+    document.querySelectorAll<HTMLElement>("input").forEach(makeVisible);
+
+    const { descriptors } = discoverFields(document);
+    expect(descriptors.filter((field) => field.context === "login")).toHaveLength(2);
+    expect(descriptors.filter((field) => field.context === "signup")).toHaveLength(2);
+    expect(selectAutofillPageContext(descriptors)).toBe("login");
+  });
+
+  it("keeps semantic diagnostics bounded to reason codes without field values", () => {
+    document.body.innerHTML = `<form action="/login"><input id="account" autocomplete="username" value="private@example.test"><input type="password" autocomplete="current-password" value="private-password"><button>登录</button></form>`;
+    document.querySelectorAll<HTMLElement>("input").forEach(makeVisible);
+
+    const analysis = analyzeControlSemantics(document.querySelector<HTMLInputElement>("#account")!);
+    expect(JSON.stringify(analysis)).not.toContain("private@example.test");
+    expect(JSON.stringify(analysis)).not.toContain("private-password");
+    expect(analysis.reasons.every((reason) => /^[a-z-]+:[a-z-]+$/.test(reason))).toBe(true);
   });
 
   it("recognizes heuristic and segmented authentication-code controls without autocomplete hints", () => {
@@ -209,7 +258,7 @@ describe("discoverFields", () => {
 
     const codeInputs = Array.from(document.querySelectorAll<HTMLInputElement>(".form-security-code-input"));
     const { descriptors } = discoverFields(document);
-    expect(codeInputs.every((input) => pageContextForControl(input) === "otp")).toBe(true);
+    expect(codeInputs.every((input) => analyzeControlSemantics(input).context === "otp")).toBe(true);
     expect(codeInputs.every((input) => classifyControl(input) === "login")).toBe(true);
     expect(descriptors.filter((field) => field.label.startsWith("验证码数字")).map((field) => field.context)).toEqual(Array(6).fill("otp"));
   });
@@ -227,7 +276,7 @@ describe("discoverFields", () => {
     `;
     document.querySelectorAll<HTMLElement>("input").forEach(makeVisible);
     const code = document.querySelector<HTMLInputElement>("#verification_code")!;
-    expect(pageContextForControl(code)).toBe("otp");
+    expect(analyzeControlSemantics(code).context).toBe("otp");
     expect(classifyControl(code)).toBe("login");
     expect(discoverFields(document).descriptors.find((field) => field.id === "verification_code")).toMatchObject({ context: "otp", isEmpty: true });
   });
@@ -292,7 +341,7 @@ describe("discoverFields", () => {
 
     expect(isNewPasswordControl(document.querySelector("#password")!)).toBe(true);
     expect(isNewPasswordControl(document.querySelector("#confirmation")!)).toBe(true);
-    expect(pageContextForControl(document.querySelector("#password")!)).toBe("signup");
+    expect(analyzeControlSemantics(document.querySelector("#password")!).context).toBe("signup");
   });
 
   it("treats a generic password before an explicit new password as the original password", () => {

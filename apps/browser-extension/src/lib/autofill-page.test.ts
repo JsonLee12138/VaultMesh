@@ -89,6 +89,44 @@ describe("startAutofillPage", () => {
     expect(document.querySelectorAll("[data-vaultmesh-autofill-trigger]")).toHaveLength(0);
   });
 
+  it("offers existing logins instead of the signup generator on an rcvps-style login form", async () => {
+    document.body.innerHTML = `
+      <section>
+        <form action="/login?action=email">
+          <h2>邮箱登录</h2>
+          <input id="email" name="email" placeholder="请输入您的邮箱或ID">
+          <input type="password" name="password">
+          <a href="/register">还没有账户？现在注册</a>
+          <button type="submit">登录</button>
+        </form>
+      </section>
+    `;
+    const email = document.querySelector<HTMLInputElement>("#email")!;
+    document.querySelectorAll<HTMLElement>("input").forEach(makeVisible);
+    const candidateId = crypto.randomUUID();
+    const sendMessage = vi.fn(async (message: unknown) => (message as { kind?: string }).kind === "vaultmesh.autofill-candidates"
+      ? { status: "ready", candidates: [{ id: candidateId, kind: "login", title: "chen atlan", subtitle: "chen atlan", autofillOnPageLoad: true, masterPasswordReprompt: false }] }
+      : { status: "ready" });
+    const controller = startAutofillPage(document, crypto.randomUUID(), sendMessage);
+
+    email.focus();
+    await Promise.resolve();
+    document.querySelector<HTMLElement>("[data-vaultmesh-autofill-trigger]")!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sendMessage).toHaveBeenCalledWith({ kind: "vaultmesh.autofill-candidates", fieldKind: "login", pageContext: "login" });
+    expect(controller.menu.visible).toBe(true);
+    expect(controller.menu.generatedMode).toBe("none");
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "vaultmesh.autofill-select",
+      selectedItem: expect.objectContaining({ kind: "login", id: candidateId, title: "chen atlan" }),
+    }));
+    controller.dispose();
+  });
+
   it("invalidates an open candidate menu and re-queries OTP candidates after a TOTP is saved", async () => {
     document.body.innerHTML = '<input id="otp" autocomplete="one-time-code">';
     const otp = document.querySelector<HTMLInputElement>("input")!;
@@ -321,6 +359,131 @@ describe("startAutofillPage", () => {
 
     await vi.advanceTimersByTimeAsync(200);
     expect(sendMessage).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "vaultmesh.autofill-page-ready" }));
+    controller.dispose();
+  });
+
+  it("shows a bounded typed failure after an explicit rcvps-style current-password selection", async () => {
+    document.body.innerHTML = `
+      <form id="modifyPwdForm">
+        <label for="oldPwd">原密码</label><input type="password" name="old_password" id="oldPwd" placeholder="请输入原密码">
+        <label for="pwd">新密码</label><input type="password" name="password" id="pwd" placeholder="请输入新密码">
+        <label for="rePwd">重复新密码</label><input type="password" name="re_password" id="rePwd" placeholder="重复新密码">
+      </form>
+    `;
+    const [oldPassword, newPassword, repeatedPassword] = Array.from(document.querySelectorAll<HTMLInputElement>("input"));
+    [oldPassword, newPassword, repeatedPassword].forEach(makeVisible);
+    const candidate = { id: crypto.randomUUID(), kind: "login", title: "rcvps.cn", subtitle: "ada@example.test", masterPasswordReprompt: false } as const;
+    const sendMessage = vi.fn(async (message: unknown) => {
+      const kind = (message as { kind?: string }).kind;
+      if (kind === "vaultmesh.autofill-candidates") return { status: "ready", candidates: [candidate] };
+      if (kind === "vaultmesh.autofill-select") return { status: "document-changed" };
+      return { status: "ready" };
+    });
+    const controller = startAutofillPage(document, crypto.randomUUID(), sendMessage);
+
+    oldPassword!.focus();
+    await Promise.resolve();
+    document.querySelector<HTMLElement>("[data-vaultmesh-autofill-trigger]")!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      kind: "vaultmesh.autofill-select",
+      selectedItem: { kind: "login", id: candidate.id, title: "rcvps.cn" },
+    });
+    expect(controller.menu.visible).toBe(true);
+    expect(controller.menu.statusMessage).toContain("页面已经变化");
+    expect(oldPassword!.value).toBe("");
+    expect(newPassword!.value).toBe("");
+    expect(repeatedPassword!.value).toBe("");
+    controller.dispose();
+  });
+
+  it("generates and fills both empty new-password fields after a successful rcvps-style Login assignment", async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = `
+      <form id="modifyPwdForm">
+        <label for="oldPwd">原密码</label><input type="password" name="old_password" id="oldPwd" placeholder="请输入原密码">
+        <label for="pwd">新密码</label><input type="password" name="password" id="pwd" placeholder="请输入新密码">
+        <label for="rePwd">重复新密码</label><input type="password" name="re_password" id="rePwd" placeholder="重复新密码">
+      </form>
+    `;
+    const [oldPassword, newPassword, repeatedPassword] = Array.from(document.querySelectorAll<HTMLInputElement>("input"));
+    [oldPassword, newPassword, repeatedPassword].forEach(makeVisible);
+    oldPassword!.value = "stored-current-password";
+    const loginId = crypto.randomUUID();
+    const controller = startAutofillPage(document, crypto.randomUUID(), vi.fn(async () => ({})));
+    controller.recordFilledItem({ kind: "login", id: loginId }, [oldPassword!]);
+
+    const completion = controller.completePasswordChange({ kind: "login", id: loginId }, [oldPassword!]);
+    await vi.runAllTimersAsync();
+
+    expect(await completion).toEqual({ status: "generated" });
+    expect(oldPassword!.value).toBe("stored-current-password");
+    expect(newPassword!.value).not.toBe("");
+    expect(repeatedPassword!.value).toBe(newPassword!.value);
+    controller.dispose();
+  });
+
+  it("preserves existing new-password input instead of auto-generating over it", async () => {
+    document.body.innerHTML = `
+      <form id="modifyPwdForm">
+        <label for="oldPwd">原密码</label><input type="password" name="old_password" id="oldPwd">
+        <label for="pwd">新密码</label><input type="password" name="password" id="pwd" value="user-entered">
+        <label for="rePwd">重复新密码</label><input type="password" name="re_password" id="rePwd">
+      </form>
+    `;
+    const [oldPassword, newPassword, repeatedPassword] = Array.from(document.querySelectorAll<HTMLInputElement>("input"));
+    [oldPassword, newPassword, repeatedPassword].forEach(makeVisible);
+    const loginId = crypto.randomUUID();
+    const controller = startAutofillPage(document, crypto.randomUUID(), vi.fn(async () => ({})));
+
+    expect(await controller.completePasswordChange({ kind: "login", id: loginId }, [oldPassword!]))
+      .toEqual({ status: "preserved-existing" });
+    expect(newPassword!.value).toBe("user-entered");
+    expect(repeatedPassword!.value).toBe("");
+    controller.dispose();
+  });
+
+  it("passes protected Login metadata and leaves feedback to the popup confirmation", async () => {
+    document.body.innerHTML = `
+      <form id="modifyPwdForm">
+        <input type="password" name="old_password" id="oldPwd" placeholder="请输入原密码">
+        <input type="password" name="password" id="pwd" placeholder="请输入新密码">
+        <input type="password" name="re_password" id="rePwd" placeholder="重复新密码">
+      </form>
+    `;
+    const oldPassword = document.querySelector<HTMLInputElement>("#oldPwd")!;
+    document.querySelectorAll<HTMLElement>("input").forEach(makeVisible);
+    const candidate = { id: crypto.randomUUID(), kind: "login", title: "rcvps.cn", subtitle: "ada@example.test", masterPasswordReprompt: true } as const;
+    const sendMessage = vi.fn(async (message: unknown) => {
+      const kind = (message as { kind?: string }).kind;
+      if (kind === "vaultmesh.autofill-candidates") return { status: "ready", candidates: [candidate] };
+      if (kind === "vaultmesh.autofill-select") return { status: "confirmation-required" };
+      return { status: "ready" };
+    });
+    const controller = startAutofillPage(document, crypto.randomUUID(), sendMessage);
+
+    oldPassword.focus();
+    await Promise.resolve();
+    document.querySelector<HTMLElement>("[data-vaultmesh-autofill-trigger]")!.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      kind: "vaultmesh.autofill-select",
+      selectedItem: { kind: "login", id: candidate.id, title: "rcvps.cn", masterPasswordReprompt: true },
+    });
+    expect(controller.menu.visible).toBe(false);
+    expect(controller.menu.statusMessage).toBeNull();
     controller.dispose();
   });
 

@@ -19,6 +19,27 @@ fn constant_time_compare_rejects_different_lengths_and_values() {
 }
 
 #[test]
+fn card_capture_status_handles_an_empty_vault_without_panicking() {
+    let path = std::env::temp_dir().join(format!("vaultmesh-empty-card-{}.vault", Uuid::new_v4()));
+    let password = "correct horse battery staple";
+    let mut creator = DesktopRuntime::new(path.clone()).expect("creator");
+    creator.create(password.into()).expect("create");
+    creator.lock();
+    drop(creator);
+
+    let encrypted = Zeroizing::new(read_vault(&path).expect("vault bytes"));
+    let session = VaultSession::unlock(password, encrypted.as_slice()).expect("unlock");
+    assert_eq!(
+        card_capture_status(&session, &json!({ "card_number": "4242424242424242" }))
+            .expect("capture status"),
+        json!({ "status": "new" })
+    );
+
+    drop(session);
+    fs::remove_file(path).expect("cleanup");
+}
+
+#[test]
 fn stale_low_level_handle_cannot_overwrite_a_newer_atomic_commit() {
     let path = std::env::temp_dir().join(format!("vaultmesh-cas-{}.vault", Uuid::new_v4()));
     let password = "correct horse battery staple";

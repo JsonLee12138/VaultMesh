@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AutofillCandidate, FieldDescriptor } from "./protocol";
-import { chooseAutomaticLogin, fieldsForLoginSelection, inlineSelectionMode, rankLoginCandidates, shouldReplaceExistingFields, shouldWaitForLoginPair } from "./autofill-selection";
+import { chooseAutomaticLogin, fieldsForLoginSelection, inlineFillFailureMessage, inlineSelectionMode, rankLoginCandidates, requiresFillConfirmation, shouldQueueFillConfirmation, shouldReplaceExistingFields, shouldWaitForLoginPair } from "./autofill-selection";
 
 const candidate = (id: string, matchScope: "path" | "origin" | "domain", overrides: Partial<AutofillCandidate> = {}): AutofillCandidate => ({
   id,
@@ -62,6 +62,28 @@ describe("inlineSelectionMode", () => {
     for (const kind of ["login", "card", "identity", "secret", "ssh"] as const) {
       expect(inlineSelectionMode(kind)).toBe("selection");
     }
+  });
+});
+
+describe("explicit fill confirmation and feedback", () => {
+  it("requires the existing master-password confirmation for cards and protected items", () => {
+    expect(requiresFillConfirmation({ kind: "card", masterPasswordReprompt: false })).toBe(true);
+    expect(requiresFillConfirmation({ kind: "login", masterPasswordReprompt: true })).toBe(true);
+    expect(requiresFillConfirmation({ kind: "secret", masterPasswordReprompt: true })).toBe(true);
+    expect(requiresFillConfirmation({ kind: "ssh", masterPasswordReprompt: true })).toBe(true);
+    expect(requiresFillConfirmation({ kind: "login", masterPasswordReprompt: false })).toBe(false);
+    expect(requiresFillConfirmation({ kind: "identity" })).toBe(false);
+    expect(shouldQueueFillConfirmation({ kind: "login", masterPasswordReprompt: false }, "re-prompt-required")).toBe(true);
+    expect(shouldQueueFillConfirmation({ kind: "login", masterPasswordReprompt: false }, "document-changed")).toBe(false);
+  });
+
+  it("keeps success and confirmation quiet but maps typed failures to bounded page feedback", () => {
+    expect(inlineFillFailureMessage({ status: "filled" })).toBeNull();
+    expect(inlineFillFailureMessage({ status: "confirmation-required" })).toBeNull();
+    expect(inlineFillFailureMessage({ status: "unlock-required", errorMessage: "must not be echoed" })).toContain("已锁定");
+    expect(inlineFillFailureMessage({ status: "document-changed" })).toContain("页面已经变化");
+    expect(inlineFillFailureMessage({ status: "no-supported-fields" })).toContain("没有可安全填充");
+    expect(inlineFillFailureMessage(null)).toBe("自动填充失败，请重新打开 VaultMesh 插件后重试。");
   });
 });
 

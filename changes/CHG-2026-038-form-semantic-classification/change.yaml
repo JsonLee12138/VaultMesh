@@ -1,0 +1,27 @@
+id: "CHG-2026-038-form-semantic-classification"
+title: "浏览器表单字段角色与场景语义识别"
+type: "feature"
+status: "Verified"
+spec_revision: "0.1.49-active"
+target_release: "0.0.8-review"
+requirements:
+  - "REQ-AUTOFILL-001"
+tests:
+  - "CT-AUTOFILL-003"
+  - "AT-AUTOFILL-001"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-001 安全 discovery 与 fill"
+  - "specs/browser-integration.md#Discovery 与 fill"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/08-traceability.md#REQ-AUTOFILL-001"
+related_changes: []
+affected_surfaces:
+  - "browser-extension"
+affected_formats: []
+affected_versions:
+  - "0.0.8-review"
+security_impact: "仅在 content script 内使用无值 DOM 元数据进行本地字段角色与表单簇判定；不新增网络请求、持久化、RPC 字段或页面 value 暴露。"
+migration: "none"
+supersedes: []

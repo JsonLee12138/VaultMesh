@@ -2,15 +2,15 @@
 
 ## 问题或目标
 
-Review Draft 当前只有桌面安装包，浏览器扩展没有可下载的安装 ZIP；现有产品范围和 Native Messaging 注册也只覆盖 Chromium。需要从同一 Review source SHA 生成 Chrome/Chromium 与 Firefox 扩展包，并让 Firefox 包能够通过已安装桌面端连接受认证的 Rust Native Host。
+Review Draft 最初只有桌面安装包，浏览器扩展没有可下载的安装 ZIP；后续双浏览器 ZIP 只进入 GitHub Draft，R2 仍没有用户可直接下载的插件对象。需要从同一 Review source SHA 生成 Chrome/Chromium 与 Firefox 扩展包，让 Firefox 包能够通过已安装桌面端连接受认证的 Rust Native Host，并把两个 ZIP 发布到公开、不可变的 R2 版本路径。
 
 ## 预期行为
 
 - `REQ-BROWSER-004`：Chrome/Chromium 必须继续生成固定 ID 的 MV3 ZIP；Firefox 必须生成固定 Gecko ID 的 MV2 ZIP。两个包使用同一产品版本、协议与瞬态秘密边界。
 - Firefox manifest 必须省略 Chromium-only `minimum_chrome_version`、manifest key 与 `webAuthenticationProxy` permission；Passkey proxy 仍只属于 Chromium。
 - macOS/Windows 桌面安装必须分别提供 Chrome `allowed_origins` 和 Firefox `allowed_extensions` manifest。Host 必须在读取配对 secret 前验证浏览器传入的固定身份与 Firefox manifest 路径。
-- Review workflow 必须从同一 source SHA 构建两个 ZIP，校验 manifest/browser/version/ZIP 完整性，并在桌面 R2 发布成功后把两个 ZIP与四个桌面安装包一起上传到 GitHub Draft Prerelease。Draft 仍不创建 Git Tag、不计为正式发布。
-- 既有 `0.0.3-review` immutable Review 资产不得覆盖；包含双浏览器扩展的下一次完整 Review build 使用严格递增的 `0.0.4-review`。
+- Review workflow 必须从同一 source SHA 构建两个 ZIP，校验 manifest/browser/version/ZIP 完整性，并在桌面 R2 发布成功后把两个 ZIP 写入同版本不可变 R2 路径、验证公网下载内容，再与四个桌面安装包一起上传到 GitHub Draft Prerelease。Draft 仍不创建 Git Tag、不计为正式发布。
+- 既有 `.3`–`.8` immutable Review 资产不得覆盖；补充 R2 插件直链的下一次完整 Review build 使用严格递增的 `0.0.9-review`。
 
 ## 非目标
 
@@ -21,7 +21,7 @@ Review Draft 当前只有桌面安装包，浏览器扩展没有可下载的安�
 
 ## 影响范围
 
-影响 WXT manifest/ZIP、Chrome/Firefox Native Messaging identity、macOS/Windows Host 安装注册、Review GitHub Actions 与 Draft 资产。Vault format、Browser RPC v2 操作集合、Native ABI、secret owner 和桌面 updater manifest 不变。
+影响 WXT manifest/ZIP、Chrome/Firefox Native Messaging identity、macOS/Windows Host 安装注册、Review GitHub Actions、R2 公开插件对象与 Draft 资产。Vault format、Browser RPC v2 操作集合、Native ABI、secret owner 和桌面 updater manifest 不变。
 
 ## 实现约束
 
@@ -29,7 +29,7 @@ Review Draft 当前只有桌面安装包，浏览器扩展没有可下载的安�
 - 浏览器特定 manifest 必须由同一个 WXT配置按目标生成，不维护两份功能源码。
 - Firefox Host 启动只接受官方参数形态：完整 manifest path 与精确 Gecko ID；Chrome 继续只接受精确 `chrome-extension://<id>/` origin。未知、缺失、路径漂移或混合参数必须 fail closed。
 - Firefox manifest 与 Chrome manifest 分开落盘，卸载必须同时清除；现有 Chrome/Edge 注册保持兼容。
-- GitHub Draft 上传可安全重跑但不得覆盖同名不同内容资产；同版本重复 R2 发布继续 fail closed。
+- GitHub Draft 与 R2 上传可安全重跑但不得覆盖同名不同内容资产；两个 R2 ZIP 必须带 SHA-256 metadata、immutable cache policy，并在更新 channel 前通过公网逐字节校验。
 
 ## 任务
 
@@ -40,16 +40,18 @@ Review Draft 当前只有桌面安装包，浏览器扩展没有可下载的安�
 | `EXTREL-003` | `REQ-BROWSER-004` | macOS/Windows 双 manifest 注册与 Native Host 双身份 fail-closed | `CT-BROWSER-PACKAGE-001`, `AT-BROWSER-001`, `AT-BROWSER-FIREFOX-001` | Implementing |
 | `EXTREL-004` | `REQ-BROWSER-004` | Review workflow 上传同 source SHA 的六个 Draft 安装资产 | `CT-BROWSER-PACKAGE-001` | Done |
 | `EXTREL-005` | `REQ-BROWSER-004` | 目标 OS 上安装 ZIP、pair/revoke、RPC mismatch、重启与卸载验收 | `AT-BROWSER-001`, `AT-BROWSER-FIREFOX-001` | Pending |
+| `EXTREL-006` | `REQ-BROWSER-004` | Chrome/Firefox ZIP 发布到同版本不可变 R2 路径并输出公开直链 | `CT-BROWSER-PACKAGE-001`, `CT-UPDATE-REVIEW-001` | Implementing；workflow contract Pass，`.9` hosted publish Pending |
 
 ## 验收与证据
 
 - 自动化必须解析两个 ZIP 内的 manifest，验证浏览器目标、版本、固定身份、permission 差异、无 source map/秘密文件与 ZIP CRC。
 - macOS/Windows CT 必须验证两个 manifest 的位置、唯一允许身份、安装/重复安装/卸载计划；Host 单元测试覆盖 Chrome、Firefox、缺参、伪造 ID、错误 manifest path 与混合参数。
-- GitHub Actions 必须证明扩展 job 和桌面 jobs 使用同一 commit，Draft 恰有两个 DMG、NSIS、MSI、Chrome ZIP 与 Firefox ZIP。
+- GitHub Actions 必须证明扩展 job 和桌面 jobs 使用同一 commit，Chrome/Firefox ZIP 在 R2 公开下载后与构建产物逐字节一致，且 Draft 恰有两个 DMG、NSIS、MSI、Chrome ZIP 与 Firefox ZIP。
 - Chrome/Edge 与 Firefox 的真实安装、Native Messaging、pair/revoke、锁定、重启和卸载必须在目标 OS 执行；平台 AT 未完成前 Work 保持 Implementing。
 
 ### 当前证据
 
+- 2026-08-16 `.9` R2 插件直链发布前门禁：`pnpm scripts:test` 103/103、`pnpm test`（Rust workspace、Tauri 29 files/132 tests、extension 39 files/240 tests）、`pnpm typecheck`、`pnpm docs:check`、workflow YAML parse、Rust fmt/check、Browser parity 2 files/6 tests 与 Tauri source ownership 全部 Pass；本机以 `sideload-review` 构建并校验 `VaultMesh_0.0.9-review_chrome-extension.zip` 与 `VaultMesh_0.0.9-review_firefox-extension.zip`。hosted R2 publish Pending。
 - `pnpm scripts:test`：82/82 Pass，覆盖 release ZIP、浏览器 identity、macOS/Windows Host 安装计划与 Review 版本约束。
 - `pnpm extension:typecheck` 与 `pnpm extension:test`：Pass，39 files / 234 tests。
 - `cargo test -p vaultmesh-tauri-desktop browser_host_registration`：2/2 Pass；`cargo test -p vaultmesh-tauri-desktop --bin vaultmesh-native-host`：macOS browser launch identity 1/1 Pass。

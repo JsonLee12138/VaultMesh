@@ -1,7 +1,6 @@
 import { applyAssignments, discoverFields, documentHttpOrigin, type SupportedControl } from "@/lib/form-discovery";
 import { startAutofillPage } from "@/lib/autofill-page";
 import { createContentScriptMessageSender, registerContentScriptMessageListener } from "@/lib/content-script-messaging";
-import { startInlineTotpCapture } from "@/lib/inline-totp-capture";
 import { detectPageInformationWithQr, scanTotpQrCodes } from "@/lib/page-information-capture";
 import { ContentMessageSchema, SaveCaptureReadyMessageSchema, type ContentMessage } from "@/lib/protocol";
 import { createUuid } from "@/lib/uuid";
@@ -21,10 +20,6 @@ export default defineContentScript({
       () => ctx.abort("Extension context invalidated"),
     );
     const autofillPage = startAutofillPage(document, documentId, sendMessage);
-    const inlineTotpCapture = startInlineTotpCapture(document, documentId, sendMessage, () => {
-      void autofillPage.refreshOtpCandidates();
-      autofillPage.scan();
-    });
 
     const onMessage = (message: unknown) => {
       const readyPrompt = SaveCaptureReadyMessageSchema.safeParse(message);
@@ -65,17 +60,24 @@ export default defineContentScript({
         });
       }
 
-      if (parsed.data.kind === "vaultmesh.apply-assignments" && parsed.data.selectedItem) {
-        const assignedControls = parsed.data.assignments
-          .map((assignment) => fields.get(assignment.handle))
-          .filter((control): control is SupportedControl => Boolean(control));
-        autofillPage.recordFilledItem(parsed.data.selectedItem, assignedControls);
-      }
-
-      return handleMessage(parsed.data, documentId, fields, frameOrigin).then((result) => {
+      return handleMessage(parsed.data, documentId, fields, frameOrigin).then(async (result) => {
         if (parsed.data.kind === "vaultmesh.discover-fields") {
           fields = result.fields;
           return result.response;
+        }
+
+        if (parsed.data.kind === "vaultmesh.apply-assignments" && parsed.data.selectedItem && "results" in result.response) {
+          const filledHandles = new Set(result.response.results
+            .filter((entry) => entry.status === "filled")
+            .map((entry) => entry.handle));
+          const assignedControls = parsed.data.assignments
+            .filter((assignment) => filledHandles.has(assignment.handle))
+            .map((assignment) => fields.get(assignment.handle))
+            .filter((control): control is SupportedControl => Boolean(control));
+          if (assignedControls.length > 0) {
+            autofillPage.recordFilledItem(parsed.data.selectedItem, assignedControls);
+            await autofillPage.completePasswordChange(parsed.data.selectedItem, assignedControls);
+          }
         }
 
         fields.clear();
@@ -84,7 +86,6 @@ export default defineContentScript({
     };
     ctx.onInvalidated(() => {
       autofillPage.dispose();
-      inlineTotpCapture.dispose();
       fields.clear();
       try {
         browser.runtime.onMessage.removeListener(onMessage);

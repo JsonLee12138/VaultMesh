@@ -518,7 +518,11 @@ fn identity_heuristic(metadata: &str) -> Option<&'static str> {
         .into_iter()
         .filter(|(_, patterns)| contains_any(metadata, patterns))
         .collect::<Vec<_>>();
-    (matches.len() == 1).then_some(matches[0].0)
+    if matches.len() == 1 {
+        Some(matches[0].0)
+    } else {
+        None
+    }
 }
 
 fn select_or_value(

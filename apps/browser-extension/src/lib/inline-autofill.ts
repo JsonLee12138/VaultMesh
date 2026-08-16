@@ -21,6 +21,7 @@ export class InlineAutofillMenu {
   #generatedLoginKey = 0;
   #generatedMode: "none" | "login" | "password" = "none";
   #generatedEmailRequired = false;
+  #statusMessage: string | null = null;
   #passwordGeneratorOptions = DEFAULT_PASSWORD_GENERATOR_OPTIONS;
   #usernameGeneratorOptions = DEFAULT_USERNAME_GENERATOR_OPTIONS;
 
@@ -64,6 +65,7 @@ export class InlineAutofillMenu {
       .generated-mark { background:#268a5b; }
       .generated-password { font-family:ui-monospace,SFMono-Regular,Consolas,monospace;color:CanvasText; }
       .empty { padding:10px;color:GrayText; }
+      .status { padding:10px;color:CanvasText;background:color-mix(in srgb, Mark 32%, transparent); }
     `;
     const mount = document.createElement("div");
     this.#shadow.append(style, mount);
@@ -78,6 +80,7 @@ export class InlineAutofillMenu {
 
   get visible() { return this.#host.style.display !== "none"; }
   get generatedMode() { return this.#generatedMode; }
+  get statusMessage() { return this.#statusMessage; }
 
   owns(target: EventTarget | null) { return target === this.#host; }
 
@@ -96,10 +99,23 @@ export class InlineAutofillMenu {
     this.#anchor = options.anchor ?? target;
     this.#candidates = candidates;
     this.#generatedMode = generatedMode === "login" && candidates.length > 0 ? "none" : generatedMode;
+    this.#statusMessage = null;
     this.#generatedEmailRequired = options.generatedEmailRequired ?? false;
     this.#passwordGeneratorOptions = options.passwordGeneratorOptions ?? DEFAULT_PASSWORD_GENERATOR_OPTIONS;
     this.#usernameGeneratorOptions = options.usernameGeneratorOptions ?? DEFAULT_USERNAME_GENERATOR_OPTIONS;
     this.#generatedLoginKey += 1;
+    this.#render();
+    this.#host.style.display = "block";
+    this.#position();
+  }
+
+  showStatus(target: HTMLElement, message: string) {
+    this.#target = target;
+    this.#anchor = target;
+    this.#candidates = [];
+    this.#generatedMode = "none";
+    this.#generatedEmailRequired = false;
+    this.#statusMessage = message;
     this.#render();
     this.#host.style.display = "block";
     this.#position();
@@ -112,6 +128,7 @@ export class InlineAutofillMenu {
     this.#candidates = [];
     this.#generatedMode = "none";
     this.#generatedEmailRequired = false;
+    this.#statusMessage = null;
     flushSync(() => this.#root.render(null));
   }
 
@@ -176,6 +193,7 @@ export class InlineAutofillMenu {
         generatedLoginKey: this.#generatedLoginKey,
         generatedMode: this.#generatedMode,
         generatedEmailRequired: this.#generatedEmailRequired,
+        statusMessage: this.#statusMessage,
         passwordGeneratorOptions: this.#passwordGeneratorOptions,
         usernameGeneratorOptions: this.#usernameGeneratorOptions,
         onGeneratedPasswordSelect: (password) => {

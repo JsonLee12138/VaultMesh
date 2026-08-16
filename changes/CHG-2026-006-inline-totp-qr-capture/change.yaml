@@ -1,8 +1,8 @@
 id: "CHG-2026-006-inline-totp-qr-capture"
 title: "在网页内识别并保存 TOTP 二维码"
 type: "feature"
-status: "Implementing"
-spec_revision: "0.1.0-active"
+status: "Rejected"
+spec_revision: "0.1.48-active"
 target_release: null
 requirements:
   - "REQ-ITEM-001"
@@ -15,6 +15,13 @@ tests:
   - "AT-AUTOFILL-002"
 adrs:
   - "ADR-0003"
+context_refs:
+  - "docs/02-scope-matrix.md#Browser 能力"
+  - "docs/03-functional-requirements.md#REQ-ITEM-001 Login"
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-002 显式选择与捕获"
+  - "specs/browser-integration.md#Authenticator QR capture"
+related_changes:
+  - "CHG-2026-037-popup-only-totp-qr-capture"
 affected_surfaces:
   - "Chromium extension content script"
   - "Chromium extension background worker"
