@@ -40,7 +40,7 @@ Review Draft 最初只有桌面安装包，浏览器扩展没有可下载的安�
 | `EXTREL-003` | `REQ-BROWSER-004` | macOS/Windows 双 manifest 注册与 Native Host 双身份 fail-closed | `CT-BROWSER-PACKAGE-001`, `AT-BROWSER-001`, `AT-BROWSER-FIREFOX-001` | Implementing |
 | `EXTREL-004` | `REQ-BROWSER-004` | Review workflow 上传同 source SHA 的六个 Draft 安装资产 | `CT-BROWSER-PACKAGE-001` | Done |
 | `EXTREL-005` | `REQ-BROWSER-004` | 目标 OS 上安装 ZIP、pair/revoke、RPC mismatch、重启与卸载验收 | `AT-BROWSER-001`, `AT-BROWSER-FIREFOX-001` | Pending |
-| `EXTREL-006` | `REQ-BROWSER-004` | Chrome/Firefox ZIP 发布到同版本不可变 R2 路径并输出公开直链 | `CT-BROWSER-PACKAGE-001`, `CT-UPDATE-REVIEW-001` | Implementing；workflow contract Pass，`.9` hosted publish Pending |
+| `EXTREL-006` | `REQ-BROWSER-004` | Chrome/Firefox ZIP 发布到同版本不可变 R2 路径并输出公开直链 | `CT-BROWSER-PACKAGE-001`, `CT-UPDATE-REVIEW-001` | Done；run `31922859908` R2 publish 与公网逐字节校验 Pass |
 
 ## 验收与证据
 
@@ -51,6 +51,8 @@ Review Draft 最初只有桌面安装包，浏览器扩展没有可下载的安�
 
 ### 当前证据
 
+- GitHub Actions [run `31922859908`](https://github.com/atlantis-mk/VaultMesh/actions/runs/31922859908)（source `57ac9f6b7dcc9109c3d5608fc2065c5259dbfbdc`）：Chrome/Firefox ZIP job 32 秒，macOS ARM64 9 分 5 秒、Windows x64 18 分 16 秒、macOS Intel 18 分 49 秒，R2 publisher 58 秒，全部 Success。Chrome ZIP 已发布到 [R2 公开直链](https://pub-bf5092e77ab5409ba39fb34c4a76c1b1.r2.dev/releases/v0.0.9-review/VaultMesh_0.0.9-review_chrome-extension.zip)，499,613 bytes，SHA-256 `e33365aec990825ea60137c79262f7ebde2f78934a96671e3e7e63ab3209c0f0`，内部 manifest 为 MV3/`0.0.9`/`0.0.9-review`。Firefox ZIP 已发布到 [R2 公开直链](https://pub-bf5092e77ab5409ba39fb34c4a76c1b1.r2.dev/releases/v0.0.9-review/VaultMesh_0.0.9-review_firefox-extension.zip)，499,279 bytes，SHA-256 `699c47b521dd53aeda89dbf0d6a6fa9fb5d86bb33511cc0d0a7c260210440a1d`，内部 manifest 为 MV2/`0.0.9`/固定 Gecko ID。两者 CRC、路径与公网下载内容校验 Pass。
+- GitHub Draft Prerelease `untagged-0ccc8dbffbd57af87705`：两个 DMG、Windows NSIS/MSI 与上述 Chrome/Firefox ZIP 六个资产全部 uploaded，target source SHA 精确匹配；Draft + Prerelease 为 true，远端 `v0.0.9-review` Git Tag 不存在。平台真实浏览器 AT 仍待执行，因此 Work 保持 Implementing。
 - 2026-08-16 `.9` R2 插件直链发布前门禁：`pnpm scripts:test` 103/103、`pnpm test`（Rust workspace、Tauri 29 files/132 tests、extension 39 files/240 tests）、`pnpm typecheck`、`pnpm docs:check`、workflow YAML parse、Rust fmt/check、Browser parity 2 files/6 tests 与 Tauri source ownership 全部 Pass；本机以 `sideload-review` 构建并校验 `VaultMesh_0.0.9-review_chrome-extension.zip` 与 `VaultMesh_0.0.9-review_firefox-extension.zip`。hosted R2 publish Pending。
 - `pnpm scripts:test`：82/82 Pass，覆盖 release ZIP、浏览器 identity、macOS/Windows Host 安装计划与 Review 版本约束。
 - `pnpm extension:typecheck` 与 `pnpm extension:test`：Pass，39 files / 234 tests。
