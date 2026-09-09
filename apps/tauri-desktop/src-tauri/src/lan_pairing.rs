@@ -531,6 +531,15 @@ impl TlsStream {
         }
         .map_err(|_| ())
     }
+
+    fn set_read_timeout(&self, timeout: Option<Duration>) -> Result<(), ()> {
+        match self {
+            Self::Client(stream) => &stream.sock,
+            Self::Server(stream) => &stream.sock,
+        }
+        .set_read_timeout(timeout)
+        .map_err(|_| ())
+    }
 }
 
 pub(crate) struct LanPairingService {
@@ -693,6 +702,9 @@ impl LanPairingService {
             )
         };
         self.in_flight.insert(reference.to_owned());
+        if let Some(device) = self.nearby.get_mut(id) {
+            device.status = "connecting";
+        }
         thread::spawn(move || outbound(endpoint, pairing_intent, context));
         Ok(())
     }
@@ -887,18 +899,28 @@ impl LanPairingService {
                 }
                 Event::Closed { instance, peer_ref } => {
                     self.in_flight.remove(&format!("lan-peer-{instance}"));
+                    let failed_before_prompt = peer_ref.is_none();
                     if let Some(reference) = peer_ref {
                         self.pending.remove(&reference);
                     }
                     if let Some(device) = self.nearby.get_mut(&instance) {
                         device.pairing_ref = format!("lan-peer-{instance}");
-                        device.status = "unverified";
+                        device.status = if failed_before_prompt {
+                            "failed"
+                        } else {
+                            "unverified"
+                        };
                     }
                 }
             }
         }
     }
     fn auto_reconnect(&mut self) {
+        // Before the first trust record exists there is nothing to reconnect.
+        // Avoid racing an unnecessary identity probe with an explicit pairing.
+        if !self.has_trusted_peers() {
+            return;
+        }
         let Some(active) = &self.active else {
             return;
         };
@@ -921,6 +943,10 @@ impl LanPairingService {
             self.auto_attempted.insert(reference.clone());
             let _ = self.spawn_connection(&reference, false);
         }
+    }
+
+    fn has_trusted_peers(&self) -> bool {
+        self.trust.load().is_ok_and(|trusted| !trusted.is_empty())
     }
 }
 
@@ -1011,7 +1037,7 @@ fn pair(
     context: &PairingContext,
     session: &SessionGuard,
 ) -> Result<(), ()> {
-    socket.set_read_timeout(Some(PAIRING_TTL)).map_err(|_| ())?;
+    socket.set_read_timeout(Some(IO_TIMEOUT)).map_err(|_| ())?;
     socket.set_write_timeout(Some(IO_TIMEOUT)).map_err(|_| ())?;
     let peer_cert = if client {
         write_cert(&mut socket, &context.identity.cert)?;
@@ -1096,6 +1122,9 @@ fn pair(
         })
         .map_err(|_| ())?;
     let confirm = dr.recv_timeout(PAIRING_TTL).unwrap_or(false);
+    // Once the comparison prompt exists, allow the full human confirmation
+    // window. Only the pre-prompt transport handshake uses the shorter bound.
+    tls.set_read_timeout(Some(PAIRING_TTL))?;
     write_frame(&mut tls, &Confirmation { confirm })?;
     let remote: Confirmation = read_frame(&mut tls)?;
     if confirm && remote.confirm {
@@ -1704,7 +1733,7 @@ mod tests {
     }
 
     #[test]
-    fn ct_lan_pairing_tls13_derives_same_code_and_cancel_is_fail_closed() {
+    fn ct_lan_pairing_one_sided_intent_prompts_both_peers_with_the_same_code() {
         let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
         let address = listener.local_addr().unwrap();
         let server_identity = identity();
@@ -1728,7 +1757,9 @@ mod tests {
         let server = thread::spawn(move || {
             let (socket, _) = listener.accept().unwrap();
             let session = server_context.sessions.register(&socket).unwrap();
-            pair(socket, false, true, None, &server_context, &session)
+            // The receiving device did not press Pair. The initiator's encrypted
+            // Hello must still cause both devices to enter explicit confirmation.
+            pair(socket, false, false, None, &server_context, &session)
         });
         let client = thread::spawn(move || {
             let socket = TcpStream::connect(address).unwrap();
@@ -1956,6 +1987,53 @@ mod tests {
         assert!(store.revoke(&peer.pairing_ref).is_err());
         assert_eq!(store.load().unwrap(), vec![peer]);
         let _ = std::fs::remove_file(&store.path);
+    }
+
+    #[test]
+    fn ct_lan_pairing_skips_automatic_identity_probes_before_first_trust() {
+        let store = empty_store("first-trust-probe");
+        let mut service = LanPairingService::new(store.path.clone());
+        service.trust = store.clone();
+        assert!(!service.has_trusted_peers());
+
+        store
+            .approve(LanTrustedPeer {
+                pairing_ref: "lan-peer-00112233445566778899aabbccddeeff".into(),
+                certificate_fingerprint: "ab".repeat(32),
+                label: "Trusted peer".into(),
+                protocol_major: PROTOCOL,
+            })
+            .unwrap();
+        assert!(service.has_trusted_peers());
+        let _ = std::fs::remove_file(&store.path);
+    }
+
+    #[test]
+    fn ct_lan_pairing_failed_handshake_clears_in_flight_and_allows_retry() {
+        let mut service = LanPairingService::new(
+            std::env::temp_dir().join(format!("vaultmesh-lan-retry-{}.json", random_token())),
+        );
+        let instance = "00112233445566778899aabbccddeeff";
+        let reference = format!("lan-peer-{instance}");
+        service.nearby.insert(
+            instance.into(),
+            LanNearbyDevice {
+                pairing_ref: reference.clone(),
+                status: "connecting",
+            },
+        );
+        service.in_flight.insert(reference.clone());
+        service
+            .tx
+            .send(Event::Closed {
+                instance: instance.into(),
+                peer_ref: None,
+            })
+            .unwrap();
+
+        service.collect_events(Instant::now(), 0);
+        assert!(!service.in_flight.contains(&reference));
+        assert_eq!(service.nearby.get(instance).unwrap().status, "failed");
     }
 
     #[test]

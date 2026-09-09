@@ -88,7 +88,7 @@ describe('CT-TAURI-COMMAND-001 typed adapter', () => {
     const safe = {
       discoverable: true,
       expiresAt: 1,
-      nearby: [{ pairingRef: 'lan-peer-00112233445566778899aabbccddeeff', status: 'connected' }],
+      nearby: [{ pairingRef: 'lan-peer-00112233445566778899aabbccddeeff', status: 'connecting' }],
       pending: [],
       trusted: [],
     };

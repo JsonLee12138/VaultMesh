@@ -68,6 +68,42 @@ describe('CT-LAN-PAIRING-001 nearby devices UI', () => {
     await waitFor(() => expect(window.vaultMesh.lan.stopDiscovery).toHaveBeenCalledOnce());
   });
 
+  it('shows an in-flight pairing immediately and prevents a duplicate begin', async () => {
+    const pairingRef = 'lan-peer-00112233445566778899aabbccddeeff';
+    const discovered: LanPairingStatus = {
+      ...emptyStatus,
+      discoverable: true,
+      expiresAt: Date.now() + 60_000,
+      nearby: [{ pairingRef, status: 'unverified' }],
+    };
+    vi.mocked(window.vaultMesh.lan.status)
+      .mockResolvedValueOnce(discovered)
+      .mockResolvedValue({
+        ...discovered,
+        nearby: [{ pairingRef, status: 'connecting' }],
+      });
+    render(<NearbyDevicesPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '配对' }));
+    expect(await screen.findByText('正在配对')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: '配对' })).toBeNull();
+    expect(window.vaultMesh.lan.begin).toHaveBeenCalledOnce();
+  });
+
+  it('returns a failed pre-prompt handshake to a visible retry action', async () => {
+    const pairingRef = 'lan-peer-00112233445566778899aabbccddeeff';
+    vi.mocked(window.vaultMesh.lan.status).mockResolvedValue({
+      ...emptyStatus,
+      discoverable: true,
+      expiresAt: Date.now() + 60_000,
+      nearby: [{ pairingRef, status: 'failed' }],
+    });
+    render(<NearbyDevicesPage />);
+
+    expect(await screen.findByText('无法建立安全连接，请重试')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '配对' })).toBeTruthy();
+  });
+
   it('shows only the six-digit comparison code and routes both decisions by opaque peer ref', async () => {
     const pairingRef = 'lan-peer-00112233445566778899aabbccddeeff';
     vi.mocked(window.vaultMesh.lan.status).mockResolvedValue({

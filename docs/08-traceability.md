@@ -5,7 +5,7 @@
 | Requirement | Spec/ADR | Test | Core CT | Historical Electron CT | Native/Tauri CT | Extension/Host CT | Platform AT |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | REQ-PRODUCT-001 | Product/Scope | AT-PRODUCT-001 | N/A | N/A | N/A | N/A | Not Run |
-| REQ-LAN-PEER-001 | Scope/Architecture/Security/ADR-0018/LAN pairing spec | CT-LAN-PAIRING-001, AT-LAN-PAIRING-001 | N/A | N/A | Pass（Rust 16，含 session-lock unknown 状态不误停 + renderer 3 + typed contract） | N/A | Not Run |
+| REQ-LAN-PEER-001 | Scope/Architecture/Security/ADR-0018/LAN pairing spec | CT-LAN-PAIRING-001, AT-LAN-PAIRING-001 | N/A | N/A | Pass（Rust 18，含 session-lock unknown 不误停、首次信任探测约束与失败可重试 + renderer 5 + typed contract） | N/A | Not Run |
 | REQ-VAULT-001 | Data/ADR-0001/2/4 | CT-VAULT-001, CT-NATIVE-VAULT-001, CT-NATIVE-RESPONSIVENESS-001, AT-VAULT-001, AT-NATIVE-MACOS-001 | Pass | Pass | Pass | Not Run | Pass (Native) / Not Run (Electron) |
 | REQ-VAULT-002 | Data/ADR-0001 | CT-VAULT-002 | Pass | Pass | N/A | N/A | Not Run |
 | REQ-VAULT-003 | Data/Security | CT-VAULT-003, CT-NATIVE-DESKTOP-001, AT-VAULT-002, AT-NATIVE-MACOS-004 | N/A | Pass | Pass（Native backup/restore adapter contract/build） | Not Run | Not Run |

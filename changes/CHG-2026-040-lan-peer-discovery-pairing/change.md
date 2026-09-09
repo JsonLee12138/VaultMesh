@@ -32,13 +32,14 @@ LAN service 是 Rust runtime 的独立 owner。mDNS 只广告随机实例标识�
 
 自动化必须覆盖广告解析、版本拒绝、短码、持久化回滚、撤销和时限。macOS↔macOS、Windows↔Windows、macOS↔Windows 的 packaged 验收在实现后写入本 Work。
 
-- `cargo test -p vaultmesh-tauri-desktop lan_pairing --lib`：15 passed；覆盖 exact/bounded v1 TXT、同链路双栈 listener、TLS 1.3/SAS、nonce mismatch、超限证书、双方确认、重复/超时/取消、pin drift、停止清理、凭据/索引与远端持久化失败回滚。另有 1 个 session-lock lifecycle 回归测试，确认只有平台明确报告 locked 时才停止发现；unlocked 或无法判定不得误停。
-- `pnpm tauri:test`：desktop Rust 241 passed / 1 environment-only ignored，native host 1 passed，Agent MCP 4 passed，stdio E2E 6 passed，renderer 138 passed。
+- `cargo test -p vaultmesh-tauri-desktop lan_pairing --lib`：18 passed；覆盖 exact/bounded v1 TXT、同链路双栈 listener、TLS 1.3/SAS、nonce mismatch、超限证书、双方确认、重复/超时/取消、pin drift、停止清理、首次信任前不自动探测、失败握手清理与可重试、凭据/索引及远端持久化失败回滚，并包含 session-lock locked/unlocked/unknown 回归。
+- `pnpm tauri:test`：desktop Rust 243 passed / 1 environment-only ignored，native host 1 passed，Agent MCP 4 passed，stdio E2E 6 passed，renderer 140 passed。
 - `pnpm tauri:typecheck`、`pnpm --filter @vaultmesh/tauri-desktop build:web` 与 `cargo clippy -p vaultmesh-tauri-desktop --lib -- -D warnings`：通过。
 - macOS debug application bundle 已生成于 `target/debug/bundle/macos/VaultMesh.app`；最终包的 `Info.plist` 已确认包含 `_vaultmesh-pair._tcp` 与 `NSLocalNetworkUsageDescription`。该本地 debug bundle 未签名，不替代签名 packaged AT。
 - Windows 专用 WTS session-lock 与 owner-only DACL 代码已使用 `x86_64-pc-windows-msvc` metadata 单独 typecheck 通过；仓库级 Windows cross-check 在 macOS 上先被 OpenSSL/AWS-LC/zlib 的 Windows SDK 与原生编译器缺失阻断，仍必须在 Windows 目标机完成原生 build/AT。
 - macOS 实机预验收发现未锁定会话可能不返回 `CGSSessionScreenIsLocked`；旧判断将缺省值误判为锁定，导致发现开启后在 250ms monitor tick 被立即停止。现已改为 locked/unlocked/unknown 三态决策，仅明确 locked 执行清理；修复后的 macOS debug bundle 已重建。
-- `pnpm docs:check` 对本 Work 未报告缺失路由或 trace；当前 repo-wide 命令只因并行未完成的 `CHG-2026-041` 两个 Requirement selector 报错，本 Work 不修改该无关 Change。
+- macOS 实机预验收发现手动 `begin` 后的内部 `in_flight` 未投影到 UI，按钮会在短码产生前重新可用并允许重复 begin；同时首次信任建立前的无意义自动身份探测可能与手动会话竞争。现已增加 renderer-safe `connecting`/`failed` 状态、首次信任前禁止自动探测、10 秒 pre-prompt 握手上限和失败后的明确重试路径。
+- `pnpm docs:check`：通过。
 - `AT-LAN-PAIRING-001` 尚待两台目标设备执行 macOS↔macOS、Windows↔Windows、macOS↔Windows 与 firewall/system-lock/sleep 路径；Work 因此保持 `Implementing`，不得进入 Verified 或封存。
 
 ## 安全与数据生命周期
