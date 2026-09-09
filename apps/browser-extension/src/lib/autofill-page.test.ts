@@ -52,6 +52,46 @@ describe("startAutofillPage", () => {
     controller.dispose();
   });
 
+  it("rescans when a dynamic login form adds ARIA semantic metadata", async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = `<form action="/login"><input id="username" autocomplete="username"><input id="password" type="password"></form>`;
+    document.querySelectorAll<HTMLElement>("input").forEach(makeVisible);
+    const sendMessage = vi.fn(async (_message: unknown) => ({}));
+    const controller = startAutofillPage(document, "953370ec-4dc7-4c77-a6e0-f2a4f6e37f03", sendMessage);
+
+    await vi.advanceTimersByTimeAsync(160);
+    const readyCalls = () => sendMessage.mock.calls.filter(([message]) => (message as { kind?: string }).kind === "vaultmesh.autofill-page-ready");
+    expect(readyCalls()).toHaveLength(1);
+
+    document.querySelector("form")!.setAttribute("aria-label", "Secure login");
+    document.querySelector<HTMLInputElement>("#password")!.setAttribute("aria-label", "Current password");
+    await vi.advanceTimersByTimeAsync(160);
+
+    expect(readyCalls()).toHaveLength(2);
+    expect(readyCalls().every(([message]) => !("fields" in (message as object)))).toBe(true);
+    controller.dispose();
+  });
+
+  it("restores value-free discovery after a back-forward cache round trip", async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = `<form action="/login"><input autocomplete="username"><input type="password"></form>`;
+    document.querySelectorAll<HTMLElement>("input").forEach(makeVisible);
+    const sendMessage = vi.fn(async (_message: unknown) => ({}));
+    const controller = startAutofillPage(document, "153370ec-4dc7-4c77-a6e0-f2a4f6e37f03", sendMessage);
+    const readyCalls = () => sendMessage.mock.calls.filter(([message]) => (message as { kind?: string }).kind === "vaultmesh.autofill-page-ready");
+
+    await vi.advanceTimersByTimeAsync(160);
+    expect(readyCalls()).toHaveLength(1);
+
+    window.dispatchEvent(new PageTransitionEvent("pagehide", { persisted: true }));
+    window.dispatchEvent(new PageTransitionEvent("pageshow", { persisted: true }));
+    await vi.advanceTimersByTimeAsync(160);
+
+    expect(readyCalls()).toHaveLength(2);
+    expect(readyCalls().every(([message]) => !("fields" in (message as object)))).toBe(true);
+    controller.dispose();
+  });
+
   it("places a bare password trigger at the trailing edge and loads candidates only after it is clicked", async () => {
     document.body.innerHTML = `<input id="password" type="password">`;
     const password = document.querySelector<HTMLInputElement>("input")!;

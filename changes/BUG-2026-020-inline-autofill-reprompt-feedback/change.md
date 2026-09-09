@@ -35,6 +35,7 @@
 | `BUG-2026-020-T2` | `REQ-AUTOFILL-001` | 内联选择消费 `filled` 与 typed failure，失败不再静默 | `CT-AUTOFILL-001` | Completed |
 | `BUG-2026-020-T3` | `REQ-AUTOFILL-001` | rcvps 类修改密码表单填入当前密码，并自动生成同值的新密码/确认密码 | `CT-AUTOFILL-003`, `AT-AUTOFILL-001` | Automated Pass / AT Pending |
 | `BUG-2026-020-T4` | `REQ-AUTOFILL-001` | modal focus trap 下的真实 pointer 选择保留 click，不在 focusin 时提前销毁菜单 | `CT-AUTOFILL-001`, `AT-AUTOFILL-001` | Automated Pass / AT Pending |
+| `BUG-2026-020-T5` | `REQ-AUTOFILL-001` | SPA 后挂载 `role`/ARIA 字段语义时 debounce rescan，并保持 page-ready 无字段值 | `CT-AUTOFILL-001` | Completed |
 
 ## 验收与证据
 
@@ -56,6 +57,7 @@
 - `git diff --check`：Pass。
 - `VAULTMESH_EXTENSION_DISTRIBUTION=sideload-review pnpm extension:release:zip:all`：Pass；含 pointer/modal 修复的 Chrome/Edge ZIP SHA-256 `2efdb72333771e6f2b51edfae918825b04f7aaff0781e5988b2e3fc7a6fe44f7`，Firefox ZIP SHA-256 `5f352a8e6d49fc7c40c0e24668be51e40c835cedca0af4b0b7ccddaee315d0ca`。
 - 外部 macOS Edge `AT-AUTOFILL-001`：Pending；当前 Edge 进程仍加载构建前的 unpacked extension，需要人工点击 Reload 后执行无提交、无字段值读取的现场复测。
+- 自动化证据（2026-09-09）：动态登录表单补充 `aria-label` 后，content script 在 150 ms debounce 后再次发送无值 `vaultmesh.autofill-page-ready`；`pnpm --filter @vaultmesh/browser-extension test -- autofill-page.test.ts` 通过（39 files / 241 tests），`pnpm --filter @vaultmesh/browser-extension typecheck` 通过。观察属性仅覆盖 discovery 实际读取的语义/可见性元数据，明确不包含字段 `value`。
 
 ## 安全与数据生命周期
 

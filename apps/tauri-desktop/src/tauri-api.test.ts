@@ -54,6 +54,61 @@ describe('CT-TAURI-COMMAND-001 typed adapter', () => {
     ]);
   });
 
+  it('routes LAN discovery and pairing only through bounded typed operations', async () => {
+    const { createTauriVaultMeshApi } = await import('./tauri-api');
+    invoke.mockResolvedValue({});
+    const api = createTauriVaultMeshApi();
+    const pairingRef = 'lan-peer-00112233445566778899aabbccddeeff';
+    await api.lan.status();
+    await api.lan.startDiscovery();
+    await api.lan.scan();
+    await api.lan.listTrusted();
+    await api.lan.begin(pairingRef);
+    await api.lan.confirm(pairingRef);
+    await api.lan.cancel(pairingRef);
+    await api.lan.rename(pairingRef, '办公室电脑');
+    await api.lan.revoke(pairingRef);
+    await api.lan.stopDiscovery();
+    expect(invoke.mock.calls.slice(-10)).toEqual([
+      ['desktop_invoke', { request: { operation: 'lan.pairing.status', input: {} } }],
+      ['desktop_invoke', { request: { operation: 'lan.discovery.start', input: {} } }],
+      ['desktop_invoke', { request: { operation: 'lan.discovery.scan', input: {} } }],
+      ['desktop_invoke', { request: { operation: 'lan.pairing.list', input: {} } }],
+      ['desktop_invoke', { request: { operation: 'lan.pairing.begin', input: { pairingRef } } }],
+      ['desktop_invoke', { request: { operation: 'lan.pairing.confirm', input: { pairingRef } } }],
+      ['desktop_invoke', { request: { operation: 'lan.pairing.cancel', input: { pairingRef } } }],
+      ['desktop_invoke', { request: { operation: 'lan.pairing.rename', input: { pairingRef, label: '办公室电脑' } } }],
+      ['desktop_invoke', { request: { operation: 'lan.pairing.revoke', input: { pairingRef } } }],
+      ['desktop_invoke', { request: { operation: 'lan.discovery.stop', input: {} } }],
+    ]);
+  });
+
+  it('rejects network endpoints and handshake material from LAN renderer DTOs', async () => {
+    const { LanPairingStatusSchema } = await import('./shared/contracts');
+    const safe = {
+      discoverable: true,
+      expiresAt: 1,
+      nearby: [{ pairingRef: 'lan-peer-00112233445566778899aabbccddeeff', status: 'connected' }],
+      pending: [],
+      trusted: [],
+    };
+    expect(LanPairingStatusSchema.safeParse(safe).success).toBe(true);
+    expect(LanPairingStatusSchema.safeParse({
+      ...safe,
+      nearby: [{ ...safe.nearby[0], address: '192.168.1.8', port: 43210, nonce: 'secret' }],
+    }).success).toBe(false);
+    expect(LanPairingStatusSchema.safeParse({
+      ...safe,
+      trusted: [{
+        pairingRef: 'lan-peer-00112233445566778899aabbccddeeff',
+        label: 'Peer',
+        protocolMajor: 1,
+        certificateFingerprint: 'ab'.repeat(32),
+      }],
+    }).success).toBe(false);
+    expect(LanPairingStatusSchema.safeParse({ ...safe, tlsExporter: 'secret' }).success).toBe(false);
+  });
+
   it('exposes only the pairing event to the main renderer bridge', async () => {
     const { createTauriVaultMeshApi } = await import('./tauri-api');
     const api = createTauriVaultMeshApi();

@@ -55,6 +55,18 @@ export function createTauriVaultMeshApi(): VaultMeshApi {
       settings: () => call('security.settings.get'),
       updateSettings: (input) => call('security.settings.update', input),
     },
+    lan: {
+      status: () => call('lan.pairing.status'),
+      startDiscovery: () => call('lan.discovery.start'),
+      stopDiscovery: () => call('lan.discovery.stop'),
+      scan: () => call('lan.discovery.scan'),
+      listTrusted: () => call('lan.pairing.list'),
+      begin: (pairingRef) => call('lan.pairing.begin', { pairingRef }),
+      confirm: (pairingRef) => call('lan.pairing.confirm', { pairingRef }),
+      cancel: (pairingRef) => call('lan.pairing.cancel', { pairingRef }),
+      revoke: (pairingRef) => call('lan.pairing.revoke', { pairingRef }),
+      rename: (pairingRef, label) => call('lan.pairing.rename', { pairingRef, label }),
+    },
     agent: {
       status: () => call('agent.status'),
       enablePin: (input) => call('agent.pin.enable', input),

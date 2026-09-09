@@ -12,75 +12,14 @@ use zeroize::Zeroizing;
 
 use crate::{
     VAULTMESH_STATUS_CONFLICT, VAULTMESH_STATUS_CORE_ERROR, VAULTMESH_STATUS_INVALID_ARGUMENT,
-    VAULTMESH_STATUS_IO_ERROR, VAULTMESH_STATUS_OK, VaultmeshBuffer, VaultmeshBytes,
-    VaultmeshStatus, VaultmeshVault,
-    buffer::initialize_out_buffer,
-    status::{check_abi, ffi_boundary},
+    VAULTMESH_STATUS_IO_ERROR, VaultmeshStatus, VaultmeshVault,
     storage::{read_vault, write_vault},
     vault::{map_core_error, mutation_lock, vault_fingerprint},
 };
 
-/// Executes a core-owned Browser RPC operation and returns its JSON result.
-/// Ordinary operations are renderer-safe; the sole custom-field-bearing login
-/// detail is authorized as a fresh-gesture privileged route by the shared RPC
-/// policy. Secret-copy and page-fill values use separate privileged entry
-/// points and never pass through this channel.
-///
-/// # Safety
-///
-/// Every byte view must remain readable for the call. `vault` must be a live
-/// handle and `out_json` writable empty storage.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn vaultmesh_browser_core_operation(
-    abi_version: u32,
-    vault: *mut VaultmeshVault,
-    operation: VaultmeshBytes,
-    input_json: VaultmeshBytes,
-    out_json: *mut VaultmeshBuffer,
-) -> VaultmeshStatus {
-    ffi_boundary(|| {
-        // SAFETY: forwarded from the exported operation contract.
-        if let Err(status) = unsafe { initialize_out_buffer(out_json) } {
-            return status;
-        }
-        if let Err(status) = check_abi(abi_version) {
-            return status;
-        }
-        if vault.is_null() {
-            return VAULTMESH_STATUS_INVALID_ARGUMENT;
-        }
-        // SAFETY: byte-view validity is part of the exported operation contract.
-        let operation = match unsafe { operation.as_utf8() } {
-            Ok(value) if !value.is_empty() => value,
-            _ => return VAULTMESH_STATUS_INVALID_ARGUMENT,
-        };
-        // SAFETY: byte-view validity is part of the exported operation contract.
-        let input = match unsafe { input_json.as_slice() }
-            .ok()
-            .and_then(|bytes| serde_json::from_slice::<Value>(bytes).ok())
-        {
-            Some(value @ Value::Object(_)) => value,
-            _ => return VAULTMESH_STATUS_INVALID_ARGUMENT,
-        };
-        // SAFETY: the caller contract requires a live opaque handle.
-        let vault = unsafe { &mut *vault };
-        let result = match execute_core_operation(vault, operation, input) {
-            Ok(value) => value,
-            Err(status) => return status,
-        };
-        let encoded = match serde_json::to_vec(&result) {
-            Ok(bytes) => bytes,
-            Err(_) => return VAULTMESH_STATUS_CORE_ERROR,
-        };
-        // SAFETY: `out_json` was initialized and remains writable.
-        unsafe { *out_json = VaultmeshBuffer::from_vec(encoded) };
-        VAULTMESH_STATUS_OK
-    })
-}
-
-/// Shared safe Rust entry point used by the Tauri desktop runtime. It keeps
-/// the same validation, naming and commit-before-publish behavior as the FFI
-/// browser operation without crossing an ABI boundary.
+/// Shared safe Rust entry point used by the Tauri desktop runtime. It preserves
+/// validation, naming, and commit-before-publish behavior without crossing a
+/// process boundary.
 pub(crate) fn execute_core_operation(
     vault: &mut VaultmeshVault,
     operation: &str,

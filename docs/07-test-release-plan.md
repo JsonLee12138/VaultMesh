@@ -62,9 +62,10 @@ pnpm typecheck
 | `CT-AGENT-SSH-001`、`CT-AGENT-PTY-001`、`CT-AGENT-HTTP-001`、`CT-AGENT-HTTP-PATH-001`、`CT-AGENT-WEB-001`、`CT-AGENT-AUTHN-001` | Tauri Rust adapter contract/adversarial tests；HTTP CT 覆盖 exact 账户 origin、HTTP/HTTPS、public/private/loopback/link-local/metadata literal target、self-signed TLS、DNS 当次连接固定、redirect/cross-origin denial、Bearer 注入与有界输出；HTTP path CT 额外覆盖 access-token Secret direct schema、method risk floor、base-path confinement、单次 canonicalization、encoded separator/dot 拒绝、exact/`*`/terminal `**` predicate、method 隔离、Deny 优先与 matcher revision；protected-auth CT 覆盖 OTP、recovery code 与 Passkey 的 opaque target、single-use、成功提交和清理；固定测试 server/browser fixture，不使用生产凭据 |
 | `CT-AGENT-CODEX-001`、`CT-AGENT-OPENCODE-001` | packaged stdio shim 的 tools/list/call/cancel/revoke/multi-account client E2E |
 | `CT-TAURI-SHELL-*`、`CT-TAURI-COMMAND-*` | `apps/tauri-desktop` config/adapter/Rust command 与 Electron data migration contract tests |
+| `CT-LAN-PAIRING-001` | Tauri Rust LAN advertisement parser、protocol/version/size rejection、同链路双栈 listener、TLS pin/SAS transcript、double-confirm/cancel/timeout/replay、双方 persistence acknowledgement、credential/index rollback、revoke/restart/lock cleanup 与 renderer-safe typed operation tests |
 | `CT-TAURI-VAULT-*`、`CT-TAURI-DESKTOP-*` | Tauri Rust runtime integration tests + shared renderer tests |
 | `CT-TAURI-TRAY-THEME-001` | Windows light/dark/unknown 主题选择、黑白托盘资源尺寸/解码、macOS Retina 模板资源保持测试 |
-| `CT-DESKTOP-STARTUP-*` | Tauri Rust autostart owner、固定参数、初始化标记、隐藏窗口配置、typed adapter 与设置 UI contract tests |
+| `CT-DESKTOP-STARTUP-*` | Tauri Rust autostart owner、固定参数、初始化标记、隐藏窗口配置、主窗口关闭销毁 WebView 与托盘重建、typed adapter 与设置 UI contract tests |
 | `CT-UPDATE-001` | Rust-owned updater/no-renderer-capability、release-only HTTPS config、macOS/Windows 原生“检查更新…”菜单、主动/自动检查互斥、主动检查无更新/失败反馈、用户确认、安装前 lock/exit cleanup、Windows NSIS 覆盖复制前 Native Host 注销/停止与安装后恢复注册，以及标准 GitHub-hosted `macos-15` ARM64、`macos-15-intel` x86_64、`windows-2025` x64 原生目标/host 架构绑定、精确 Rust toolchain、按 OS/arch/target 隔离且忽略 workspace-only 版本变化的 dependency-only Cargo cache、workspace release object/编译期 credential 保存前清理、矩阵 `fail-fast: false`、上游失败时 publisher 明确失败并通过同 run “Re-run failed jobs”复用成功 artifact、发布 workflow 无 `self-hosted` 标签、manifest 的 SemVer/platform/signature/不可变 URL/三平台完整性与 latest-last publish contract tests；Windows target experimental package 必须只发布 immutable objects、保持 test channel 不变且不计入 Windows AT |
 | `CT-UPDATE-REVIEW-001` | `0.0.1-review` fresh-install baseline 与当前 `0.0.9-review` build 的 workspace/Rust/Tauri/extension 版本一致性；Review workflow 固定使用 `channels/review/latest.json`，保留完整发布的三目标、签名、immutable、latest-last、精确 toolchain、dependency-only Cargo cache、workspace object 清理与失败任务同 run 恢复约束，并为 Windows同时生成 NSIS/MSI；Chrome/Firefox ZIP 必须进入同版本不可变 R2 路径并通过公网内容校验，R2 成功后只创建不含 Git Tag 的 GitHub Draft Prerelease并上传两个 DMG、Windows NSIS/MSI 与两个 ZIP；任一 prerequisite 失败时 Draft job 明确失败并可随失败任务重跑；阶段性 manifest 只引用已发布的 signed immutable artifact、首次从 `.1` 创建且后续严格递增，并允许在相同 current version 下只追加一个缺失平台，同时保持顶层字段、既有平台和 test channel 不变；阶段性清单和 Draft Prerelease 均不得计为完整正式发布或平台 AT |
 | `CT-OSS-001` | 历史证据：`scripts/open-source-metadata.test.mjs` 保留原 AGPLv3-or-later 标准正文、首次公开 Work 封存记录和精确秘密扫描例外；该 ID 不再代表当前版本的许可元数据 |
@@ -74,7 +75,7 @@ pnpm typecheck
 | `CT-TAURI-BROWSER-*` | Tauri broker/Rust native-host cross-process contract + RPC parity |
 | `CT-BROWSER-001`（development startup） | `scripts/tauri-browser-dev.test.mjs` 的 key→ID→Host origin、专用 profile、debug Host→Tauri dev→WXT 顺序与双进程清理 contract |
 | `CT-FEEDBACK-*` | Tauri renderer 与 extension popup 的 Toaster 位置、toast 触发和 Alert 静态合约测试 |
-| `CT-TAURI-SOURCE-*` | Tauri owner path、workspace/lockfile、禁止 Electron/Native build reference 扫描 |
+| `CT-TAURI-SOURCE-*` | Tauri owner path、workspace/lockfile、禁止 Electron/Native build reference 扫描；`CT-TAURI-SOURCE-002` 额外拒绝已退休的 C ABI header、artifact、export 与专属测试 |
 | `CT-NATIVE-*` | 历史 Native Preview 证据只保留在 Rejected Change；当前源码不再执行 |
 | `AT-*` | packaged/manual user-visible acceptance；证据写入对应 Change/Release |
 | `AT-SERVICE-001`、`AT-SERVICE-AUTO-001` | macOS/Windows packaged Tauri 的网站/服务 CRUD、原 item 导航、锁定清理，以及约 1000 条记录的预览、批量应用、待确认、merge/split/move/ignore、重跑和 rollback |
@@ -92,6 +93,7 @@ pnpm typecheck
 | `AT-AGENT-SSH-001`、`AT-AGENT-HTTP-001`、`AT-AGENT-WEB-001`、`AT-AGENT-AUTHN-001` | packaged app 的动作 adapter、多账号、失败/取消/锁定与无 secret response 验收；HTTP 额外验收 exact 账户绑定的 HTTP/HTTPS、localhost/私网/link-local/metadata literal target 与 self-signed TLS，以及 Agent 不能替换 origin/port/base path |
 | `AT-AGENT-MACOS-001`、`AT-AGENT-WINDOWS-001` | 签名 packaged app 的 socket/pipe ACL、shim identity、OS pairing proof、Codex/OpenCode、sleep/system lock、upgrade/uninstall 与 child cleanup |
 | `AT-NATIVE-MACOS-*` | 历史 Native Preview AT；不再作为当前产品验收入口 |
+| `AT-LAN-PAIRING-001` | packaged macOS↔macOS、Windows↔Windows、macOS↔Windows 同一 LAN 的显式发现、双方短码、重连、撤销、超时、系统锁定/睡眠与 firewall rejection 验收 |
 
 ## 发布门禁
 
@@ -112,9 +114,9 @@ pnpm typecheck
 
 - Tauri typecheck、Rust tests、capability/command rejection、final-lock cleanup 和 package build 通过。
 - `CT-SEC-003` 证明全部声明产品窗口从创建起启用内容保护，且 renderer capability 不能关闭保护。
-- `CT-TAURI-SOURCE-001` 证明 Electron/Native build owner 已移除且 Tauri 自包含。
-- `CT-DESKTOP-STARTUP-001` 证明首次默认注册、用户关闭保持、固定参数、登录项静默锁定启动和
-  renderer 无直接插件 capability；macOS/Windows packaged app 分别执行登录项 AT。
+- `CT-TAURI-SOURCE-001` 证明 Electron/Native build owner 已移除且 Tauri 自包含；`CT-TAURI-SOURCE-002` 证明不再声明或构建已退休的 C ABI。
+- `CT-DESKTOP-STARTUP-001` 证明首次默认注册、用户关闭保持、固定参数、登录项静默锁定启动、主窗口
+  关闭后 WebView 销毁且托盘可重建窗口，以及 renderer 无直接插件 capability；macOS/Windows packaged app 分别执行登录项 AT。
 - `CT-TAURI-TRAY-THEME-001` 证明 Windows 主题选择和资源契约；`AT-TAURI-WINDOWS-003`
   在 packaged Windows 验证运行中主题切换和失败回退。
 - Tauri packaged app 在目标 OS 冒烟。

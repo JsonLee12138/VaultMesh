@@ -6,7 +6,7 @@ VaultMesh 已支持关闭主窗口后常驻托盘，但没有注册 macOS 登录
 
 ## 预期行为
 
-- `REQ-DESKTOP-001`：首次运行默认注册当前打包应用为登录项；由登录项启动时保持 Vault 锁定，只显示托盘，不弹出或聚焦主窗口。
+- `REQ-DESKTOP-001`：首次运行默认注册当前打包应用为登录项；由登录项启动时保持 Vault 锁定，只显示托盘，不弹出或聚焦主窗口。用户关闭主窗口时销毁 WebView、保留 Rust runtime 与托盘；从托盘或系统重开时按当前配置重建主窗口。
 - 用户手动启动应用时继续正常显示主窗口；设置页显示系统当前真实注册状态，并允许启用或关闭。
 - 用户关闭后，后续手动启动不得擅自重新注册；系统注册失败不得阻止 VaultMesh 正常启动，并可从设置页重试。
 
@@ -27,13 +27,13 @@ Rust runtime 独占系统登录项操作；renderer 只能通过穷举 typed ope
 | Task | Requirement | 可验证输出 | Test | 状态 |
 | --- | --- | --- | --- | --- |
 | `TASK-STARTUP-SPEC` | `REQ-DESKTOP-001` | Scope、Requirement、测试计划与追踪一致 | `CT-DESKTOP-STARTUP-001` | Complete |
-| `TASK-STARTUP-RUNTIME` | `REQ-DESKTOP-001` | Rust 注册、初始化标记、固定参数和静默启动路径 | `CT-DESKTOP-STARTUP-001` | Complete |
+| `TASK-STARTUP-RUNTIME` | `REQ-DESKTOP-001` | Rust 注册、初始化标记、固定参数、静默启动与主 WebView 销毁/重建路径 | `CT-DESKTOP-STARTUP-001` | Complete |
 | `TASK-STARTUP-UI` | `REQ-DESKTOP-001` | 设置页读取真实状态并可启停 | `CT-DESKTOP-STARTUP-001` | Complete |
 | `TASK-STARTUP-AT` | `REQ-DESKTOP-001` | 打包应用登录项与静默托盘验收 | `AT-DESKTOP-STARTUP-MACOS-001`、`AT-DESKTOP-STARTUP-WINDOWS-001` | Pending |
 
 ## 验收与证据
 
-- 自动化覆盖首次默认注册、已初始化后不强制重开、固定 `--autostart` 参数、手动/登录项启动窗口差异、typed adapter、设置 UI 与 renderer 无直接插件权限。
+- 自动化覆盖首次默认注册、已初始化后不强制重开、固定 `--autostart` 参数、手动/登录项启动窗口差异、主 WebView 销毁与托盘重建、typed adapter、设置 UI 与 renderer 无直接插件权限。
 - macOS 与 Windows packaged app 分别验证启用、重启登录、静默托盘、保持锁定、显示主窗口、关闭后不再启动及重新启用。
 - 实现完成后在本节记录命令与结果；平台 AT 未执行前不得标记 Verified。
 
@@ -46,6 +46,12 @@ Rust runtime 独占系统登录项操作；renderer 只能通过穷举 typed ope
 - `pnpm verify:tauri-source`：`CT-TAURI-SOURCE-001` Pass；typed adapter/dispatcher parity 为 114/114。
 - `pnpm tauri:build`：Pass，生成 `VaultMesh.app` 与 `VaultMesh_0.1.0_x64.dmg`；`hdiutil verify` Pass，DMG SHA-256 为 `741a0ae37cb2c932b1ef430256cf898d30ebd13ab63b001fa5a918aa15888b96`。
 - macOS 构建未签名，且未启动打包应用修改当前用户登录项；macOS/Windows 真实登录、关闭、重新启用和卸载清理 AT 均为 Not Run，因此 Change 保持 Implementing。
+
+2026-09-09 增量证据：
+
+- `cargo test -p vaultmesh-tauri-desktop --lib closing_main_window -- --nocapture`：Pass（主窗口关闭不取消、WebView 销毁；托盘显示路径按 `tauri.conf.json` 重建主窗口的回归契约）。
+- `cargo fmt --all -- --check` 与 `git diff --check`：Pass。
+- 全量 `cargo test -p vaultmesh-tauri-desktop --lib` 的本变更回归通过，但当前工作区中既有 TLS 测试有 5 项因同时启用 `rustls` 的 `aws-lc-rs` 与 `ring` provider 而失败；失败发生在 `agent_http`/`desktop_api_request`，不涉及窗口生命周期。
 
 ## 安全与数据生命周期
 

@@ -90,6 +90,8 @@ import type {
   ApiRequestExecutionResult,
   ApiRequestInput,
   ApiRequestPreview,
+  LanPairingStatus,
+  LanTrustedPeer,
 } from './contracts';
 import type { SshCommandImport } from '@vaultmesh/ssh-command-parser';
 
@@ -122,6 +124,18 @@ export interface VaultMeshApi {
   security: {
     settings(): Promise<SecuritySettings>;
     updateSettings(input: SecuritySettings): Promise<SecuritySettings>;
+  };
+  lan: {
+    status(): Promise<LanPairingStatus>;
+    startDiscovery(): Promise<LanPairingStatus>;
+    stopDiscovery(): Promise<LanPairingStatus>;
+    scan(): Promise<LanPairingStatus>;
+    listTrusted(): Promise<LanTrustedPeer[]>;
+    begin(pairingRef: string): Promise<{ started: true }>;
+    confirm(pairingRef: string): Promise<{ resolved: true }>;
+    cancel(pairingRef: string): Promise<{ resolved: true }>;
+    revoke(pairingRef: string): Promise<{ revoked: true }>;
+    rename(pairingRef: string, label: string): Promise<{ renamed: true }>;
   };
   agent: {
     status(): Promise<AgentBrokerStatus>;

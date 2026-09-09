@@ -39,7 +39,8 @@
       "../resources/icon.ico"
     ],
     "macOS": {
-      "minimumSystemVersion": "12.0"
+      "minimumSystemVersion": "12.0",
+      "infoPlist": "Info.plist"
     },
     "windows": {
       "wix": {

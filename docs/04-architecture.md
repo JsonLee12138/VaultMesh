@@ -49,6 +49,7 @@ browser UI/content → background RPC → Rust native-host → Rust broker → s
 | Page discovery/write | content script | desktop renderer |
 | Clipboard、dialog、recovery-code file read/delete、biometric、SSH、email IO | Tauri Rust/platform adapters | renderer、extension |
 | Quick-unlock wrapper | platform credential integration | Vault format |
+| LAN peer discovery、TLS identity、short-code pairing、peer trust index 与 lifecycle | Tauri Rust LAN pairing service | vault-core、renderer、Agent broker、Browser RPC |
 
 ## Tauri 边界
 
@@ -63,6 +64,10 @@ browser UI/content → background RPC → Rust native-host → Rust broker → s
   Tauri 使用的共享 Rust operation/runtime，不能把 C ABI 暴露给 WebView。
 
 ## 授权生命周期
+
+## LAN peer pairing
+
+LAN pairing 是与 Vault unlock 独立的短时设备信任服务。非秘密的附近设备页面在 Vault 因窗口失焦而锁定后仍可保持，且只能通过 typed desktop operation 启动服务；真正离开页面、系统会话锁定、睡眠、退出或十分钟发现期结束时必须清除 listener、mDNS、TLS 和 pending pairing。持久化 peer trust 不授予任何 Vault、Agent 或 Browser 权限。
 
 Desktop 与 browser authorization 独立。任一授权存在时 core 可以保持解锁；最后一个授权锁定后，
 Rust runtime 必须清除 core、email connection/candidate、import/SSH session、pending fill、Passkey

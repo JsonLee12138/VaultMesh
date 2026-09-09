@@ -42,6 +42,39 @@ const retiredCommands = [
 for (const command of retiredCommands) {
   if (Object.hasOwn(rootPackage.scripts, command)) throw new Error(`已退役命令仍存在：${command}`);
 }
+
+const retiredNativeAbiArtifacts = [
+  'crates/vault-ffi/include/vaultmesh.h',
+  'crates/vault-ffi/src/buffer.rs',
+  'crates/vault-ffi/src/input.rs',
+  'crates/vault-ffi/src/items.rs',
+  'crates/vault-ffi/tests/abi_contract.rs',
+  'crates/vault-ffi/tests/browser_core_contract.rs',
+  'crates/vault-ffi/tests/item_contract.rs',
+  'crates/vault-ffi/tests/privileged_contract.rs',
+  'crates/vault-ffi/tests/vault_contract.rs',
+];
+for (const relativePath of retiredNativeAbiArtifacts) {
+  try {
+    await access(path.join(projectRoot, relativePath));
+    throw new Error(`已退休的 C ABI 工件仍存在：${relativePath}`);
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') continue;
+    throw error;
+  }
+}
+
+const ffiManifest = await readFile(path.join(projectRoot, 'crates/vault-ffi/Cargo.toml'), 'utf8');
+if (/crate-type\s*=\s*\[[^\]]*(?:staticlib|cdylib)/.test(ffiManifest)) {
+  throw new Error('vault-ffi 不得再构建 C ABI artifact。');
+}
+const ffiFiles = await collectFiles(path.join(projectRoot, 'crates/vault-ffi/src'));
+for (const filePath of ffiFiles.filter((filePath) => filePath.endsWith('.rs'))) {
+  const contents = await readFile(filePath, 'utf8');
+  if (contents.includes('extern "C"') || contents.includes('VaultmeshBytes')) {
+    throw new Error(`vault-ffi 仍声明 C ABI：${path.relative(projectRoot, filePath)}`);
+  }
+}
 for (const [command, implementation] of Object.entries(rootPackage.scripts)) {
   const scriptMatch = implementation.match(/(?:^|\s)node (scripts\/[^\s]+)/);
   if (!scriptMatch) continue;
@@ -117,6 +150,7 @@ for (const pattern of forbiddenOwnerPatterns) {
 }
 
 console.log(`CT-TAURI-SOURCE-001 Pass：${removedRoots.length} 个旧 root 已移除，${requiredTauriOwners.length} 个 Tauri owner 已定位，${retiredCommands.length} 个旧命令已退役。`);
+console.log(`CT-TAURI-SOURCE-002 Pass：${retiredNativeAbiArtifacts.length} 个 C ABI 工件、C artifact crate type 和 C export 均已移除。`);
 
 async function collectFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });

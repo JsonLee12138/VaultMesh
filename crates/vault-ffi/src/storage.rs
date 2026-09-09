@@ -1,20 +1,8 @@
-use std::{
-    fs,
-    io::Write,
-    path::{Path, PathBuf},
-};
+use std::{fs, io::Write, path::Path};
 
 use atomic_write_file::OpenOptions as AtomicOpenOptions;
 
 const MAX_VAULT_BYTES: u64 = 64 * 1024 * 1024;
-
-pub(crate) fn validate_path(path: &str) -> Result<PathBuf, ()> {
-    let path = PathBuf::from(path);
-    if path.as_os_str().is_empty() || path.file_name().is_none() {
-        return Err(());
-    }
-    Ok(path)
-}
 
 pub(crate) fn read_vault(path: &Path) -> Result<Vec<u8>, ()> {
     let metadata = fs::metadata(path).map_err(|_| ())?;

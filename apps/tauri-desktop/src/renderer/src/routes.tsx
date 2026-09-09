@@ -19,6 +19,7 @@ import { SecretItemEditorPage } from '@/pages/SecretItemEditorPage';
 import { EmailOtpPage } from '@/pages/EmailOtpPage';
 import { AgentManagementPage } from '@/pages/AgentManagementPage';
 import { ServiceHubPage } from '@/pages/ServiceHubPage';
+import { NearbyDevicesPage } from '@/pages/NearbyDevicesPage';
 import { useVaultStore } from '@/stores/vault-store';
 
 function RootLayout() {
@@ -101,6 +102,12 @@ const agentManagementRoute = createRoute({
   component: AgentManagementPage,
 });
 
+const nearbyDevicesRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'nearby',
+  component: NearbyDevicesPage,
+});
+
 const emailOtpRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'vault/email-otp',
@@ -172,6 +179,7 @@ const routeTree = rootRoute.addChildren([
   serviceHubRoute,
   securityRoute,
   agentManagementRoute,
+  nearbyDevicesRoute,
   emailOtpRoute,
   newItemRoute,
   editItemRoute,

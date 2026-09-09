@@ -297,8 +297,8 @@ function semanticCluster(control: SupportedControl): SemanticCluster {
 }
 
 function semanticControls(root: ParentNode) {
-  const descendants = Array.from(root.querySelectorAll<SupportedControl>('input,textarea,select,[contenteditable="true"]'));
-  const controls = root instanceof Element && root.matches('input,textarea,select,[contenteditable="true"]')
+  const descendants = Array.from(root.querySelectorAll<SupportedControl>('input,textarea,select,[contenteditable]:not([contenteditable="false"])'));
+  const controls = root instanceof Element && root.matches('input,textarea,select,[contenteditable]:not([contenteditable="false"])')
     ? [root as SupportedControl, ...descendants]
     : descendants;
   return controls
@@ -729,7 +729,7 @@ function composedControls(root: DiscoveryRoot) {
   const roots: DiscoveryRoot[] = [root];
   for (let index = 0; index < roots.length; index += 1) {
     const current = roots[index]!;
-    controls.push(...current.querySelectorAll<SupportedControl>('input, textarea, select, [contenteditable="true"], [role="textbox"][contenteditable], [role="combobox"][contenteditable]'));
+    controls.push(...current.querySelectorAll<SupportedControl>('input, textarea, select, [contenteditable]:not([contenteditable="false"])'));
     for (const element of current.querySelectorAll<HTMLElement>("*")) {
       const shadowRoot = accessibleShadowRoot(element);
       if (shadowRoot) roots.push(shadowRoot);
@@ -763,7 +763,9 @@ function isNativeControl(control: SupportedControl): control is NativeControl {
 }
 
 function isControlElement(control: Element): control is SupportedControl {
-  return isNativeControl(control as SupportedControl) || control instanceof HTMLElement && (control.isContentEditable || control.getAttribute("contenteditable") === "true");
+  const contentEditable = control instanceof HTMLElement ? control.getAttribute("contenteditable")?.toLowerCase() : null;
+  return isNativeControl(control as SupportedControl) || control instanceof HTMLElement &&
+    (control.isContentEditable || contentEditable != null && contentEditable !== "false");
 }
 
 function limit(value: string, maximum: number) {

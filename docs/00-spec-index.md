@@ -2,7 +2,7 @@
 
 ## 当前基线
 
-- 规格修订：`0.1.50-active`
+- 规格修订：`0.1.51-active`
 - 产品版本：`0.0.9-review`
 - Vault 格式：`3`（唯一写入和读取格式；所有其他版本在 KDF 前拒绝，不提供迁移或降级）
 - Browser RPC：`2`
@@ -38,6 +38,7 @@
 - `../specs/email-otp.md`：邮件 Provider、OAuth/IMAP 和候选生命周期
 - `../specs/native-desktop-migration.md`：已停止的 SwiftUI/WinUI 迁移历史证据
 - `../specs/tauri-desktop-migration.md`：Tauri 2 统一桌面运行时与发布 Gate
+- `../specs/lan-peer-pairing.md`：显式局域网客户端发现、双向短码验证与设备信任
 
 ## 已接受 ADR
 
@@ -58,6 +59,7 @@
 - `../adr/0015-api-environment-target-ownership.md`
 - `../adr/0016-desktop-api-request-network-boundary.md`
 - `../adr/0017-cross-browser-extension-native-messaging.md`
+- `../adr/0018-lan-peer-discovery-trust-model.md`
 
 ## Change 与 Release 入口
 
@@ -85,7 +87,7 @@ Change 的状态和路由元数据只由各自 `change.yaml` 手写拥有。本�
 | Agent privileged broker | `../apps/tauri-desktop/src-tauri/src/agent_broker.rs` |
 | Agent secretless MCP shim | `../crates/agent-mcp/src/main.rs` |
 | Tauri packaging/capabilities | `../apps/tauri-desktop/src-tauri/tauri.conf.json`、`capabilities/` |
-| Native ABI/header | `../crates/vault-ffi/src/`、`../crates/vault-ffi/include/vaultmesh.h` |
+| Tauri shared Rust runtime | `../crates/vault-ffi/src/runtime.rs`、`runtime_part*.inc.rs` |
 | Tauri shell/runtime | `../apps/tauri-desktop/` |
 
 ## 未决事项

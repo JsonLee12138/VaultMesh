@@ -275,6 +275,15 @@
         "changes/CHG-2026-038-form-semantic-classification/change.md": "sha256:6e6bdebb61c6566618de3938223ebf9d1e5b09707196068955606d65400963c9",
         "changes/CHG-2026-038-form-semantic-classification/change.yaml": "sha256:643b1924d68f049a46345d8a3a132f3d1df4b3cbfc81c50724a98ada5ef48f13"
       }
+    },
+    {
+      "work_id": "CHG-2026-039-retire-legacy-ffi-c-abi",
+      "status": "Verified",
+      "archived_at": "2026-09-01T16:48:53.426Z",
+      "files": {
+        "changes/CHG-2026-039-retire-legacy-ffi-c-abi/change.md": "sha256:d6c768c306ac5d28f1166435c02f986f4c8a10200a2dc5b9ebf96ab0c764056d",
+        "changes/CHG-2026-039-retire-legacy-ffi-c-abi/change.yaml": "sha256:92199bf2944e0dd5ad90bbf530c99059f1a310e7a0e2ba3a4ceaed7215b27e77"
+      }
     }
   ]
 }

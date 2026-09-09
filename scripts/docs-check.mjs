@@ -29,6 +29,9 @@ const RETIRED_COMMANDS = new Set([
   'native:macos:browser-contract',
   'verify:native-browser-parity',
 ]);
+const ARCHIVED_WORK_IDS = new Set(
+  JSON.parse(fs.readFileSync('changes/archive.json', 'utf8')).archives.map((archive) => archive.work_id),
+);
 
 function walk(directory) {
   return fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -87,7 +90,12 @@ function validateExplicitPaths(markdownFiles) {
       else if (/^(docs|specs|adr|changes|releases|apps|crates|packages)\//.test(token)) candidate = path.resolve(ROOT, token);
       else if (file === 'docs/00-spec-index.md' && /^\d{2}-.*\.md$/.test(token)) candidate = path.resolve(ROOT, 'docs', token);
       else if ((file === 'releases/README.md' || file === 'changes/README.md') && token.startsWith('_template')) candidate = path.resolve(path.dirname(file), token);
-      if (candidate && !fs.existsSync(candidate)) missing.push(`${file}: ${token}`);
+      if (candidate && !fs.existsSync(candidate)) {
+        const archivedWork = path.relative(ROOT, file).match(/^changes\/([^/]+)\//)?.[1];
+        const retiredSource = /^(apps|crates|packages)\//.test(path.relative(ROOT, candidate));
+        if (archivedWork && ARCHIVED_WORK_IDS.has(archivedWork) && retiredSource) continue;
+        missing.push(`${file}: ${token}`);
+      }
     }
   }
   return missing;
@@ -232,5 +240,5 @@ if (Object.values(errors).some((values) => values.length > 0)) {
 }
 
 const routedChanges = parsedChanges.filter(([, change]) => Object.hasOwn(change, 'context_refs')).length - 1;
-const archivedChanges = JSON.parse(fs.readFileSync('changes/archive.json', 'utf8')).archives.length;
+const archivedChanges = ARCHIVED_WORK_IDS.size;
 console.log(`docs:check passed (${markdownFiles.length} Markdown, ${yamlFiles.length} YAML, ${requirements.size} requirements, ${tests.size} test IDs, ${adrIds.size} ADRs, ${routedChanges} routed Changes, ${archivedChanges} archived Changes)`);

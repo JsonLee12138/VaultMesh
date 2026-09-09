@@ -266,6 +266,32 @@ fn browser_recovery_code_dialog_foregrounds_and_parents_the_native_dialogs() {
 }
 
 #[test]
+fn closing_main_window_destroys_its_webview_and_tray_rebuilds_it() {
+    let setup = include_str!("app_setup.rs");
+    let close_start = setup
+        .find("if window.label() == \"main\"")
+        .expect("main-window close handler");
+    let close_end = setup[close_start..]
+        .find("        })\n        .setup")
+        .map(|offset| close_start + offset)
+        .expect("main-window close handler boundary");
+    let close_handler = &setup[close_start..close_end];
+    assert!(close_handler.contains("WindowEvent::CloseRequested { .. }"));
+    assert!(!close_handler.contains("prevent_close"));
+    assert!(!close_handler.contains("window.hide()"));
+
+    let runtime = include_str!("desktop_runtime.rs");
+    let rebuild = runtime
+        .find("fn get_or_build_main_window")
+        .expect("main-window rebuild helper");
+    let show = runtime
+        .find("fn show_main_window")
+        .expect("tray show handler");
+    assert!(runtime[rebuild..show].contains("WebviewWindowBuilder::from_config"));
+    assert!(runtime[show..].contains("get_or_build_main_window(app)"));
+}
+
+#[test]
 fn oversized_and_non_object_payloads_fail_closed() {
     let non_object = DesktopRequest {
         operation: "items.list".into(),

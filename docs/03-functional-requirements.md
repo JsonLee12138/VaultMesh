@@ -10,6 +10,13 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 - 必须：当前版本不提供同步、分享或恢复后门。
 - 验收：`AT-PRODUCT-001`。
 
+### REQ-LAN-PEER-001 局域网客户端发现与可信配对
+
+- 必须：macOS/Windows VaultMesh desktop 可以在用户显式开启、最长十分钟的局域网发现窗口内，发现同一协议主版本的 VaultMesh desktop 并通过双方比较、双方确认的六码安全短码建立可撤销设备信任。
+- 必须：非秘密的附近设备页面不依赖 Vault 解锁；窗口失焦仍按既有策略锁定 Vault，但不得因此中断正在显示的 LAN 配对页。发现、配对、重连状态与 desktop/browser/Agent unlock 相互独立；不读取、复制、传输或操作 Vault、秘密、账号、授权、Browser RPC 或 Agent IPC。
+- 必须：mDNS TXT 只能包含协议版本、随机实例 ID 与一次性 nonce，SRV/A/AAAA 只能使用随机会话 hostname 与临时 endpoint；不得披露系统 hostname、用户信息、Vault metadata、证书、公钥或受保护值。renderer-safe DTO 不得包含 hostname、IP、port、证书、公钥、固定指纹、nonce 或协议帧；证书变化、协议不兼容、超时、取消、重复、撤销和损坏持久化必须 fail closed。
+- 验收：`CT-LAN-PAIRING-001`、`AT-LAN-PAIRING-001`。
+
 ### REQ-VAULT-001 创建、解锁和锁定
 
 - 必须：用户可以创建加密 Vault，以正确主密码解锁，错误密码失败，并显式或按策略锁定。
@@ -200,7 +207,7 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 
 - 必须：Tauri 2 是 macOS/Windows 唯一桌面产品源码和运行时 owner，复用同一 React
   presentation 与 Rust runtime，提供全部当前 Required desktop workflow，不依赖 Electron、
-  N-API、SwiftUI/WinUI presentation 或长期 Node sidecar。
+  N-API、SwiftUI/WinUI presentation、C ABI 或长期 Node sidecar。
 - 必须：renderer、typed API/contracts、Browser RPC policy、UI tests 和 product assets 由
   Tauri 路径拥有；workspace、默认脚本、lockfile 和 CI 不得保留 Electron/Native build owner。
 - 必须：macOS 系统托盘使用平台模板图标；Windows 系统托盘在启动时按 Windows 系统明暗模式
@@ -210,7 +217,7 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 - 失败：未知 command、越权 scope、锁定状态、非法 payload、重复提交和持久化失败必须 fail closed，
   不得发布新状态或残留受保护值；Windows 主题读取或监听失败不得阻止启动，必须回退为深色任务栏
   可读的白色托盘图标。
-- 验收：`CT-TAURI-SOURCE-001`、`CT-TAURI-SHELL-001`、`CT-TAURI-COMMAND-001`、
+- 验收：`CT-TAURI-SOURCE-001`、`CT-TAURI-SOURCE-002`、`CT-TAURI-SHELL-001`、`CT-TAURI-COMMAND-001`、
   `CT-TAURI-VAULT-001`、`CT-TAURI-DESKTOP-001`、`CT-TAURI-BROWSER-001`、
   `CT-TAURI-TRAY-THEME-001`、`AT-TAURI-MACOS-001`、`AT-TAURI-WINDOWS-001`、
   `AT-TAURI-WINDOWS-003`。
@@ -221,6 +228,7 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
   注册状态，允许用户启用或关闭；用户关闭后，后续手动启动不得擅自重新开启。
 - 必须：登录项只携带固定的非秘密启动参数；由登录项启动时 Vault 保持锁定，只进入系统托盘，
   不得显示或聚焦主窗口；用户手动启动时必须正常显示主窗口。
+- 必须：用户关闭主窗口时必须销毁其 WebView、保留受 Rust runtime 管理的托盘进程；托盘“显示”或系统重开事件必须按当前主窗口配置重建、显示并聚焦新窗口，不得将旧 renderer 留在后台。
 - 失败：系统登录项查询或变更失败不得阻止 VaultMesh 启动，不得把未生效的选择显示为成功，
   并且必须允许用户从设置页重试。
 - 验收：`CT-DESKTOP-STARTUP-001`、`AT-DESKTOP-STARTUP-MACOS-001`、
@@ -614,11 +622,11 @@ managed web 或 protected-action 工具完成受支持的任务。
 
 ### NFR-COMPAT-001 版本兼容
 
-- 必须：未知 Vault/RPC/ABI 版本 fail closed；兼容字段使用明确 default；版本变化具备迁移和回滚策略。
+- 必须：未知 Vault/RPC 版本 fail closed；兼容字段使用明确 default；版本变化具备迁移和回滚策略。
 - 必须：Vault 只写入和读取 format 3。所有其他版本必须在 KDF 前拒绝；Core、FFI、Tauri、renderer、Agent、
   Browser、quick unlock 与 restore 均不得保留旧格式迁移、降级、专用 reader 或备份入口。所有 mutation 与
   backup/restore 必须保持 format 3，并继续满足原子提交和失败回滚。
-- 验收：`CT-COMPAT-001`、`CT-NATIVE-ABI-001`、`CT-AGENT-ACCOUNT-001`。
+- 验收：`CT-COMPAT-001`、`CT-AGENT-ACCOUNT-001`。
 
 ### NFR-PRIV-001 秘密最小化
 

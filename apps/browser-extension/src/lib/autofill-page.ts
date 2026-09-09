@@ -171,7 +171,12 @@ export function startAutofillPage(document: Document, documentId: string, sendMe
       if (!observedRoots.has(current)) {
         const Observer = document.defaultView?.MutationObserver ?? MutationObserver;
         const observer = new Observer(scheduleScan);
-        observer.observe(current, { subtree: true, childList: true, attributes: true, attributeFilter: ["autocomplete", "type", "name", "id", "placeholder", "disabled", "readonly", "aria-hidden", "hidden", "class", "style"] });
+        // SPA login screens frequently attach their semantic metadata after
+        // mounting. Watch every attribute that discovery reads so a late ARIA
+        // label or editable role can make the next one-shot fill eligible.
+        // Values are deliberately excluded: rescans must never be driven by
+        // page secrets and discovery continues to expose only `isEmpty`.
+        observer.observe(current, { subtree: true, childList: true, attributes: true, attributeFilter: ["autocomplete", "type", "name", "id", "placeholder", "disabled", "readonly", "contenteditable", "role", "aria-label", "aria-labelledby", "aria-hidden", "hidden", "class", "style"] });
         observers.push(observer);
         observedRoots.add(current);
       }
@@ -258,7 +263,26 @@ export function startAutofillPage(document: Document, documentId: string, sendMe
     void refreshAvailability();
   };
 
-  const onPageHide = () => dispose();
+  const onPageHide = (event: PageTransitionEvent) => {
+    if (!event.persisted) return dispose();
+
+    // A document restored from the back-forward cache keeps its content
+    // script alive. Do not permanently detach its discovery lifecycle, but
+    // discard every page-scoped secret or UI state before the document is
+    // frozen. The next pageshow performs a fresh, value-free discovery.
+    generatedCapture = null;
+    lastCapture = null;
+    focusRequest += 1;
+    menu.hide();
+    trigger.hide();
+    savePrompt.hide();
+  };
+  const onPageShow = (event: PageTransitionEvent) => {
+    if (!event.persisted || disposed) return;
+    scheduleScan();
+    void refreshAvailability();
+    if (document.defaultView?.top === document.defaultView) void resumePendingCapture();
+  };
   const captureSubmission = (root: ParentNode) => {
     const pageUrl = document.defaultView?.location.href ?? "";
     const inferredContext = submittedDataContext(root);
@@ -395,6 +419,7 @@ export function startAutofillPage(document: Document, documentId: string, sendMe
   document.addEventListener("input", onInput, true);
   document.addEventListener("visibilitychange", onVisibilityChange);
   document.defaultView?.addEventListener("pagehide", onPageHide, { once: true });
+  document.defaultView?.addEventListener("pageshow", onPageShow);
   observeOpenRoots(document);
   scheduleScan();
   void refreshAvailability();
@@ -413,6 +438,7 @@ export function startAutofillPage(document: Document, documentId: string, sendMe
     document.removeEventListener("input", onInput, true);
     document.removeEventListener("visibilitychange", onVisibilityChange);
     document.defaultView?.removeEventListener("pagehide", onPageHide);
+    document.defaultView?.removeEventListener("pageshow", onPageShow);
     menu.destroy();
     trigger.destroy();
     savePrompt.destroy();

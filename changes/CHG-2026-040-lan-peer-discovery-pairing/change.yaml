@@ -1,0 +1,32 @@
+id: "CHG-2026-040-lan-peer-discovery-pairing"
+title: "局域网 VaultMesh 客户端发现与可信配对"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.51-active"
+target_release: null
+requirements:
+  - "REQ-LAN-PEER-001"
+tests:
+  - "CT-LAN-PAIRING-001"
+  - "AT-LAN-PAIRING-001"
+adrs:
+  - "ADR-0018"
+context_refs:
+  - "docs/01-product-definition.md"
+  - "docs/02-scope-matrix.md#客户端与平台"
+  - "docs/03-functional-requirements.md#REQ-LAN-PEER-001 局域网客户端发现与可信配对"
+  - "docs/04-architecture.md#LAN peer pairing"
+  - "docs/06-security-privacy.md#LAN peer pairing"
+  - "docs/07-test-release-plan.md"
+  - "specs/lan-peer-pairing.md"
+related_changes: []
+affected_surfaces:
+  - "tauri-desktop"
+  - "desktop-runtime"
+  - "renderer"
+affected_formats: []
+affected_versions:
+  - "LAN peer protocol 1"
+security_impact: "新增显式、短时的局域网发现与双向认证网络边界；不访问 Vault 或现有 broker。"
+migration: "none"
+supersedes: []

@@ -619,12 +619,27 @@ pub(super) fn prune_expired_agent_access(
     Ok(expired_clients.len())
 }
 
+fn get_or_build_main_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {
+    if let Some(window) = app.get_webview_window("main") {
+        return Ok(window);
+    }
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|config| config.label == "main")
+        .ok_or_else(|| "找不到 VaultMesh 主窗口配置。".to_owned())?;
+    tauri::WebviewWindowBuilder::from_config(app, config)
+        .map_err(|_| "无法重建 VaultMesh 主窗口。".to_owned())?
+        .build()
+        .map_err(|_| "无法重建 VaultMesh 主窗口。".to_owned())
+}
+
 pub(crate) fn focus_main_window_for_dialog(
     app: &AppHandle,
 ) -> Result<tauri::WebviewWindow, String> {
-    let window = app
-        .get_webview_window("main")
-        .ok_or_else(|| "找不到 VaultMesh 主窗口，无法打开文件对话框。".to_owned())?;
+    let window = get_or_build_main_window(app)?;
     #[cfg(target_os = "macos")]
     app.set_dock_visibility(true)
         .map_err(|_| "无法将 VaultMesh 显示到前台。".to_owned())?;
@@ -642,7 +657,7 @@ pub(crate) fn focus_main_window_for_dialog(
 
 #[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(super) fn show_main_window(app: &AppHandle) {
-    let Some(window) = app.get_webview_window("main") else {
+    let Ok(window) = get_or_build_main_window(app) else {
         return;
     };
     #[cfg(target_os = "macos")]

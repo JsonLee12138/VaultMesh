@@ -6,9 +6,6 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
-[lib]
-crate-type = ["lib", "staticlib", "cdylib"]
-
 [dependencies]
 atomic-write-file.workspace = true
 serde.workspace = true

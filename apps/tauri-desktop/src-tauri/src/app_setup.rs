@@ -88,15 +88,14 @@ pub fn run() {
             }
             #[cfg(any(target_os = "macos", target_os = "windows"))]
             if window.label() == "main"
-                && let WindowEvent::CloseRequested { api, .. } = event
+                && let WindowEvent::CloseRequested { .. } = event
             {
-                api.prevent_close();
-                if let Some(state) = window.app_handle().try_state::<RuntimeState>()
-                    && let Ok(mut requests) = state.api_requests.lock()
-                {
-                    requests.clear();
+                if let Some(state) = window.app_handle().try_state::<RuntimeState>() {
+                    if let Ok(mut requests) = state.api_requests.lock() {
+                        requests.clear();
+                    }
+                    stop_lan_pairing(&state);
                 }
-                let _ = window.hide();
                 #[cfg(target_os = "macos")]
                 let _ = window.app_handle().set_dock_visibility(false);
             }
@@ -141,6 +140,7 @@ pub fn run() {
             let email_settings_path = app_data.join("email-otp-settings.json");
             let pin_path = app_data.join("desktop-pin-unlock.json");
             let biometric_path = app_data.join("desktop-biometric-unlock.json");
+            let lan_peer_trust_path = app_data.join("lan-peer-trust.json");
             let vault_path_record = app_data.join("vault-path");
             let vault_path = load_vault_path(&vault_path_record, app_data.join("vaultmesh.vault"));
             let runtime = Arc::new(Mutex::new(
@@ -602,15 +602,20 @@ pub fn run() {
                     "desktop-biometric",
                 ))),
                 pin: Arc::new(Mutex::new(PinQuickUnlockService::new(pin_path))),
+                lan_pairing: Arc::new(Mutex::new(LanPairingService::new(lan_peer_trust_path))),
                 vault_path_record,
             };
             app.manage(state.clone());
             agent_unlock_window::prepare_agent_unlock_window(app.handle());
             agent_authorization_window::prepare_agent_authorization_window(app.handle());
             #[cfg(any(target_os = "macos", target_os = "windows"))]
+            let lan_session_state = state.clone();
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
             let update_state = state.clone();
             let app_handle = app.handle().clone();
             std::thread::spawn(move || monitor_idle_lock(app_handle, state));
+            #[cfg(any(target_os = "macos", target_os = "windows"))]
+            std::thread::spawn(move || monitor_lan_session_lock(lan_session_state));
             let email_state = app.state::<RuntimeState>().inner().clone();
             let email_app = app.handle().clone();
             std::thread::spawn(move || monitor_email_otp(email_app, email_state));
@@ -649,7 +654,122 @@ pub fn run() {
         if matches!(event, RunEvent::Exit | RunEvent::ExitRequested { .. }) {
             cleanup_app_state(handle);
         }
+        if matches!(event, RunEvent::Resumed)
+            && let Some(state) = handle.try_state::<RuntimeState>()
+        {
+            // The OS suspends application threads during sleep. Tear down any
+            // sockets and ephemeral material before accepting post-resume work.
+            stop_lan_pairing(&state);
+        }
     });
+}
+
+fn stop_lan_pairing(state: &RuntimeState) {
+    if let Ok(mut lan_pairing) = state.lan_pairing.lock() {
+        lan_pairing.stop();
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn monitor_lan_session_lock(state: RuntimeState) {
+    loop {
+        std::thread::sleep(Duration::from_millis(250));
+        let active = state
+            .lan_pairing
+            .lock()
+            .map(|service| service.is_active())
+            .unwrap_or(false);
+        if active && system_session_locked() {
+            stop_lan_pairing(&state);
+        }
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+fn confirmed_session_lock(observation: Option<bool>) -> bool {
+    matches!(observation, Some(true))
+}
+
+#[cfg(target_os = "macos")]
+fn system_session_locked() -> bool {
+    use core_foundation::{
+        base::{CFType, TCFType},
+        boolean::CFBoolean,
+        dictionary::{CFDictionary, CFDictionaryRef},
+        string::CFString,
+    };
+
+    #[link(name = "CoreGraphics", kind = "framework")]
+    unsafe extern "C" {
+        fn CGSessionCopyCurrentDictionary() -> CFDictionaryRef;
+    }
+
+    let raw = unsafe { CGSessionCopyCurrentDictionary() };
+    if raw.is_null() {
+        return confirmed_session_lock(None);
+    }
+    let session: CFDictionary<CFString, CFType> = unsafe { TCFType::wrap_under_create_rule(raw) };
+    let key = CFString::new("CGSSessionScreenIsLocked");
+    confirmed_session_lock(
+        session
+            .find(&key)
+            .and_then(|value| value.downcast::<CFBoolean>())
+            .map(bool::from),
+    )
+}
+
+#[cfg(target_os = "windows")]
+fn system_session_locked() -> bool {
+    use std::{ffi::c_void, ptr::null_mut};
+    use windows_sys::Win32::System::RemoteDesktop::{
+        WTS_CURRENT_SERVER_HANDLE, WTS_CURRENT_SESSION, WTS_SESSIONSTATE_LOCK,
+        WTS_SESSIONSTATE_UNLOCK, WTSFreeMemory, WTSINFOEXW, WTSQuerySessionInformationW,
+        WTSSessionInfoEx,
+    };
+
+    let mut buffer = null_mut();
+    let mut bytes = 0_u32;
+    if unsafe {
+        WTSQuerySessionInformationW(
+            WTS_CURRENT_SERVER_HANDLE,
+            WTS_CURRENT_SESSION,
+            WTSSessionInfoEx,
+            &mut buffer,
+            &mut bytes,
+        )
+    } == 0
+        || buffer.is_null()
+    {
+        return confirmed_session_lock(None);
+    }
+    let observation = if bytes as usize >= std::mem::size_of::<WTSINFOEXW>() {
+        let info = unsafe { &*buffer.cast::<WTSINFOEXW>() };
+        if info.Level == 1 {
+            match unsafe { info.Data.WTSInfoExLevel1.SessionFlags } {
+                value if value == WTS_SESSIONSTATE_LOCK as i32 => Some(true),
+                value if value == WTS_SESSIONSTATE_UNLOCK as i32 => Some(false),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+    unsafe { WTSFreeMemory(buffer.cast::<c_void>()) };
+    confirmed_session_lock(observation)
+}
+
+#[cfg(all(test, any(target_os = "macos", target_os = "windows")))]
+mod session_lock_tests {
+    use super::confirmed_session_lock;
+
+    #[test]
+    fn ct_lan_pairing_only_a_confirmed_session_lock_stops_discovery() {
+        assert!(confirmed_session_lock(Some(true)));
+        assert!(!confirmed_session_lock(Some(false)));
+        assert!(!confirmed_session_lock(None));
+    }
 }
 
 pub(super) fn cleanup_app_state(handle: &AppHandle) {
@@ -692,6 +812,7 @@ pub(super) fn cleanup_app_state(handle: &AppHandle) {
     if let Ok(mut requests) = state.api_requests.lock() {
         requests.clear();
     }
+    stop_lan_pairing(&state);
     ssh_external::clear_launches(&state.ssh_launch_directory);
 }
 

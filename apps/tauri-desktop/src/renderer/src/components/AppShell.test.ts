@@ -1,10 +1,18 @@
 import { describe, expect, it } from 'vitest';
 
-import { agentPairingUsesMainWindow, isFocusedItemEditor, isFocusedLoginEditor, usesViewportShell } from './AppShell';
+import { agentPairingUsesMainWindow, getVaultPageHeader, isFocusedItemEditor, isFocusedLoginEditor, usesViewportShell } from './AppShell';
 
 describe('CT-AGENT-CODEX-001 local Agent UI routing', () => {
   it('keeps first-time Agent pairing out of the main window', () => {
     expect(agentPairingUsesMainWindow()).toBe(false);
+  });
+});
+
+describe('CT-LAN-PAIRING-001 nearby devices routing', () => {
+  it('uses a dedicated security subpage without implying sync', () => {
+    const header = getVaultPageHeader('/nearby');
+    expect(header?.title).toBe('附近设备');
+    expect(header?.description).not.toContain('同步');
   });
 });
 

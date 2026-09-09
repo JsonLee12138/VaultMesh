@@ -1,0 +1,37 @@
+id: "CHG-2026-039-retire-legacy-ffi-c-abi"
+title: "退休未交付的 vault-ffi C ABI"
+type: "migration"
+status: "Verified"
+spec_revision: "0.0.9-review"
+target_release: null
+requirements:
+  - "REQ-TAURI-002"
+  - "NFR-COMPAT-001"
+tests:
+  - "CT-TAURI-SOURCE-001"
+  - "CT-TAURI-SOURCE-002"
+adrs:
+  - "ADR-0005"
+  - "ADR-0006"
+context_refs:
+  - "docs/03-functional-requirements.md#REQ-TAURI-002 Tauri-only 桌面源码与运行时"
+  - "docs/03-functional-requirements.md#NFR-COMPAT-001 版本兼容"
+  - "docs/04-architecture.md#Tauri 边界"
+  - "docs/07-test-release-plan.md#GATE-3 Desktop runtime"
+  - "docs/08-traceability.md"
+  - "docs/09-document-governance.md"
+related_changes:
+  - "CHG-2026-002-native-desktop-migration"
+  - "CHG-2026-008-electron-native-source-removal"
+affected_surfaces:
+  - "crates/vault-ffi"
+  - "apps/tauri-desktop/src-tauri"
+  - "Tauri source-ownership verification"
+  - "current architecture and traceability documentation"
+affected_formats:
+  - "Native ABI 1 (retired)"
+affected_versions:
+  - "0.0.9-review"
+security_impact: "Removes the unshipped C pointer and caller-owned buffer surface. Vault format, Tauri commands, Browser RPC, Agent IPC and secrets lifecycle remain unchanged."
+migration: "No Vault data, settings, pairing or wire-format migration. The retired C ABI has no in-repository or release consumer; restoring it requires reverting this Work before an external native client is introduced."
+supersedes: []

@@ -639,6 +639,28 @@ export const DEFAULT_SECURITY_SETTINGS: z.infer<typeof SecuritySettingsSchema> =
   copySshPasswordOnLaunch: true,
 };
 
+export const LanNearbyDeviceSchema = z.object({
+  pairingRef: z.string().regex(/^lan-peer-[a-f0-9]{32}$/),
+  status: z.enum(['unverified', 'connected']),
+}).strict();
+export const LanPendingPairingSchema = z.object({
+  pairingRef: z.string().regex(/^lan-peer-[a-f0-9]{32}$/),
+  safetyCode: z.string().regex(/^\d{6}$/),
+  expiresAt: z.number().int().nonnegative(),
+}).strict();
+export const LanTrustedPeerSchema = z.object({
+  pairingRef: z.string().regex(/^lan-peer-[a-f0-9]{32}$/),
+  label: z.string().min(1).max(64),
+  protocolMajor: z.literal(1),
+}).strict();
+export const LanPairingStatusSchema = z.object({
+  discoverable: z.boolean(),
+  expiresAt: z.number().int().nonnegative().nullable(),
+  nearby: z.array(LanNearbyDeviceSchema).max(32),
+  pending: z.array(LanPendingPairingSchema).max(32),
+  trusted: z.array(LanTrustedPeerSchema).max(32),
+}).strict();
+
 export type MasterPasswordInput = z.infer<typeof MasterPasswordInputSchema>;
 export type PinInput = z.infer<typeof PinInputSchema>;
 export type PinSetup = z.infer<typeof PinSetupSchema>;
@@ -699,6 +721,10 @@ export type PasswordHealthReport = z.infer<typeof PasswordHealthReportSchema>;
 export type BiometricStatus = z.infer<typeof BiometricStatusSchema>;
 export type PinStatus = z.infer<typeof PinStatusSchema>;
 export type SecuritySettings = z.infer<typeof SecuritySettingsSchema>;
+export type LanNearbyDevice = z.infer<typeof LanNearbyDeviceSchema>;
+export type LanPairingStatus = z.infer<typeof LanPairingStatusSchema>;
+export type LanPendingPairing = z.infer<typeof LanPendingPairingSchema>;
+export type LanTrustedPeer = z.infer<typeof LanTrustedPeerSchema>;
 export type RevealedPassword = z.infer<typeof RevealedPasswordSchema>;
 
 export * from './service-contracts';

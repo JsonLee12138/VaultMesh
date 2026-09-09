@@ -8,6 +8,10 @@
 
 范围外风险：已被攻陷的 OS/process/browser/keylogger/accessibility tool、攻击者观察已授权 session、用户提交秘密后的远端服务泄漏、当前范围外的 sync/share/account recovery。
 
+## LAN peer pairing
+
+LAN peer discovery 默认关闭且只在用户显式开启的有限窗口内运行。mDNS 记录是未认证输入，不能包含用户、主机、Vault 或秘密数据，也不能单独授予信任。首次 TLS 会话必须由双方核对同一安全短码并确认；双方还必须交换本地持久化成功状态，任一端失败时不得进入 connected。已配对身份固定到 OS-protected proof，证书漂移、记录损坏、取消、超时或撤销均拒绝。LAN service 不接触 Vault runtime、Agent broker、Browser RPC、clipboard、renderer persistence、analytics 或 crash payload。
+
 ## Vault 与文件边界
 
 - `vault-core` 唯一拥有加密、serialization、validation、unlocked state 和 rollback。

@@ -1,0 +1,51 @@
+id: "CHG-2026-041-browser-extension-compatibility-hardening"
+title: "浏览器扩展兼容性与交互韧性增强"
+type: "feature"
+status: "Implementing"
+spec_revision: "0.1.50-active"
+target_release: null
+requirements:
+  - "REQ-BROWSER-001"
+  - "REQ-BROWSER-002"
+  - "REQ-AUTOFILL-001"
+  - "REQ-AUTOFILL-002"
+tests:
+  - "CT-BROWSER-001"
+  - "CT-BROWSER-002"
+  - "CT-AUTOFILL-001"
+  - "CT-AUTOFILL-002"
+  - "CT-AUTOFILL-003"
+  - "AT-BROWSER-001"
+  - "AT-BROWSER-FIREFOX-001"
+  - "AT-AUTOFILL-001"
+  - "AT-AUTOFILL-002"
+adrs:
+  - "ADR-0003"
+context_refs:
+  - "docs/02-scope-matrix.md#Browser 能力"
+  - "docs/03-functional-requirements.md#REQ-BROWSER-001 配对与独立授权"
+  - "docs/03-functional-requirements.md#REQ-BROWSER-002 RPC 策略"
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-001 安全 discovery 与 fill"
+  - "docs/03-functional-requirements.md#REQ-AUTOFILL-002 显式选择与捕获"
+  - "docs/04-architecture.md#所有权"
+  - "docs/06-security-privacy.md#Browser 与网页边界"
+  - "specs/browser-integration.md#Transport 与 authorization"
+  - "specs/browser-integration.md#Discovery 与 fill"
+  - "specs/browser-integration.md#Capture"
+  - "docs/07-test-release-plan.md#GATE-4 Browser"
+  - "docs/08-traceability.md#REQ-AUTOFILL-001"
+  - "docs/08-traceability.md#REQ-AUTOFILL-002"
+related_changes:
+  - "CHG-2026-038-form-semantic-classification"
+  - "BUG-2026-020-inline-autofill-reprompt-feedback"
+affected_surfaces:
+  - "browser-extension-content"
+  - "browser-extension-background"
+  - "browser-extension-popup"
+  - "browser-rpc-policy"
+  - "tauri-browser-broker"
+affected_formats: []
+affected_versions: []
+security_impact: "high: compatibility work may alter page discovery, secret assignment and capture paths; extension remains a transient remote UI and all existing authorization, origin/document binding and user-confirmation gates remain mandatory."
+migration: "none"
+supersedes: []

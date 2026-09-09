@@ -54,6 +54,9 @@ export function usesViewportShell(pathname: string): boolean {
 }
 
 export function getVaultPageHeader(pathname: string): VaultPageHeader | null {
+  if (pathname === '/nearby') {
+    return { title: '附近设备', description: '发现并验证同一局域网中的 VaultMesh 桌面端' };
+  }
   if (pathname === '/vault/security/agent') {
     return { title: '本地 Agent 能力代理', description: '管理 MCP 解锁、授权、连接与审计' };
   }
@@ -99,7 +102,7 @@ export function AppShell() {
   const navigate = useNavigate();
   const pathname = useLocation({ select: (location) => location.pathname });
   const isSecurityCenter = pathname.startsWith('/vault/security');
-  const isAgentManagement = pathname === '/vault/security/agent';
+  const isSecuritySubpage = pathname === '/vault/security/agent' || pathname === '/nearby';
   const isEmailOtp = pathname === '/vault/email-otp';
   const isItemEditor = isFocusedItemEditor(pathname);
   const isViewportShell = usesViewportShell(pathname);
@@ -160,8 +163,8 @@ export function AppShell() {
                   variant="ghost"
                   size="icon"
                   type="button"
-                  aria-label={isAgentManagement ? '返回安全中心' : '返回保险库'}
-                  onClick={() => void navigate({ to: isAgentManagement ? '/vault/security' : '/vault' })}
+                  aria-label={isSecuritySubpage ? '返回安全中心' : '返回保险库'}
+                  onClick={() => void navigate({ to: pathname === '/nearby' ? '/vault/security' : isSecuritySubpage ? '/vault/security' : '/vault' })}
                 >
                   <ArrowLeftIcon />
                 </Button>

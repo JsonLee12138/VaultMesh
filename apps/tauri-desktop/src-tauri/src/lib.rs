@@ -84,6 +84,7 @@ mod desktop_startup;
 mod electron_migration;
 mod email_otp;
 mod import_service;
+mod lan_pairing;
 mod passkey_service;
 mod pin_service;
 mod recovery_code_command;
@@ -153,6 +154,7 @@ use electron_migration::{
 };
 use email_otp::{EmailOtpService, EmailScanExecution, EmailScanPlan};
 use import_service::{ImportService, MAX_IMPORT_FILE_BYTES, validate_source};
+use lan_pairing::LanPairingService;
 use pin_service::PinQuickUnlockService;
 use recovery_code_command::import_recovery_code_file;
 use recovery_code_file::PreparedRecoveryCodeFile;
@@ -231,6 +233,7 @@ struct RuntimeState {
     email_otp: Arc<Mutex<EmailOtpService>>,
     biometric: Arc<Mutex<BiometricQuickUnlockService>>,
     pin: Arc<Mutex<PinQuickUnlockService>>,
+    lan_pairing: Arc<Mutex<LanPairingService>>,
     vault_path_record: PathBuf,
 }
 
@@ -306,6 +309,19 @@ struct PinSetupInput {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct AgentClientIdInput {
     client_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct LanPeerRenameInput {
+    pairing_ref: String,
+    label: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct LanPairingRefInput {
+    pairing_ref: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -432,6 +448,9 @@ async fn desktop_invoke(
 
     if operation.starts_with("agent.") {
         return handle_agent_admin(&state, &operation, input);
+    }
+    if operation.starts_with("lan.") {
+        return handle_lan_pairing(&state, &operation, input);
     }
 
     if let Some(import_operation) = ImportOperation::parse(&operation) {
@@ -721,6 +740,80 @@ async fn desktop_invoke(
             copy_with_expiry(&app, &state, username)
         }
         _ => Err("该桌面操作不被允许。".into()),
+    }
+}
+
+fn handle_lan_pairing(
+    state: &RuntimeState,
+    operation: &str,
+    input: Value,
+) -> Result<Value, String> {
+    let mut service = state
+        .lan_pairing
+        .lock()
+        .map_err(|_| "局域网配对服务暂时不可用。".to_owned())?;
+    match operation {
+        "lan.pairing.status" | "lan.discovery.scan" => {
+            require_empty_object(&input)?;
+            serde_json::to_value(service.status(std::time::Instant::now(), unix_millis()))
+                .map_err(|_| "局域网配对服务暂时不可用。".to_owned())
+        }
+        "lan.discovery.start" => {
+            require_empty_object(&input)?;
+            service.start(std::time::Instant::now())?;
+            serde_json::to_value(service.status(std::time::Instant::now(), unix_millis()))
+                .map_err(|_| "局域网配对服务暂时不可用。".to_owned())
+        }
+        "lan.discovery.stop" => {
+            require_empty_object(&input)?;
+            service.stop();
+            serde_json::to_value(service.status(std::time::Instant::now(), unix_millis()))
+                .map_err(|_| "局域网配对服务暂时不可用。".to_owned())
+        }
+        "lan.pairing.list" => {
+            require_empty_object(&input)?;
+            serde_json::to_value(service.list_trusted()?)
+                .map_err(|_| "局域网配对服务暂时不可用。".to_owned())
+        }
+        "lan.pairing.begin" => {
+            let input: LanPairingRefInput =
+                serde_json::from_value(input).map_err(|_| "请求参数无效。")?;
+            service.begin(&input.pairing_ref)?;
+            Ok(json!({ "started": true }))
+        }
+        "lan.pairing.confirm" => {
+            let input: LanPairingRefInput =
+                serde_json::from_value(input).map_err(|_| "请求参数无效。")?;
+            service.resolve(&input.pairing_ref, true)?;
+            Ok(json!({ "resolved": true }))
+        }
+        "lan.pairing.cancel" => {
+            let input: LanPairingRefInput =
+                serde_json::from_value(input).map_err(|_| "请求参数无效。")?;
+            service.resolve(&input.pairing_ref, false)?;
+            Ok(json!({ "resolved": true }))
+        }
+        "lan.pairing.revoke" => {
+            let input: LanPairingRefInput =
+                serde_json::from_value(input).map_err(|_| "请求参数无效。")?;
+            service.revoke(&input.pairing_ref)?;
+            Ok(json!({ "revoked": true }))
+        }
+        "lan.pairing.rename" => {
+            let rename: LanPeerRenameInput =
+                serde_json::from_value(input).map_err(|_| "请求参数无效。")?;
+            let label = rename.label.trim();
+            if rename.pairing_ref.len() > 64
+                || label.is_empty()
+                || label.chars().count() > 64
+                || label.len() > 256
+            {
+                return Err("请求参数无效。".to_owned());
+            }
+            service.rename(&rename.pairing_ref, label)?;
+            Ok(json!({ "renamed": true }))
+        }
+        _ => Err("不支持该桌面操作。".to_owned()),
     }
 }
 

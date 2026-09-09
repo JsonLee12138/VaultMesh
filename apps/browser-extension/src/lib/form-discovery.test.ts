@@ -163,7 +163,7 @@ describe("discoverFields", () => {
       <form id="change"><input id="old-password" type="password" autocomplete="current-password"><input id="new-password" type="password" autocomplete="new-password"></form>
       <input id="otp" autocomplete="one-time-code">
       <textarea id="api-key" aria-label="API key"></textarea>
-      <div id="ssh-key" contenteditable="true" aria-label="SSH private key"></div>
+      <div id="ssh-key" contenteditable="plaintext-only" aria-label="SSH private key"></div>
       <input id="expiry" type="month" autocomplete="cc-exp">
     `;
     document.querySelectorAll<HTMLElement>("input, textarea, [contenteditable]").forEach(makeVisible);
