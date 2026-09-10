@@ -162,8 +162,10 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 ### REQ-SEC-002 Quick unlock、锁定与剪贴板
 
 - 必须：quick unlock 只包装随机 Vault Key，不保存主密码；锁定撤销授权；剪贴板值按配置过期。
+- 必须：macOS 桌面端已启用 Touch ID 时，每次进入锁定解锁页必须自动发起一次系统 Touch ID；
+  取消或失败后保留手动重试和主密码/PIN fallback，不得因重渲染重复弹出认证。
 - 验收：`CT-SEC-002`、`CT-NATIVE-PRIVILEGED-001`、
-  `CT-NATIVE-QUICK-UNLOCK-001`、`CT-NATIVE-CLIPBOARD-001`、`AT-SEC-001`、
+  `CT-NATIVE-QUICK-UNLOCK-001`、`CT-NATIVE-CLIPBOARD-001`、`CT-TAURI-DESKTOP-001`、`AT-SEC-001`、
   `AT-NATIVE-MACOS-003`。
 
 ### REQ-SEC-003 Desktop 窗口内容捕获保护
@@ -389,7 +391,10 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
   已配对客户端并行连接共享一个 memory-only lease。desktop、browser、不同 client 或不同 Vault 已解锁不能创建
   或借用该 lease；共享身份只能由 Rust broker 推导。用户可以在安全中心或当前独立 Agent unlock window 显式切换
   scope；unlock window 只能修改该非秘密 enum。用户只能在独立、置顶、content-protected 且仅具有 Agent unlock
-  typed API 的系统窗口中以主密码或 Agent 专用 PIN/biometric 解锁。解锁成功可以在 30 秒内继续同一调用；
+  typed API 的系统窗口中以主密码或 Agent 专用 PIN/biometric 解锁。桌面端启用 Touch ID 时，privileged runtime
+  必须同步创建使用独立 record 与 OS credential namespace 的 Agent Touch ID 凭据；Agent unlock window 检测到该凭据后
+  必须为每个新 unlock request 自动尝试一次 Touch ID，失败或取消后明确显示错误并保留支持 Enter 与按钮提交的主密码表单。
+  解锁成功可以在 30 秒内继续同一调用；
   超时后窗口可以保留，但后续必须由显式重试使用新 lease。MCP/IPC 不得存在接收 factor 的 unlock operation。
 - 必须：同一 unlock scope 内的并发 Vault 调用必须合并为一个 pending unlock request，单次成功 factor 必须唤醒
   该 request 的全部等待调用；同一窗口已经可见时，重复等待不得反复显示、刷新或抢焦点。已完成 request 不得在
