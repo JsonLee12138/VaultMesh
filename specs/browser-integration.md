@@ -41,6 +41,8 @@ Native Messaging 使用浏览器特定 manifest，不能共享一份宽松 allow
 - Chrome 与 Firefox Host connection 继续使用既有每连接 authorization/session 生命周期；任一浏览器
   都不得把配对状态、Vault response 或受保护值写入 extension storage。
 
+macOS 正式构建每次启动必须从当前 desktop executable 的同目录定位 `vaultmesh-native-host`，先确认它是非空普通可执行文件，再幂等写入用户级 Chrome、Edge、Mozilla 的生产 Host manifest 和既有 v2 Host 配置。App 被移动后必须刷新 manifest 路径；文件缺失、旧路径或过宽文件权限必须可修复，内容和权限已正确时不得重写。各文件必须原子提交并保持 `0600`，新建目录使用 `0700`；不安全的目标或写入失败只报告非秘密错误类别，不读取、覆盖或重建配对记录及 OS 凭据。debug desktop 不执行此生产注册，仍由 `browser:dev` 管理开发 Host/profile。普通与 updater App bundle 必须包含 Native Host，macOS 构建和本地安装流程必须检查 App 内的 sidecar，而不能靠签名后的手工补拷贝掩盖漏包。显式卸载注册前必须先退出客户端，否则后续正式版启动会重新注册。
+
 `pnpm extension:release:zip:all` 必须从同一 source/version 生成命名稳定的 Chrome 与 Firefox ZIP，
 解析内部 manifest、验证目标/身份/permission/版本、执行 ZIP 完整性检查，并排除 source map、环境文件、
 凭据和非发布输出。完整 Review workflow 显式使用 `sideload-review` 身份，在三个桌面目标成功后把两个
@@ -98,7 +100,9 @@ Discovery 只允许 field metadata、origin/document identity、handle 和 empty
 
 场景识别必须以字段角色和表单簇为先：content script 在同一真实 form，或无 form 时的最小可见伪表单容器内识别 account、current-password、new-password、confirmation-password 和 OTP；再按显式 `autocomplete`/直接字段元数据、同簇密码结构、form action/page path/submit 语义、排除导航链接后的弱上下文分层判定。弱页面文案不得跨表单覆盖局部强信号，尤其“注册/创建账户”导航链接不得把账号 + 当前密码 + 登录提交按钮的簇判为 signup。冲突或低置信度必须保守回落；只有可靠 new-password 角色可以展示密码生成器。可靠 password-change 簇内的显式 Login 选择成功填入 current-password 后，content script 可以按本地生成器设置生成一次新密码，并且必须只同步写入同簇、仍为空的 new-password/confirmation-password；任一目标已有值时不得自动生成或覆盖。诊断结果只能包含有限理由代码和分数，不得包含字段 value。
 
-Content script 可以处理标准 input、textarea、select、contenteditable、open shadow root、extension 可访问的 closed root 以及允许执行的 same/cross-origin frame。DOM mutation 和 same-document navigation 后 debounce rescan。Canvas-only control 和不可访问 closed root 为 unsupported。
+Content script 可以处理标准 input、textarea、select、contenteditable、open shadow root、extension 可访问的 closed root 以及允许执行的 same/cross-origin frame。DOM mutation 不得触发整页 discovery；same-document navigation、BFCache 恢复和显式 rescan 请求各重新执行一次发现。新增、显现或语义改变的登录/OTP 表单必须在固定 100 毫秒窗口内通过局部无值发现发送 ready，background 才开始有界轮询；不得依赖初始 ready 或手工 rescan 才启动。局部 pass 必须覆盖发现、角色/簇判断及目标采集，无 form 控件不得隐式枚举 document；已有伪表单的分步插入必须保留原簇归属，pass 退出后的正常 target resolve 必须仍然成立。Canvas-only control 和不可访问 closed root 为 unsupported。
+
+Rescan 调度必须按 mutation 记录判定相关性：字段、表单或包含字段的容器的增删，以及字段自身或含字段容器的属性变化与语义文本变化，只可以触发局部无值发现与当前字段的有界重验；非字段节点的 `class`/`style` churn、无关列表标记的增删和插件自身注入 UI 的变化不得触发任何工作。任何 mutation 都不得触发整页 `querySelectorAll("*")` 遍历：每个非插件 UI 的新插入子树都必须观察其中的 shadow root（观察代价与被插入内容成正比，不能被字段相关性门禁跳过）；局部发现与已知局部簇追踪各最多 256 个 scope，固定窗口不得因连续 mutation 无限延期，导航、BFCache 冻结及 dispose 必须清理队列。字段失去资格时必须在 100 毫秒内撤下图标和菜单，相关性必须沿 composed 祖先跨 ShadowRoot.host，并覆盖同簇标签等语义变化。单次 discovery 必须在同一 pass 内一次性枚举文档控件，并复用该 pass 的角色、簇、可见性和候选提交控件结论；DOM 访问量必须与文档规模成正比，禁止按字段数 × 祖先深度重复遍历全文档。输入事件只允许更新本次填充已记录控件的编辑位，不得重新运行字段分类或 discovery。回归以 `CT-AUTOFILL-001` 的 DOM 工作计数为准。
 
 内联资格判断必须先排除非填充用途和不可交互字段，再检查字段自身的标准 autocomplete、词语边界和同簇角色；不得仅以 checkout、SSH 或 developer-secret 场景为整个表单授予同一填充类型。Discovery 可以保留供显式 custom-field 匹配的未知字段，但这不自动赋予其页内图标。Mutation 后与候选响应落地前必须重验资格。菜单必须支持 Escape、Tab、方向键与输入法组合输入，位置必须限制在当前 frame 视口内。
 

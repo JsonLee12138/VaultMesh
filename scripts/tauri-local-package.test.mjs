@@ -15,24 +15,21 @@ test("local package asks Tauri for the app bundle only", () => {
 test("local package prepares the Browser Host sidecar before Tauri bundles the app", () => {
   const prepare = script.indexOf('"prepare-browser-host-sidecar.mjs"');
   const bundle = script.indexOf('"tauri", "build", "--bundles", "app"');
-  const host = script.indexOf('const builtHost = path.join(workspace, "target", agentTarget, "release", "vaultmesh-native-host");');
   assert.ok(prepare >= 0);
-  assert.ok(host > prepare);
-  assert.ok(bundle > host);
+  assert.ok(bundle > prepare);
 });
 
-test("local package bundles the non-secret Agent MCP shim before signing", () => {
-  const build = script.indexOf('"prepare-agent-sidecar.mjs"');
-  const bundled = script.indexOf('await access(path.join(packagedApp, "Contents", "MacOS", "vaultmesh-agent-mcp"));');
+test("CT-BROWSER-PACKAGE-001: local package verifies Tauri-bundled sidecars before signing without patching them", () => {
+  const prepare = script.indexOf('"prepare-agent-sidecar.mjs"');
+  const bundle = script.indexOf('"tauri", "build", "--bundles", "app"');
+  const verify = script.indexOf('await verifyPackagedMacOSSidecars(packagedApp);');
   const sign = script.indexOf('await run("codesign", ["--force", "--deep", "--sign", "-", packagedApp]);');
-  assert.ok(build >= 0);
-  assert.ok(bundled > build);
-  assert.ok(sign > bundled);
-  assert.match(
-    script,
-    /const builtAgentMcp = path\.join\(workspace, "target", agentTarget, "release", "vaultmesh-agent-mcp"\);/,
-    "the sidecar verification path must be defined for the host target",
-  );
+  assert.ok(prepare >= 0);
+  assert.ok(bundle > prepare);
+  assert.ok(verify > bundle);
+  assert.ok(sign > verify);
+  assert.doesNotMatch(script, /\b(?:cp|chmod)\([^\n]*vaultmesh-(?:native-host|agent-mcp)/);
+  assert.doesNotMatch(script, /\bbuilt(?:Host|AgentMcp)\b/);
 });
 
 test("local package verifies artifacts before replacing the installed app", () => {

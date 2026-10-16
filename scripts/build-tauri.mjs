@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { lstat } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 
@@ -14,6 +15,24 @@ const tauriCli = require.resolve("@tauri-apps/cli/tauri.js");
 const tauriConfiguration = JSON.parse(
   readFileSync(path.join(desktopWorkspace, "src-tauri", "tauri.conf.json"), "utf8"),
 );
+const tauriSidecarConfiguration = JSON.parse(
+  readFileSync(path.join(desktopWorkspace, "src-tauri", "tauri.agent.conf.json"), "utf8"),
+);
+
+export async function verifyPackagedMacOSSidecars(appPath) {
+  for (const sidecar of tauriSidecarConfiguration.bundle.externalBin) {
+    const sidecarPath = path.join(appPath, "Contents", "MacOS", path.basename(sidecar));
+    let metadata;
+    try {
+      metadata = await lstat(sidecarPath);
+    } catch (error) {
+      throw new Error(`Tauri package sidecar 缺失：${sidecarPath}`, { cause: error });
+    }
+    if (!metadata.isFile() || metadata.size === 0 || (metadata.mode & 0o111) === 0) {
+      throw new Error(`Tauri package sidecar 必须是非空普通可执行文件：${sidecarPath}`);
+    }
+  }
+}
 
 export function parseTauriBuildArguments(arguments_) {
   const options = {
@@ -95,7 +114,7 @@ export function updaterBuildConfig(environment, version, { includeMsi = false } 
     version,
     bundle: {
       createUpdaterArtifacts: true,
-      externalBin: ["binaries/vaultmesh-agent-mcp"],
+      externalBin: [...tauriSidecarConfiguration.bundle.externalBin],
     },
     plugins: {
       updater: {
@@ -182,6 +201,12 @@ export async function buildTauri({
   if (verbose) arguments_.push("--verbose");
   const invocation = tauriCliInvocation(arguments_);
   await run(invocation.command, invocation.arguments, buildEnvironment, invocation.cwd);
+  if (target ? target.endsWith("-apple-darwin") : process.platform === "darwin") {
+    await verifyPackagedMacOSSidecars(path.join(
+      workspace, "target", ...(target ? [target] : []), "release", "bundle", "macos",
+      `${tauriConfiguration.productName}.app`,
+    ));
+  }
   return buildEnvironment.VAULTMESH_BROWSER_EXTENSION_ID;
 }
 

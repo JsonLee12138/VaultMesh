@@ -36,7 +36,10 @@ describe("CT-AUTOFILL-001 content assignment lifecycle", () => {
     document.body.innerHTML = '<form id="one"><input autocomplete="username"><input type="password"></form><form id="two"><input autocomplete="username"><input type="password"></form>';
     document.querySelectorAll("input").forEach((input) => Object.defineProperty(input, "getClientRects", { value: () => [{ width: 240, height: 32 }] }));
     await vi.advanceTimersByTimeAsync(500);
-    const ready = vi.mocked(browser.runtime.sendMessage).mock.calls.map(([message]) => message as { kind?: string; target?: AutofillTarget }).find((message) => message.kind === "vaultmesh.autofill-page-ready" && message.target);
+    // Replacing the document is not discovered by a background scan; the
+    // explicit rescan (what the background sends on navigation) reports it.
+    await receive({ kind: "vaultmesh.autofill-rescan" });
+    const ready = vi.mocked(browser.runtime.sendMessage).mock.calls.map(([message]) => message as { kind?: string; target?: AutofillTarget }).filter((message) => message.kind === "vaultmesh.autofill-page-ready" && message.target).at(-1);
     expect(ready?.target).toBeDefined();
     const scoped = await receive({ kind: "vaultmesh.discover-fields", requestId: crypto.randomUUID(), target: ready!.target }) as DiscoveryFrame;
     expect(scoped.fields).toHaveLength(2);

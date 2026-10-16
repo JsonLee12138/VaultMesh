@@ -581,6 +581,7 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 - 必须：macOS/Windows 桌面包分别安装 Chrome/Edge `allowed_origins` 与 Firefox
   `allowed_extensions` Native Messaging manifest。Host 必须在读取配对 secret 前验证精确的编译期
   Chrome origin，或精确的 Firefox manifest path 与 Gecko ID；缺失、伪造或混合参数必须拒绝。
+- 必须：macOS 正式构建的桌面客户端每次启动必须幂等安装或修复当前用户的 Chrome/Edge/Firefox Host 注册，Host 路径以实际 App 内的可执行文件位置为准，不依赖 Node、开发脚本或固定 `/Applications` 路径；注册不得重建配对或借用桌面解锁授权。普通与 updater 打包都必须包含可执行的 Native Host，缺失时打包必须失败。
 - 必须：完整 Review workflow 从同一 source SHA 构建并验证两个扩展 ZIP，并在桌面 R2 发布成功后，
   先把它们发布到同一版本的不可变 R2 `releases/v<version>/` 路径并验证公网下载内容，再与四个桌面
   安装包一起上传到无 Git Tag 的 GitHub Draft Prerelease；扩展 ZIP 不进入桌面 updater manifest，
@@ -593,7 +594,8 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 
 - 必须：discovery 不发送页面现有值；assignment 绑定 origin/tab/frame/document/handle/expiry；自动填充仅限符合策略的空 login/OTP 字段且不提交表单。
 - 必须：页内选择和页面自动填充使用来源 frame 内的短期不透明目标引用，将 discovery 限定到所属表单簇；主密码二次确认不得丢失原目标或覆盖策略。目标过期、移动、失去资格或文档改变时必须拒绝，不得回退全页填充；逐次写入必须继续校验表单归属。
-- 必须：自动 discovery 的 mutation burst 合并为 100 毫秒调度，不因连续 mutation 无限延期；collector 忙时只延后发现，不重试已发出的页面写入。已尝试的表单簇必须在整页目标采集前排除；首次 focus 可以等待正在进行的只读 capture 采集，但不得复用过期 DOM 绑定。图标失效必须立即撤下，重建可以短暂合并；同一目标的在途候选读取必须去重。
+- 必须：mutation 不得触发整页 discovery；相关 mutation 只可以在固定 100 毫秒窗口内合并为局部无值发现与当前字段重验，不因连续 mutation 无限延期；collector 忙时只延后发现，不重试已发出的页面写入。已尝试的表单簇必须在整页目标采集前排除；首次 focus 可以等待正在进行的只读 capture 采集，但不得复用过期 DOM 绑定。图标失效必须立即撤下，重建可以短暂合并；同一目标的在途候选读取必须去重。
+- 必须：mutation 相关性以字段、表单或含字段容器为准：只有它们的增删与属性/语义文本变化可以触发对当前字段的有界重验，无关节点的 `class`/`style` churn、无关列表标记增删和插件自身注入 UI 不得触发任何工作；新插入子树的 shadow root 观察代价必须与被插入内容成正比；新增、显现或语义改变的登录/OTP 表单必须通过局部无值发现恢复自动填充就绪，局部 pass 的簇与目标采集不得隐式回退整页遍历，且必须保留原簇归属重验；跨 ShadowRoot.host 的祖先资格变化及关联标签语义变化也必须使原字段 UI 失效，禁止整页 `querySelectorAll("*")` 遍历。同文档导航、BFCache 恢复和显式 rescan 各重新执行一次发现；单次 discovery 的一次性 DOM 遍历必须与文档规模成正比，禁止按字段数 × 祖先深度重复全文档遍历；输入事件不得触发 discovery，编辑跟踪以本次填充记录的控件为准。
 - 必须：页内填充图标出现后必须为当前短期目标预取只读候选，同一 `targetRef` 的图标点击必须复用在途或已完成读取；点击必须立即展示候选浮层或加载态，不得等待 Broker 往返后才提供视觉反馈。预取结果不得跨字段、导航、失焦或目标期限复用，迟到的 OTP 候选必须清除。
 - 必须：自动 Login 填充不读取未使用的 custom-field profile；显式选择的无值 DOM 采集与只读 profile 可以并行，但两者完成后及最终 assignment 前后仍须重验页面和授权。压缩网站注入脚本仍须保持既有字段识别、写入语义与逐动作安全检查。
 - 必须：页内图标和菜单按具体字段的可填充类型与角色判定；页面或表单场景不得使无关字段获得图标。搜索、筛选、评论、优惠码、图形验证码、禁用和只读字段不得展示填充图标；字段动态失去资格时必须撤下图标并丢弃迟到候选。支付表单内的个人资料字段必须按其自身类型处理，分段 OTP 不得使同簇无关字段被判为验证码。

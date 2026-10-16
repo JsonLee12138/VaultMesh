@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isOtpRequestAction, startAutofillPage } from "./autofill-page";
+import { discoverFields } from "./form-discovery";
 import { InlineAutofillMenu } from "./inline-autofill";
 import {
   DEFAULT_PASSWORD_GENERATOR_OPTIONS,
@@ -106,12 +107,17 @@ describe("startAutofillPage", () => {
     makeVisible(password);
     document.body.append(password);
     await vi.advanceTimersByTimeAsync(160);
-    expect(sendMessage.mock.calls.filter(([message]) => (message as { kind?: string }).kind === "vaultmesh.autofill-page-ready")).toHaveLength(2);
+    const readyCalls = () => sendMessage.mock.calls.filter(([message]) => (message as { kind?: string }).kind === "vaultmesh.autofill-page-ready");
+    // Local discovery restores readiness without an explicit scan.
+    expect(readyCalls()).toHaveLength(2);
+    controller.scan();
+    expect(readyCalls()).toHaveLength(3);
+    expect(discoverFields(document).descriptors.some((field) => field.inputType === "password")).toBe(true);
     expect(JSON.stringify(sendMessage.mock.calls)).not.toContain("private-password");
     controller.dispose();
   });
 
-  it("rescans when a dynamic login form adds ARIA semantic metadata", async () => {
+  it("honors ARIA semantic metadata added after load on the next discovery", async () => {
     vi.useFakeTimers();
     document.body.innerHTML = `<form action="/login"><input id="username" autocomplete="username"><input id="password" type="password"></form>`;
     document.querySelectorAll<HTMLElement>("input").forEach(makeVisible);
@@ -126,6 +132,13 @@ describe("startAutofillPage", () => {
     document.querySelector<HTMLInputElement>("#password")!.setAttribute("aria-label", "Current password");
     await vi.advanceTimersByTimeAsync(160);
 
+    // A late label must not cost a page-wide scan...
+    expect(readyCalls()).toHaveLength(1);
+    // ...but the next discovery must read it, so a one-shot fill stays eligible.
+    const labeled = discoverFields(document).descriptors.find((field) => field.id === "password");
+    expect(labeled?.label).toContain("Current password");
+    expect(labeled?.context).toBe("login");
+    controller.scan();
     expect(readyCalls()).toHaveLength(2);
     expect(readyCalls().every(([message]) => !("fields" in (message as object)))).toBe(true);
     controller.dispose();
@@ -861,18 +874,60 @@ describe("startAutofillPage", () => {
 
     const host = document.createElement("div");
     const shadow = host.attachShadow({ mode: "open" });
-    const password = document.createElement("input");
-    password.type = "password";
-    makeVisible(password);
-    shadow.append(password);
+    shadow.innerHTML = '<form><input autocomplete="username" value="shadow-user"><input type="password" value="shadow-password"></form>';
+    shadow.querySelectorAll<HTMLInputElement>("input").forEach(makeVisible);
     document.body.append(host);
+    // Observing the inserted subtree is what registers the root; a page-wide
+    // scan is not involved and must not be needed.
     await vi.advanceTimersByTimeAsync(160);
 
-    expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({ kind: "vaultmesh.autofill-page-ready" }));
+    // Native submit is not composed, so only the inserted root delivers it.
+    shadow.querySelector("form")!.dispatchEvent(new SubmitEvent("submit", { bubbles: true }));
+    expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "vaultmesh.save-capture",
+      data: { login: { username: "shadow-user", password: "shadow-password" } },
+    }));
     controller.dispose();
   });
 
-  it("discovers a shadow root attached after its custom-element host without another DOM mutation", async () => {
+  it.each([
+    { scenario: "a nested existing root", nested: true, late: false },
+    { scenario: "a directly inserted late host", nested: false, late: true },
+    { scenario: "a nested late host", nested: true, late: true },
+  ])("observes $scenario without a page-wide rescan", async ({ nested, late }) => {
+    vi.useFakeTimers();
+    const sendMessage = vi.fn(async (_message: unknown) => ({}));
+    const controller = startAutofillPage(document, crypto.randomUUID(), sendMessage);
+    try {
+      await vi.advanceTimersByTimeAsync(160);
+      const host = document.createElement("vaultmesh-dynamic-login");
+      const insert = () => {
+        if (nested) {
+          const wrapper = document.createElement("section");
+          wrapper.append(host);
+          document.body.append(wrapper);
+        } else document.body.append(host);
+      };
+      if (late) {
+        insert();
+        await vi.advanceTimersByTimeAsync(160);
+      }
+      const shadow = host.attachShadow({ mode: "open" });
+      shadow.innerHTML = '<form><input autocomplete="username" value="dynamic-user"><input type="password" value="dynamic-password"></form>';
+      shadow.querySelectorAll<HTMLInputElement>("input").forEach(makeVisible);
+      if (!late) insert();
+      await vi.advanceTimersByTimeAsync(600);
+      shadow.querySelector("form")!.dispatchEvent(new SubmitEvent("submit", { bubbles: true }));
+      expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
+        kind: "vaultmesh.save-capture",
+        data: { login: { username: "dynamic-user", password: "dynamic-password" } },
+      }));
+    } finally {
+      controller.dispose();
+    }
+  });
+
+  it("observes a shadow root attached after its custom-element host without another DOM mutation", async () => {
     vi.useFakeTimers();
     document.body.innerHTML = `<vaultmesh-login></vaultmesh-login>`;
     const sendMessage = vi.fn(async (_message: unknown) => ({}));
@@ -881,16 +936,39 @@ describe("startAutofillPage", () => {
 
     const host = document.querySelector<HTMLElement>("vaultmesh-login")!;
     const shadow = host.attachShadow({ mode: "open" });
-    const password = document.createElement("input");
-    password.type = "password";
-    makeVisible(password);
-    shadow.append(password);
+    shadow.innerHTML = '<form><input autocomplete="username" value="late-user"><input type="password" value="late-password"></form>';
+    shadow.querySelectorAll<HTMLInputElement>("input").forEach(makeVisible);
     await vi.advanceTimersByTimeAsync(410);
 
+    // The bounded host tracker must have registered the late root's events.
+    shadow.querySelector("form")!.dispatchEvent(new SubmitEvent("submit", { bubbles: true }));
     expect(sendMessage).toHaveBeenCalledWith(expect.objectContaining({
-      kind: "vaultmesh.autofill-page-ready",
-      documentId: "353370ec-4dc7-4c77-a6e0-f2a4f6e37f03",
+      kind: "vaultmesh.save-capture",
+      data: { login: { username: "late-user", password: "late-password" } },
     }));
+    controller.dispose();
+  });
+
+  it("withdraws the icon when the focused field loses eligibility after a mutation", async () => {
+    vi.useFakeTimers();
+    document.body.innerHTML = `<form><input autocomplete="username"><input id="password" type="password"></form>`;
+    document.querySelectorAll<HTMLElement>("input").forEach(makeVisible);
+    const sendMessage = vi.fn(async (_message: unknown) => ({}));
+    const controller = startAutofillPage(document, crypto.randomUUID(), sendMessage);
+    const readyCalls = () => sendMessage.mock.calls.filter(([message]) => (message as { kind?: string }).kind === "vaultmesh.autofill-page-ready").length;
+    const password = document.querySelector<HTMLInputElement>("#password")!;
+    password.focus();
+    await Promise.resolve();
+    expect(controller.trigger.visible).toBe(true);
+    expect(controller.trigger.target).toBe(password);
+    expect(readyCalls()).toBe(1);
+
+    // Losing eligibility must withdraw the icon within the bounded window and
+    // must not buy a page-wide discovery.
+    password.disabled = true;
+    await vi.advanceTimersByTimeAsync(200);
+    expect(controller.trigger.visible).toBe(false);
+    expect(readyCalls()).toBe(2);
     controller.dispose();
   });
 
@@ -909,7 +987,7 @@ describe("startAutofillPage", () => {
     controller.dispose();
   });
 
-  it("shows the login trigger for username webauthn and rescans when the hidden password step expands", async () => {
+  it("shows the login trigger for username webauthn and offers it once the hidden password step expands", async () => {
     vi.useFakeTimers();
     document.body.innerHTML = `
       <form>
@@ -938,9 +1016,16 @@ describe("startAutofillPage", () => {
     passwordStep.style.height = "40px";
     await vi.advanceTimersByTimeAsync(160);
 
+    // Expanding the step must not cost a document-wide scan...
     const readyAfterExpansion = sendMessage.mock.calls.filter(([message]) => (message as { kind?: string }).kind === "vaultmesh.autofill-page-ready");
     expect(readyAfterExpansion).toHaveLength(2);
     expect((readyAfterExpansion[1]![0] as { signature: string }).signature).toContain("password");
+    // ...the newly visible password field is eligible when it is focused.
+    const passwordField = document.querySelector<HTMLInputElement>("#password")!;
+    passwordField.focus();
+    await Promise.resolve();
+    expect(controller.trigger.visible).toBe(true);
+    expect(controller.trigger.target).toBe(passwordField);
     controller.dispose();
   });
 });

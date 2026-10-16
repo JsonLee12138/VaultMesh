@@ -71,7 +71,11 @@ mod browser_broker_windows;
 #[allow(dead_code)]
 mod browser_development_identity;
 mod browser_fill;
-#[cfg(any(target_os = "windows", test))]
+#[cfg(any(
+    target_os = "windows",
+    all(target_os = "macos", not(debug_assertions)),
+    test
+))]
 mod browser_host_registration;
 #[cfg(target_os = "windows")]
 mod browser_integration_windows;

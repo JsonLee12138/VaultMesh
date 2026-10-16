@@ -1,24 +1,35 @@
-use std::{
-    io,
-    path::{Path, PathBuf},
-};
+use std::io;
+#[cfg(any(target_os = "windows", test))]
+use std::path::{Path, PathBuf};
 
 #[cfg(target_os = "windows")]
 use atomic_write_file::OpenOptions as AtomicOpenOptions;
+#[cfg(any(target_os = "windows", test))]
 use serde_json::json;
 #[cfg(target_os = "windows")]
 use std::io::Write;
 
+#[cfg(target_os = "macos")]
+#[path = "browser_host_registration_macos.rs"]
+mod macos;
+#[cfg(all(target_os = "macos", not(debug_assertions)))]
+pub use macos::install_macos_browser_host;
+
 pub const BROWSER_HOST_NAME: &str = "com.vaultmesh.browser";
+#[cfg(any(target_os = "windows", test))]
 pub const BROWSER_PIPE_NAME: &str = r"\\.\pipe\VaultMesh.BrowserBroker.v2";
 pub const BROWSER_PAIRING_SERVICE: &str = "com.vaultmesh.desktop.browser-pairing";
 pub const BROWSER_PAIRING_ACCOUNT: &str = "native-host-hmac-v1";
 pub const DEFAULT_DEVELOPMENT_EXTENSION_ID: &str = "bdneegbnjbheblmamalplnddbodcghbg";
 pub const FIREFOX_EXTENSION_ID: &str = "vaultmesh@atlantis-mk.github.io";
+#[cfg(any(target_os = "windows", test))]
 const HOST_CONFIG_NAME: &str = "browser-host-config.json";
+#[cfg(any(target_os = "windows", test))]
 const HOST_MANIFEST_NAME: &str = "com.vaultmesh.browser.json";
+#[cfg(any(target_os = "windows", test))]
 const FIREFOX_HOST_MANIFEST_NAME: &str = "com.vaultmesh.browser.firefox.json";
 
+#[cfg(any(target_os = "windows", test))]
 pub struct WindowsBrowserHostPlan {
     pub config_path: PathBuf,
     pub chromium_manifest_path: PathBuf,
@@ -28,7 +39,7 @@ pub struct WindowsBrowserHostPlan {
     pub firefox_manifest: Vec<u8>,
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(any(target_os = "windows", all(target_os = "macos", not(debug_assertions))))]
 pub fn configured_extension_id() -> io::Result<&'static str> {
     let extension_id =
         option_env!("VAULTMESH_BROWSER_EXTENSION_ID").unwrap_or(DEFAULT_DEVELOPMENT_EXTENSION_ID);
@@ -43,6 +54,7 @@ pub fn allowed_origin(extension_id: &str) -> io::Result<String> {
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid browser extension ID"))
 }
 
+#[cfg(any(target_os = "windows", test))]
 pub fn windows_browser_host_plan(
     app_data: &Path,
     native_host_path: &Path,

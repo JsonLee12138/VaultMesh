@@ -23,7 +23,19 @@ export function openDeviceAssist(document: Document, target: HTMLElement, bind: 
   const visibility=()=>{if(document.hidden)close();};
   const escape=(event:KeyboardEvent)=>{if(event.key!=='Escape'||event.isComposing)return;event.preventDefault();close();target.focus();};
   const outside=(event:Event)=>{if(event.target!==host&&event.target!==target)close();};
-  const observer=new MutationObserver(()=>{if(!target.isConnected || !target.getClientRects().length || (target instanceof HTMLInputElement && (target.disabled || target.readOnly || target.type === "password" || target.value)))close();});observer.observe(document,{childList:true,subtree:true,attributes:true,attributeFilter:["style","class","hidden","disabled","readonly","type"]});
+  const containsTarget=(node:Node)=>{
+    for(let current:Node|null=target;current;){
+      if(current===node)return true;
+      current=current instanceof ShadowRoot?current.host:current.parentNode;
+    }
+    return false;
+  };
+  const affectsTarget=(record:MutationRecord)=>{
+    if(record.type==='attributes')return containsTarget(record.target);
+    for(const node of [...record.addedNodes,...record.removedNodes])if(containsTarget(node))return true;
+    return false;
+  };
+  const observer=new MutationObserver((records)=>{if(!records.some(affectsTarget))return;if(!target.isConnected || !target.getClientRects().length || (target instanceof HTMLInputElement && (target.disabled || target.readOnly || target.type === "password" || target.value)))close();});observer.observe(document,{childList:true,subtree:true,attributes:true,attributeFilter:["style","class","hidden","disabled","readonly","type"]});
   // Every start (including "刷新候选") re-binds the original field; a binding captured
   // when the panel opened expires after a minute.
   const boundSend=(m:unknown)=>{const message=m as Record<string,unknown>;if(message.kind!=='vaultmesh.device-assist-start')return send(message);const binding=bind();return binding?send({...message,target:binding}):Promise.resolve({status:'document-changed'});};

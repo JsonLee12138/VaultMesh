@@ -32,5 +32,6 @@ test("Tauri release overlay bundles the prepared privileged sidecars", async () 
   ), "utf8"));
   assert.deepEqual(config.bundle.externalBin, [
     "binaries/vaultmesh-agent-mcp",
+    "binaries/vaultmesh-native-host",
   ]);
 });

@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process";
 import {
   access,
-  chmod,
   cp,
   mkdir,
   mkdtemp,
@@ -15,6 +14,7 @@ import { homedir, tmpdir } from "node:os";
 import path from "node:path";
 
 import { developmentExtensionId, developmentExtensionKey } from "./browser-identity.mjs";
+import { verifyPackagedMacOSSidecars } from "./build-tauri.mjs";
 import { verifyBrowserHost } from "./tauri-browser-host-probe.mjs";
 import {
   installedTauriApp,
@@ -54,18 +54,11 @@ try {
     path.join(workspace, "scripts", "prepare-browser-host-sidecar.mjs"),
     "--target", agentTarget,
   ], buildEnvironment);
-  const builtAgentMcp = path.join(workspace, "target", agentTarget, "release", "vaultmesh-agent-mcp");
-  const builtHost = path.join(workspace, "target", agentTarget, "release", "vaultmesh-native-host");
   await run(pnpm, [
     "--filter", "@vaultmesh/tauri-desktop", "tauri", "build", "--bundles", "app",
     "--config", "src-tauri/tauri.agent.conf.json",
   ], buildEnvironment);
-  await access(packagedApp);
-  await access(builtHost);
-  await access(builtAgentMcp);
-  await cp(builtHost, path.join(packagedApp, "Contents", "MacOS", "vaultmesh-native-host"), { force: true });
-  await chmod(path.join(packagedApp, "Contents", "MacOS", "vaultmesh-native-host"), 0o755);
-  await access(path.join(packagedApp, "Contents", "MacOS", "vaultmesh-agent-mcp"));
+  await verifyPackagedMacOSSidecars(packagedApp);
   await writeFile(path.join(packagedApp, markerPath), JSON.stringify({
     kind: "vaultmesh-tauri-local-test-build",
     extensionId: developmentExtensionId,

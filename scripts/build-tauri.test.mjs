@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { chmod, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 
 import {
@@ -11,6 +14,7 @@ import {
   tauriBuildEnvironment,
   tauriCliInvocation,
   updaterBuildConfig,
+  verifyPackagedMacOSSidecars,
   windowsMsiVersion,
 } from "./build-tauri.mjs";
 
@@ -85,7 +89,9 @@ test("Updater release config requires HTTPS, public verification material and si
   const config = updaterBuildConfig(environment, "1.2.3-test.1");
   assert.equal(config.version, "1.2.3-test.1");
   assert.equal(config.bundle.createUpdaterArtifacts, true);
-  assert.deepEqual(config.bundle.externalBin, ["binaries/vaultmesh-agent-mcp"]);
+  assert.deepEqual(config.bundle.externalBin, [
+    "binaries/vaultmesh-agent-mcp", "binaries/vaultmesh-native-host",
+  ]);
   assert.deepEqual(config.plugins.updater.endpoints, [environment.VAULTMESH_UPDATER_ENDPOINT]);
   assert.equal(config.plugins.updater.windows.installMode, "passive");
   assert.doesNotMatch(JSON.stringify(config), /private-key-is-only-used-by-the-build/);
@@ -109,6 +115,91 @@ test("Tauri CLI is launched through Node instead of a Windows command shim", () 
   assert.match(invocation.arguments[0], /@tauri-apps[\\/]cli[\\/]tauri\.js$/);
   assert.deepEqual(invocation.arguments.slice(1), ["build", "--bundles", "nsis"]);
   assert.match(invocation.cwd, /apps[\\/]tauri-desktop$/);
+});
+
+test("CT-BROWSER-PACKAGE-001: normal and updater builds bundle both sidecars on macOS and Windows", async () => {
+  const configuration = JSON.parse(await readFile(new URL(
+    "../apps/tauri-desktop/src-tauri/tauri.agent.conf.json", import.meta.url,
+  ), "utf8"));
+  const sidecars = ["binaries/vaultmesh-agent-mcp", "binaries/vaultmesh-native-host"];
+  assert.deepEqual(configuration.bundle.externalBin, sidecars);
+  const environment = {
+    VAULTMESH_UPDATER_ENDPOINT: "https://updates.example.test/latest.json",
+    VAULTMESH_UPDATER_PUBLIC_KEY: "public-key-material-that-is-long-enough",
+    TAURI_SIGNING_PRIVATE_KEY: "test-only-not-a-signing-key",
+  };
+  assert.deepEqual(updaterBuildConfig(environment, "1.2.3").bundle.externalBin, sidecars);
+  assert.deepEqual(updaterBuildConfig(environment, "1.2.3", { includeMsi: true }).bundle.externalBin, sidecars);
+  // Tauri adds each target's executable suffix; externalBin must stay extensionless.
+  assert.ok(sidecars.every((sidecar) => !sidecar.endsWith(".exe")));
+});
+
+async function packagedAppFixture(t) {
+  const directory = await mkdtemp(path.join(tmpdir(), "vaultmesh-packaged-sidecars-"));
+  t.after(async () => {
+    assert.equal(path.dirname(directory), path.resolve(tmpdir()));
+    assert.ok(path.basename(directory).startsWith("vaultmesh-packaged-sidecars-"));
+    await rm(directory, { recursive: true, force: true });
+  });
+  const app = path.join(directory, "VaultMesh.app");
+  const executableDirectory = path.join(app, "Contents", "MacOS");
+  await mkdir(executableDirectory, { recursive: true });
+  const agent = path.join(executableDirectory, "vaultmesh-agent-mcp");
+  const host = path.join(executableDirectory, "vaultmesh-native-host");
+  await writeFile(agent, "fixture-agent", { mode: 0o755 });
+  return { app, agent, host };
+}
+
+test("CT-BROWSER-PACKAGE-001: macOS package accepts both bundled executable sidecars", {
+  skip: process.platform === "win32",
+}, async (t) => {
+  const { app, host } = await packagedAppFixture(t);
+  await writeFile(host, "fixture-host", { mode: 0o755 });
+  await verifyPackagedMacOSSidecars(app);
+});
+
+test("CT-BROWSER-PACKAGE-001: macOS package rejects a missing native host", {
+  skip: process.platform === "win32",
+}, async (t) => {
+  const { app } = await packagedAppFixture(t);
+  await assert.rejects(verifyPackagedMacOSSidecars(app), /sidecar 缺失：.*vaultmesh-native-host/);
+});
+
+test("CT-BROWSER-PACKAGE-001: macOS package rejects an empty or directory native host", {
+  skip: process.platform === "win32",
+}, async (t) => {
+  const empty = await packagedAppFixture(t);
+  await writeFile(empty.host, "", { mode: 0o755 });
+  await assert.rejects(verifyPackagedMacOSSidecars(empty.app), /非空普通可执行文件：.*vaultmesh-native-host/);
+  const directory = await packagedAppFixture(t);
+  await mkdir(directory.host);
+  await assert.rejects(verifyPackagedMacOSSidecars(directory.app), /非空普通可执行文件：.*vaultmesh-native-host/);
+});
+
+test("CT-BROWSER-PACKAGE-001: macOS package rejects a non-executable native host", {
+  skip: process.platform === "win32",
+}, async (t) => {
+  const { app, host } = await packagedAppFixture(t);
+  await writeFile(host, "fixture-host");
+  await chmod(host, 0o600);
+  await assert.rejects(verifyPackagedMacOSSidecars(app), /非空普通可执行文件：.*vaultmesh-native-host/);
+});
+
+test("CT-BROWSER-PACKAGE-001: macOS package rejects a linked sidecar", {
+  skip: process.platform === "win32",
+}, async (t) => {
+  const { app, agent, host } = await packagedAppFixture(t);
+  await symlink(agent, host);
+  await assert.rejects(verifyPackagedMacOSSidecars(app), /非空普通可执行文件：.*vaultmesh-native-host/);
+});
+
+test("CT-BROWSER-PACKAGE-001: macOS package also rejects an incomplete Agent MCP sidecar", {
+  skip: process.platform === "win32",
+}, async (t) => {
+  const { app, agent, host } = await packagedAppFixture(t);
+  await writeFile(host, "fixture-host", { mode: 0o755 });
+  await writeFile(agent, "");
+  await assert.rejects(verifyPackagedMacOSSidecars(app), /非空普通可执行文件：.*vaultmesh-agent-mcp/);
 });
 
 test("Tauri release build packages the pinned store extension identity", () => {

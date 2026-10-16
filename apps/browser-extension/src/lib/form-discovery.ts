@@ -5,7 +5,7 @@ import fieldPolicy from "../../../tauri-desktop/src/shared/autofill-field-policy
 
 type NativeControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 export type SupportedControl = NativeControl | HTMLElement;
-type DiscoveryRoot = Document | ShadowRoot;
+type DiscoveryRoot = Document | ShadowRoot | Element;
 export type AutofillFieldKind = "login" | "card" | "identity" | "secret" | "ssh";
 export type PasswordFieldPurpose = "current" | "new";
 export type CredentialFieldRole = "account" | "current-password" | "new-password" | "confirmation-password" | "otp" | "other";
@@ -42,28 +42,103 @@ const LOGIN_ROUTE = /(?:^|\/)(?:login|log-in|signin|sign-in|auth)(?:\/|$)/i;
 const SIGNUP_ROUTE = /(?:^|\/)(?:signup|sign-up|register|registration|create-account)(?:\/|$)/i;
 const RESET_ROUTE = /(?:^|\/)(?:forgot-password|recover-password|reset-password|password-reset)(?:\/|$)/i;
 const CHANGE_PASSWORD_ROUTE = /(?:^|\/)(?:change-password|password-change|update-password)(?:\/|$)/i;
+const MAX_CLUSTER_CONTROLS = 80;
+/**
+ * Extension-injected UI is never page structure: discovery must not descend
+ * into it, and its own attribute churn must not schedule page rescans.
+ */
+export const VAULTMESH_UI_SELECTOR = "[data-vaultmesh-autofill],[data-vaultmesh-autofill-trigger],[data-vaultmesh-save-prompt]";
+
+type ControlMetadata = {
+  autocomplete: string[];
+  label: string;
+  name: string;
+  id: string;
+  placeholder: string;
+};
+
+/**
+ * Discovery asks the same questions about the same controls over and over:
+ * which controls a container holds, which role a field has, whether it is
+ * visible, which cluster it belongs to. Answering each question once per
+ * discovery pass keeps a rescan proportional to the document instead of to
+ * depth × document, which is what made pages with many inputs freeze.
+ *
+ * A pass is a single synchronous bracket: nothing is cached across passes, so
+ * no later DOM state can ever be answered from an older one.
+ */
+type DiscoveryPass = {
+  scope?: DiscoveryRoot;
+  controls: Map<ParentNode, SupportedControl[]>;
+  eligible: Map<ParentNode, SupportedControl[]>;
+  submitControls: Map<ParentNode, HTMLElement[]>;
+  clusters: Map<SupportedControl, SemanticCluster>;
+  analyses: Map<SupportedControl, ControlSemanticAnalysis>;
+  roles: Map<SupportedControl, CredentialFieldRole>;
+  metadata: Map<SupportedControl, ControlMetadata>;
+  eligibility: Map<SupportedControl, boolean>;
+  semanticVisibility: Map<SupportedControl, boolean>;
+  visibility: Map<SupportedControl, boolean>;
+};
+
+let activeDiscoveryPass: DiscoveryPass | null = null;
+
+export function withFieldDiscoveryCache<T>(run: () => T, scope?: DiscoveryRoot): T {
+  if (activeDiscoveryPass) return run();
+  activeDiscoveryPass = {
+    scope,
+    controls: new Map(),
+    eligible: new Map(),
+    submitControls: new Map(),
+    clusters: new Map(),
+    analyses: new Map(),
+    roles: new Map(),
+    metadata: new Map(),
+    eligibility: new Map(),
+    semanticVisibility: new Map(),
+    visibility: new Map(),
+  };
+  try {
+    return run();
+  } finally {
+    activeDiscoveryPass = null;
+  }
+}
+
+function memoized<K, V>(select: (pass: DiscoveryPass) => Map<K, V>, key: K, compute: () => V): V {
+  const pass = activeDiscoveryPass;
+  if (!pass) return compute();
+  const cache = select(pass);
+  const cached = cache.get(key);
+  if (cached !== undefined) return cached;
+  const value = compute();
+  cache.set(key, value);
+  return value;
+}
 
 export function discoverFields(root: DiscoveryRoot) {
-  const handles = new Map<string, SupportedControl>();
-  const descriptors: FieldDescriptor[] = [];
-  const controls = composedControls(root)
-    .filter(isSupportedControl)
-    .map((control, index) => ({ control, index, priority: discoveryPriority(control) }))
-    .sort((left, right) => right.priority - left.priority || left.index - right.index)
-    .slice(0, MAX_FIELDS);
+  return withFieldDiscoveryCache(() => {
+    const handles = new Map<string, SupportedControl>();
+    const descriptors: FieldDescriptor[] = [];
+    const controls = formControls(root)
+      .filter(isSupportedControl)
+      .map((control, index) => ({ control, index, priority: discoveryPriority(control) }))
+      .sort((left, right) => right.priority - left.priority || left.index - right.index)
+      .slice(0, MAX_FIELDS);
 
-  for (const { control } of controls) {
+    for (const { control } of controls) {
 
-    const descriptor = buildDescriptor(control);
-    if (!descriptor) {
-      continue;
+      const descriptor = buildDescriptor(control);
+      if (!descriptor) {
+        continue;
+      }
+
+      handles.set(descriptor.handle, control);
+      descriptors.push(descriptor);
     }
 
-    handles.set(descriptor.handle, control);
-    descriptors.push(descriptor);
-  }
-
-  return { handles, descriptors };
+    return { handles, descriptors };
+  });
 }
 
 /**
@@ -148,6 +223,10 @@ type SemanticCluster = {
 type CredentialContext = "login" | "signup" | "password-change" | "password-reset" | "otp";
 
 export function analyzeControlSemantics(control: SupportedControl): ControlSemanticAnalysis {
+  return memoized((pass) => pass.analyses, control, () => computeControlSemantics(control));
+}
+
+function computeControlSemantics(control: SupportedControl): ControlSemanticAnalysis {
   const cluster = semanticCluster(control);
   const role = credentialFieldRole(control, cluster);
   if (role === "otp" || isOtpDigitControl(control) && isSegmentedOtpCluster(cluster)) {
@@ -271,7 +350,12 @@ export function analyzeFormSemantics(control: SupportedControl): ControlSemantic
   return analyzeControlSemantics(representative);
 }
 
-export function credentialFieldRole(control: SupportedControl, cluster = semanticCluster(control)): CredentialFieldRole {
+export function credentialFieldRole(control: SupportedControl, cluster?: SemanticCluster): CredentialFieldRole {
+  if (cluster) return computeCredentialFieldRole(control, cluster);
+  return memoized((pass) => pass.roles, control, () => computeCredentialFieldRole(control, semanticCluster(control)));
+}
+
+function computeCredentialFieldRole(control: SupportedControl, cluster: SemanticCluster): CredentialFieldRole {
   const metadata = getMetadata(control);
   const directText = metadataText(metadata);
   if (metadata.autocomplete.includes("one-time-code") || OTP_METADATA.test(directText)) return "otp";
@@ -319,33 +403,48 @@ function credentialFieldRoleWithoutStructure(control: SupportedControl): Credent
 }
 
 export function semanticCluster(control: SupportedControl): SemanticCluster {
+  return memoized((pass) => pass.clusters, control, () => computeSemanticCluster(control));
+}
+
+function computeSemanticCluster(control: SupportedControl): SemanticCluster {
   const explicit = control instanceof HTMLInputElement && control.form
     ? control.form
     : control.closest('form,[role="form"],dialog,[role="dialog"],fieldset');
   if (explicit) return { root: explicit, controls: semanticControls(explicit) };
 
-  const treeRoot = control.getRootNode();
+  // Without an explicit form, the control's own tree is enumerated once and
+  // each ancestor's candidate set is the subset it contains. Querying every
+  // ancestor separately walked the whole document once per level per control.
+  const naturalRoot = control.getRootNode() as ParentNode;
+  const scope = activeDiscoveryPass?.scope;
+  // A host contains its composed controls, but Element.contains does not cross
+  // the shadow boundary. Its shadow tree is already a bounded local scope.
+  const treeRoot = scope instanceof Element && !scope.contains(control) && naturalRoot instanceof ShadowRoot ? naturalRoot : scope ?? naturalRoot;
+  const treeControls = eligibleControls(treeRoot);
   let fallback: ParentNode = control;
   for (let ancestor = control.parentElement; ancestor && !ancestor.matches("body,html"); ancestor = ancestor.parentElement) {
-    const controls = semanticControls(ancestor);
+    if (treeRoot instanceof Element && ancestor !== treeRoot && !treeRoot.contains(ancestor)) break;
+    const scope = ancestor;
+    const controls = treeControls.filter((candidate) => scope.contains(candidate)).slice(0, MAX_CLUSTER_CONTROLS);
     if (controls.length === 0 || !controls.includes(control)) continue;
-    fallback = ancestor;
+    fallback = scope;
     const passwordCount = controls.filter((candidate) => candidate instanceof HTMLInputElement && candidate.type === "password").length;
     const accountCount = controls.filter((candidate) => credentialFieldRoleWithoutStructure(candidate) === "account").length;
-    const hasSubmit = semanticSubmitControls(ancestor).length > 0;
-    if (passwordCount > 0 && (controls.length > 1 || accountCount > 0 || hasSubmit)) return { root: ancestor, controls };
-    if (controls.length > 1 && ancestor.matches('section,article,main,[role="group"],[data-form],[class*="form"],[class*="login"],[class*="auth"]')) {
-      return { root: ancestor, controls };
+    const hasSubmit = semanticSubmitControls(scope).length > 0;
+    if (passwordCount > 0 && (controls.length > 1 || accountCount > 0 || hasSubmit)) return { root: scope, controls };
+    if (controls.length > 1 && scope.matches('section,article,main,[role="group"],[data-form],[class*="form"],[class*="login"],[class*="auth"]')) {
+      return { root: scope, controls };
     }
   }
   return { root: fallback, controls: semanticControls(fallback) };
 }
 
+function eligibleControls(root: ParentNode) {
+  return memoized((pass) => pass.eligible, root, () => formControls(root).filter(isSemanticallyEligibleControl));
+}
+
 function semanticControls(root: ParentNode) {
-  const controls = formControls(root);
-  return controls
-    .filter(isSemanticallyEligibleControl)
-    .slice(0, 80);
+  return eligibleControls(root).slice(0, MAX_CLUSTER_CONTROLS);
 }
 
 function semanticPaths(cluster: SemanticCluster, document: Document) {
@@ -367,13 +466,13 @@ function semanticPaths(cluster: SemanticCluster, document: Document) {
 }
 
 function semanticSubmitControls(root: ParentNode) {
-  return Array.from(root.querySelectorAll<HTMLElement>('button,input[type="submit"],input[type="button"],[role="button"]'))
+  return memoized((pass) => pass.submitControls, root, () => Array.from(root.querySelectorAll<HTMLElement>('button,input[type="submit"],input[type="button"],[role="button"]'))
     .filter(isSemanticallyVisible)
     .filter((candidate) => {
       if (candidate instanceof HTMLButtonElement) return candidate.type === "submit" || candidate.type === "button";
       return true;
     })
-    .slice(0, 20);
+    .slice(0, 20));
 }
 
 function semanticSubmitText(cluster: SemanticCluster) {
@@ -427,6 +526,10 @@ function isOtpDigitControl(control: SupportedControl) {
 }
 
 function isSemanticallyEligibleControl(control: SupportedControl) {
+  return memoized((pass) => pass.eligibility, control, () => computeSemanticEligibility(control));
+}
+
+function computeSemanticEligibility(control: SupportedControl) {
   if (isInteractionDisabled(control) || !isSemanticallyVisible(control)) return false;
   if (control instanceof HTMLInputElement && !TEXT_INPUT_TYPES.has(control.type)) return false;
   const metadata = getMetadata(control);
@@ -435,7 +538,7 @@ function isSemanticallyEligibleControl(control: SupportedControl) {
 
 export function passwordFieldPurpose(control: Element): PasswordFieldPurpose | null {
   if (!(control instanceof HTMLInputElement) || control.type !== "password" || !isSupportedControl(control)) return null;
-  const role = credentialFieldRole(control, semanticCluster(control));
+  const role = credentialFieldRole(control);
   return role === "new-password" || role === "confirmation-password" ? "new" : "current";
 }
 
@@ -694,7 +797,11 @@ function buildDescriptor(control: SupportedControl): FieldDescriptor | null {
   };
 }
 
-function getMetadata(control: SupportedControl) {
+function getMetadata(control: SupportedControl): ControlMetadata {
+  return memoized((pass) => pass.metadata, control, () => computeMetadata(control));
+}
+
+function computeMetadata(control: SupportedControl): ControlMetadata {
   return {
     autocomplete: (control.getAttribute("autocomplete") ?? "")
       .toLowerCase()
@@ -742,10 +849,14 @@ function getLabels(control: SupportedControl) {
 }
 
 function isVisible(control: SupportedControl) {
-  return isSemanticallyVisible(control) && control.getClientRects().length > 0;
+  return memoized((pass) => pass.visibility, control, () => isSemanticallyVisible(control) && control.getClientRects().length > 0);
 }
 
 function isSemanticallyVisible(control: HTMLElement) {
+  return memoized((pass) => pass.semanticVisibility, control as SupportedControl, () => computeSemanticVisibility(control));
+}
+
+function computeSemanticVisibility(control: HTMLElement) {
   const view = control.ownerDocument.defaultView;
   if (!view) return false;
   for (let element: Element | null = control; element; element = composedParentElement(element)) {
@@ -806,6 +917,10 @@ function assignValue(control: SupportedControl, value: string) {
 }
 
 export function formControls(root: ParentNode): SupportedControl[] {
+  return memoized((pass) => pass.controls, root, () => computeFormControls(root));
+}
+
+function computeFormControls(root: ParentNode): SupportedControl[] {
   if (root instanceof HTMLFormElement) {
     // Include controls associated by form= even when they are outside the form.
     return [...new Set([...composedControls(root), ...Array.from(root.elements).filter(isControlElement)])]
@@ -820,9 +935,13 @@ function composedControls(root: ParentNode) {
   const roots: ParentNode[] = [root];
   for (let index = 0; index < roots.length; index += 1) {
     const current = roots[index]!;
+    if (current instanceof Element) {
+      const ownRoot = accessibleShadowRoot(current);
+      if (ownRoot) roots.push(ownRoot);
+    }
     controls.push(...current.querySelectorAll<SupportedControl>('input, textarea, select, [contenteditable]:not([contenteditable="false"])'));
     for (const element of current.querySelectorAll<HTMLElement>("*")) {
-      if (element.matches("[data-vaultmesh-autofill],[data-vaultmesh-autofill-trigger]")) continue;
+      if (element.matches(VAULTMESH_UI_SELECTOR)) continue;
       const shadowRoot = accessibleShadowRoot(element);
       if (shadowRoot) roots.push(shadowRoot);
     }

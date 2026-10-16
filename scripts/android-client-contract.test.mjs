@@ -696,6 +696,9 @@ test('CT-ANDROID-AUTOFILL-003: local phone suggestion uses only the username fie
   assert.match(bridge, /r.open_assist_binding\(credentials.clone\(\)\)/);
   const ui = read('apps/android/app/src/main/java/com/vaultmesh/app/DeviceAssistUi.kt');
   assert.match(ui, /DeviceAssistSwitch\(serviceEnabled/);
+  assert.match(ui, /nextPhone && !phone && !phonePermission\) add\(Manifest\.permission\.READ_PHONE_NUMBERS\)/);
+  assert.match(ui, /suggestedNumber\(\) != null/);
+  assert.doesNotMatch(ui, /Text\([^)]*suggestedNumber/);
   assert.doesNotMatch(ui, /Text\("启动互通"\)|Text\("停止互通"\)/);
   const activity = read('apps/android/app/src/main/java/com/vaultmesh/app/MainActivity.kt');
   assert.match(activity, /DeviceAssistService.startIfEnabled\(this@MainActivity\)\s*if \(viewModel.state.value.status == "unlocked"\)/);

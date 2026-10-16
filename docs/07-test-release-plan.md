@@ -54,7 +54,7 @@ pnpm typecheck
 | `CT-API-REQUEST-SEC-001` | Tauri Rust WebPKI、public/private/loopback/metadata/link-local/mixed DNS 分类与固定、native-confirmation predicate、redirect/proxy/compression/header smuggling denial、timeout/quota/JSON depth、secret canary、lock/window/exit cleanup tests；无生产凭据本地 fixture |
 | `CT-SEC-*`、`CT-IMPORT-*`、`CT-SSH-SCAN-*` | Tauri Rust runtime/command tests；`CT-SEC-003` 解析全部产品窗口配置并拒绝 renderer 关闭内容保护 |
 | `CT-BROWSER-*` | Tauri shared policy/capability、Rust broker + WXT extension non-secret preference tests；`CT-ITEM-001` 同时覆盖 Login 编辑字段保留、特权详情短期草稿、确认删除、防重复写入和结果不确定时不重试 |
-| `CT-BROWSER-PACKAGE-001` | WXT Chrome MV3/Firefox MV2 manifest 与 ZIP contract、固定双 identity、macOS/Windows browser-specific Native Messaging manifest/注册/卸载、Rust Host Chrome origin 与 Firefox manifest-path/Gecko-ID 启动参数拒绝测试、Review workflow 六资产同 source gate，以及两个 ZIP 的不可变 R2 路径与公网逐字节校验 |
+| `CT-BROWSER-PACKAGE-001` | WXT Chrome MV3/Firefox MV2 manifest 与 ZIP contract、固定双 identity、macOS/Windows browser-specific Native Messaging manifest/注册/卸载、macOS 启动注册的首次安装/重复执行/删除修复/App 移位/权限修复/不安全目标拒绝/配对记录保留与普通/updater App sidecar 漏包检查、Rust Host Chrome origin 与 Firefox manifest-path/Gecko-ID 启动参数拒绝测试、Review workflow 六资产同 source gate，以及两个 ZIP 的不可变 R2 路径与公网逐字节校验 |
 | `CT-AUTOFILL-*` | Tauri Rust broker tests + `apps/browser-extension/src/lib/*.test.ts`，验证来源、handle、gesture、锁定、单次 assignment 与失效拒绝 |
 | `CT-AUTHENTICATOR-*` | extension QR target/UI/protocol/background tests + Tauri Login update/autofill broker regression |
 | `CT-RECOVERY-CODES-*` | core Login payload/reauth/redaction + Tauri typed operation/clipboard/file parse（逐行与 Google 编号双栏）-confirm-delete/foreground-parenting + desktop/extension editor 逐次查看/复制复验和瞬时状态 contract tests |
@@ -210,7 +210,7 @@ pnpm typecheck
 #### 浏览器 Gate 检查
 
 - 当前 WXT 原插件的 `CT-BROWSER-001/003` 必须覆盖至少 500 条摘要的 25 条分页、跨页搜索与页码收敛，Broker 权威 Login/Secret/SSH 建议及无字段上下文时 card/identity 不误标，桌面锁定/撤销/停止后的 popup 全量瞬态清理，以及生成结果/历史 60 秒与隐藏清理和桌面受控复制。`CT-ITEM-001/002/003/004/005` 与 `CT-RECOVERY-001` 必须覆盖按实际存在值生成复制菜单、单条删除的可恢复/永久语义、四类安全恢复摘要和类型/目标绑定；编辑草稿必须覆盖隐藏、5 分钟期限、迟到详情及恢复码文件框 45 秒例外。
-- `CT-AUTOFILL-001` 必须验证多字段表单按 scope 单次自动目标采集、已尝试 scope 不重新采集、100 毫秒 mutation 调度不饥饿、collector 忙与销毁、并发 focus/capture、重复候选点击以及 profile/DOM 并行后的失效拒绝；`CT-BROWSER-002` 同时验证 Rust 轻量授权检查前后锁定语义不变。
+- `CT-AUTOFILL-001` 必须验证多字段表单按 scope 单次自动目标采集、已尝试 scope 不重新采集、mutation 不触发整页 discovery、图标 100 毫秒有界重验与失格撤下、mutation 相关性过滤与单次 discovery 的 DOM 工作计数上界、新插入子树只观察 shadow root、按键不重跑 discovery、collector 忙与销毁、并发 focus/capture、重复候选点击以及 profile/DOM 并行后的失效拒绝；`CT-BROWSER-002` 同时验证 Rust 轻量授权检查前后锁定语义不变。
 - `CT-BROWSER-001` / `CT-SEC-002` 必须验证无变化轮询只读状态且复用当前摘要，版本/连接/数量变化、旧协议、手动刷新、锁定与销毁后重新读取；验证两项解锁状态并发、在途事件检查合并、写操作互斥、防重放、过期及迟到清理。构建页面必须验证加载反馈即时显示且不存在人为延迟样式；性能对比仅记录耗时、请求数、产物大小，不记录真实条目或秘密。
 - `CT-BROWSER-001` 必须以 Broker 实际事件形状验证空闲锁定后 PIN 重新解锁仍可读取历史 `vault-locked` 和新增 `vault-changed`；后者应刷新当前授权摘要，未知事件仍须拒绝，不得把合法事件解析失败显示为桌面断连。
 - `CT-SEC-002` / `CT-BROWSER-001` 必须覆盖解锁页无快捷方式、仅 PIN、仅生物识别、两者均可用、未启用/不可用/PIN 锁定、状态读取失败/超时及迟到响应；验证默认优先级、切换清空、6 位 PIN 单次提交、失败次数刷新、生物识别取消、主密码回退与隐藏/销毁清理。系统指纹弹窗仍须真机验收。

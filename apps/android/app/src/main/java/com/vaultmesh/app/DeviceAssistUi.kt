@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 
 @Composable
@@ -23,7 +25,8 @@ internal fun DeviceAssistPanel(peers: List<LanTrusted>, settingsPeer: LanTrusted
     var serviceState by remember { mutableStateOf(DeviceAssistService.state) }
     var busy by remember { mutableStateOf(false) }
     var serviceEnabled by remember { mutableStateOf(DeviceAssistService.enabled(context)) }
-    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { }
+    var permissionResults by remember { mutableStateOf(0) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissionResults++ }
     suspend fun open(): Boolean = withContext(Dispatchers.IO) {
         val key = LanPairingKeyService(context.applicationContext as Application).readOrCreate() ?: return@withContext false
         try { VaultNativeBridge.assistOpen(key) == "ok" } finally { key.fill(0) }
@@ -44,20 +47,46 @@ internal fun DeviceAssistPanel(peers: List<LanTrusted>, settingsPeer: LanTrusted
             val peer = settingsPeer
             val grants = status?.optJSONArray("grants")
             val grant = grants?.let { a -> (0 until a.length()).map { a.getJSONObject(it) }.firstOrNull { it.optString("peer") == peer.pairingRef } }
-            val phone = grant?.optBoolean("phone") == true
-            val sms = grant?.optBoolean("sms") == true
+            // Switches flip immediately; saves run in order and the latest choice wins.
+            var pending by remember(peer.pairingRef) { mutableStateOf<Pair<Boolean, Boolean>?>(null) }
+            val saving = remember(peer.pairingRef) { Mutex() }
+            val phone = pending?.first ?: (grant?.optBoolean("phone") == true)
+            val sms = pending?.second ?: (grant?.optBoolean("sms") == true)
+            val phonePermission = context.checkSelfPermission(Manifest.permission.READ_PHONE_NUMBERS) == android.content.pm.PackageManager.PERMISSION_GRANTED
+            // Only availability is exposed to the UI; the number itself stays in LocalPhoneNumber.
+            var numberReady by remember { mutableStateOf<Boolean?>(null) }
+            LaunchedEffect(phone, phonePermission, permissionResults) {
+                numberReady = if (phone) withContext(Dispatchers.IO) { LocalPhoneNumber(context).suggestedNumber() != null } else null
+            }
             fun change(nextPhone: Boolean, nextSms: Boolean) {
-                busy = true
+                val needed = buildList {
+                    if (nextPhone && !phone && !phonePermission) add(Manifest.permission.READ_PHONE_NUMBERS)
+                    if (nextSms && !sms && context.checkSelfPermission(Manifest.permission.RECEIVE_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED) add(Manifest.permission.RECEIVE_SMS)
+                }
+                val target = nextPhone to nextSms
+                pending = target
+                error = null
+                if (needed.isNotEmpty()) permission.launch(needed.toTypedArray())
                 scope.launch {
-                    val result = withContext(Dispatchers.IO) { VaultNativeBridge.assistGrant(peer.pairingRef, nextPhone, nextSms) }
-                    error = if (result == "ok") null else "授权未保存，请重新解锁后重试"
-                    status = withContext(Dispatchers.IO) { runCatching { JSONObject(VaultNativeBridge.assistStatus()) }.getOrNull() }
-                    busy = false
-                    if (result == "ok" && nextSms && !sms) permission.launch(arrayOf(Manifest.permission.RECEIVE_SMS))
+                    saving.withLock {
+                        if (pending != target) return@withLock
+                        val (result, next) = withContext(Dispatchers.IO) {
+                            VaultNativeBridge.assistGrant(peer.pairingRef, target.first, target.second) to
+                                runCatching { JSONObject(VaultNativeBridge.assistStatus()) }.getOrNull()
+                        }
+                        if (next != null) status = next
+                        if (result != "ok") error = "授权未保存，请重新解锁后重试"
+                        if (pending == target) pending = null
+                    }
                 }
             }
-            Row { Text("向此电脑提供手机号码", Modifier.weight(1f)); Switch(phone, { change(it, sms) }, enabled = !busy && status?.has("grants") == true) }
-            Row { Text("向此电脑提供短信验证码", Modifier.weight(1f)); Switch(sms, { change(phone, it) }, enabled = !busy && status?.has("grants") == true) }
+            val ready = status?.has("grants") == true
+            Row { Text("向此电脑提供手机号码", Modifier.weight(1f)); Switch(phone, { change(it, sms) }, enabled = ready) }
+            if (phone && numberReady == false) {
+                Text(if (phonePermission) "未读取到 SIM 号码，请在首页“本机号码填充”中设置备用号码。" else "未授予号码权限，电脑无法获取号码；也可在首页“本机号码填充”中设置备用号码。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                if (!phonePermission) TextButton(onClick = { permission.launch(arrayOf(Manifest.permission.READ_PHONE_NUMBERS)) }) { Text("授予号码权限") }
+            }
+            Row { Text("向此电脑提供短信验证码", Modifier.weight(1f)); Switch(sms, { change(phone, it) }, enabled = ready) }
         }
         if (settingsPeer == null) {
             Text(serviceState, style = MaterialTheme.typography.bodySmall)

@@ -511,6 +511,13 @@ pub fn run() {
                     on_native_ui,
                 )?))
             };
+            // Packaged launches (including a dragged/copied .app) must not depend on Node tooling.
+            // Debug registration remains owned by browser:dev and its isolated profile.
+            #[cfg(all(target_os = "macos", not(debug_assertions)))]
+            if let Err(error) = browser_host_registration::install_macos_browser_host() {
+                // Never log paths, configuration contents or pairing credentials.
+                eprintln!("Browser Native Host registration unavailable ({:?}).", error.kind());
+            }
             #[cfg(unix)]
             let browser_listener =
                 BrowserPairingService::new(app_data.join("browser-pairing.json"))
