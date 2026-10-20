@@ -617,6 +617,7 @@ pub(super) fn lock_runtime_on_window_blur(
 }
 
 pub(super) fn finish_policy_lock(app: &AppHandle, state: &RuntimeState) {
+    desktop_authentication::invalidate(app, state);
     if let Ok(sync) = state.lan_sync.lock() {
         sync.lock_sensitive();
     }

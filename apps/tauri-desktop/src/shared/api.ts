@@ -97,8 +97,16 @@ import type {
 } from './contracts';
 import type { SshCommandImport } from '@vaultmesh/ssh-command-parser';
 
+export interface DesktopAuthenticationBounds { x: number; y: number; width: number; height: number }
+export interface DesktopAuthenticationEvent { sessionId: string; status: 'paused' | 'listening' | 'opening' | 'failed' | 'unlocked'; message?: string | null }
+
 export interface VaultMeshApi {
   desktop: {
+    authenticationStatus(): Promise<{ supported: boolean; label: string }>;
+    beginAuthentication(sessionId: string, bounds: DesktopAuthenticationBounds): Promise<void>;
+    layoutAuthentication(sessionId: string, bounds: DesktopAuthenticationBounds): Promise<void>;
+    cancelAuthentication(sessionId: string): Promise<void>;
+    onAuthentication(callback: (event: DesktopAuthenticationEvent) => void): Promise<() => void>;
     startupSettings(): Promise<DesktopStartupSettings>;
     updateStartupSettings(input: DesktopStartupSettings): Promise<DesktopStartupSettings>;
     browserIntegrationStatus(): Promise<DesktopBrowserIntegrationStatus>;

@@ -1,0 +1,27 @@
+schema: "2"
+id: "CHG-2026-076-desktop-embedded-authentication"
+title: "Desktop UnlockPage embedded authentication"
+type: "feature"
+status: "Done"
+spec_revision: "0.1.53-active"
+target_release: null
+goal: "Coordinate main-window native authentication IPC and platform adapter lifecycle without changing Vault format or MCP authorization"
+requirements:
+  - "REQ-SEC-002"
+  - "REQ-TAURI-002"
+tests:
+  - "CT-DESKTOP-AUTH-001"
+  - "AT-DESKTOP-AUTH-001"
+adrs:
+  - "ADR-0050"
+context_refs:
+  - "specs/tauri-desktop-migration.md#Runtime 所有权"
+  - "docs/06-security-privacy.md#Desktop WebView 边界"
+related_changes: []
+boundaries:
+  - "desktop main-window authentication IPC"
+  - "macOS native authentication adapter"
+risks:
+  - "Late native callbacks must not unlock after cancellation or Vault change"
+  - "Real Touch ID verification requires user interaction"
+next: []

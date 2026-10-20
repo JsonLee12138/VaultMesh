@@ -29,6 +29,7 @@ describe('CT-LAN-PAIRING-001 nearby page requires desktop unlock', () => {
       configurable: true,
       value: {
         activity: vi.fn(),
+        desktop: { authenticationStatus: vi.fn().mockResolvedValue({ supported: false, label: "Test platform" }) },
         vault: {
           status: vi.fn(async () => vaultStatus),
           biometricStatus: vi.fn().mockResolvedValue(null),

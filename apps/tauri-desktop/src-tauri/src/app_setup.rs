@@ -20,6 +20,7 @@ pub fn run() {
         });
     let app = builder
         .on_window_event(|window, event| {
+            desktop_authentication::window_event(window, event);
             if window.label() == "agent-pairing"
                 && let WindowEvent::CloseRequested { .. } = event
                 && let Some(state) = window.app_handle().try_state::<RuntimeState>()
@@ -644,6 +645,9 @@ pub fn run() {
                 ssh_launch_directory,
                 ssh_scan: Arc::new(Mutex::new(SshScanService::default())),
                 email_otp,
+                desktop_authentication: Arc::new(Mutex::new(
+                    desktop_authentication::Coordinator::default(),
+                )),
                 biometric: Arc::new(Mutex::new(BiometricQuickUnlockService::new(
                     biometric_path,
                     "com.vaultmesh.desktop.desktop-biometric",
@@ -681,6 +685,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             desktop_invoke,
+            desktop_authentication_status,
+            desktop_authentication_begin,
+            desktop_authentication_layout,
+            desktop_authentication_cancel,
             desktop_activity,
             agent_pairing_status,
             agent_pairing_resolve,
@@ -709,6 +717,7 @@ pub fn run() {
         {
             // The OS suspends application threads during sleep. Tear down any
             // sockets and ephemeral material before accepting post-resume work.
+            desktop_authentication::suspend(handle, &state);
             stop_lan_pairing(&state);
             lock_system_authorizations(handle, &state);
         }
@@ -848,7 +857,7 @@ fn disable_app_nap() {
 }
 
 #[cfg(target_os = "macos")]
-fn system_session_locked() -> bool {
+pub(super) fn system_session_locked() -> bool {
     use core_foundation::{
         base::{CFType, TCFType},
         boolean::CFBoolean,
@@ -876,7 +885,7 @@ fn system_session_locked() -> bool {
 }
 
 #[cfg(target_os = "windows")]
-fn system_session_locked() -> bool {
+pub(super) fn system_session_locked() -> bool {
     use std::{ffi::c_void, ptr::null_mut};
     use windows_sys::Win32::System::RemoteDesktop::{
         WTS_CURRENT_SERVER_HANDLE, WTS_CURRENT_SESSION, WTS_SESSIONSTATE_LOCK,
