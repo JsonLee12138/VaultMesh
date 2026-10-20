@@ -96,6 +96,8 @@
 
 - `../adr/0047-device-fill-assist.md`
 
+- `../adr/0050-desktop-platform-authentication.md`
+
 ## Change 与 Release 入口
 
 - `../changes/README.md`

@@ -65,6 +65,11 @@ mod agent_vault_access;
 mod app_setup;
 mod app_update;
 mod biometric_service;
+mod desktop_authentication;
+use desktop_authentication::{
+    desktop_authentication_begin, desktop_authentication_cancel, desktop_authentication_layout,
+    desktop_authentication_status,
+};
 mod browser_broker;
 #[cfg(target_os = "windows")]
 mod browser_broker_windows;
@@ -81,13 +86,13 @@ mod browser_host_registration;
 mod browser_integration_windows;
 mod browser_pairing;
 mod browser_platform;
-mod device_assist;
 mod desktop_api_request;
 mod desktop_email;
 mod desktop_import;
 mod desktop_runtime;
 mod desktop_ssh_commands;
 mod desktop_startup;
+mod device_assist;
 mod electron_migration;
 mod email_otp;
 mod import_service;
@@ -96,10 +101,10 @@ mod passkey_service;
 mod pin_service;
 mod recovery_code_command;
 mod recovery_code_file;
+mod socket_wait;
 mod ssh_external;
 mod ssh_host_setup;
 mod ssh_scan;
-mod socket_wait;
 mod ssh_service;
 mod ssh_tools;
 #[cfg(any(target_os = "windows", test))]
@@ -246,6 +251,7 @@ struct RuntimeState {
     ssh_scan: Arc<Mutex<SshScanService>>,
     email_otp: Arc<Mutex<EmailOtpService>>,
     biometric: Arc<Mutex<BiometricQuickUnlockService>>,
+    desktop_authentication: Arc<Mutex<desktop_authentication::Coordinator>>,
     pin: Arc<Mutex<PinQuickUnlockService>>,
     lan_pairing: Arc<Mutex<LanPairingService>>,
     lan_sync: Arc<Mutex<LanSyncService<DesktopRuntime>>>,
@@ -521,6 +527,7 @@ async fn desktop_invoke(
     match operation.as_str() {
         "vault.status" => with_runtime(&state, |runtime| Ok(json!(runtime.status()))).await,
         "vault.create" => {
+            desktop_authentication::invalidate(&app, &state);
             let password = required_string(&input, "masterPassword")?;
             let result = with_runtime(&state, move |runtime| {
                 runtime
@@ -534,19 +541,23 @@ async fn desktop_invoke(
         }
         "vault.unlock" => {
             let password = required_string(&input, "masterPassword")?;
+            desktop_authentication::invalidate(&app, &state);
             unlock_vault(&app, &state, password).await
         }
         "vault.lock" => {
+            desktop_authentication::invalidate(&app, &state);
             let result = with_runtime(&state, |runtime| Ok(json!(runtime.lock()))).await?;
             finish_policy_lock(&app, &state);
             Ok(result)
         }
         "vault.backup" => backup_vault(&app, &state).await,
         "vault.restore" => {
+            desktop_authentication::invalidate(&app, &state);
             let password = required_string(&input, "masterPassword")?;
             restore_vault(&app, &state, password).await
         }
         "vault.change-password" => {
+            desktop_authentication::invalidate(&app, &state);
             let result = with_runtime(&state, move |runtime| {
                 runtime.execute("vault.change-password", input)
             })
@@ -560,6 +571,7 @@ async fn desktop_invoke(
             with_biometric(&state, |biometric| Ok(json!(biometric.status()))).await
         }
         "biometric.enable" => {
+            desktop_authentication::invalidate(&app, &state);
             require_empty_object(&input)?;
             let (vault_path, vault_key) =
                 with_runtime(&state, |runtime| runtime.quick_unlock_material())
@@ -586,10 +598,12 @@ async fn desktop_invoke(
             Ok(status)
         }
         "biometric.disable" => {
+            desktop_authentication::invalidate(&app, &state);
             require_empty_object(&input)?;
             disable_biometrics(&state).await.map(|status| json!(status))
         }
         "biometric.unlock" => {
+            desktop_authentication::invalidate(&app, &state);
             require_empty_object(&input)?;
             let credential = with_biometric(&state, |biometric| biometric.unlock()).await?;
             let vault_path = credential.0.clone();
@@ -646,6 +660,7 @@ async fn desktop_invoke(
             .await
         }
         "pin.unlock" => {
+            desktop_authentication::invalidate(&app, &state);
             let input: PinInput = serde_json::from_value(input).map_err(|_| "请求参数无效。")?;
             let pin_value = Zeroizing::new(input.pin);
             let credential = with_pin(&state, move |pin| pin.unlock(pin_value.as_str())).await?;

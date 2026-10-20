@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { REGEXP_ONLY_DIGITS } from 'input-otp';
-import { ArrowRightIcon, ArrowLeftIcon, FingerprintIcon, LockKeyholeIcon } from 'lucide-react';
+import { ArrowRightIcon, ArrowLeftIcon, LockKeyholeIcon } from 'lucide-react';
 
+import { useDesktopAuthentication } from './useDesktopAuthentication';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { PasswordField } from '../components/PasswordField';
 import { Button } from '@/components/ui/button';
@@ -13,37 +14,41 @@ import { Spinner } from '@/components/ui/spinner';
 import { useVaultStore } from '@/stores/vault-store';
 
 export function UnlockPage() {
+  const submitting = useRef(false);
   const [credential, setCredential] = useState('');
   const [useMasterPassword, setUseMasterPassword] = useState(false);
-  const busy = useVaultStore((state) => state.busy);
+  const storeBusy = useVaultStore((state) => state.busy);
   const error = useVaultStore((state) => state.error);
   const status = useVaultStore((state) => state.status);
   const biometric = useVaultStore((state) => state.biometric);
   const pin = useVaultStore((state) => state.pin);
   const unlockVault = useVaultStore((state) => state.unlockVault);
-  const unlockWithBiometrics = useVaultStore((state) => state.unlockWithBiometrics);
+  const refresh = useVaultStore((state) => state.refresh);
   const unlockWithPin = useVaultStore((state) => state.unlockWithPin);
   const clearError = useVaultStore((state) => state.clearError);
   const navigate = useNavigate();
-  const biometricAttempted = useRef(false);
   const pinPreferred = Boolean(pin?.enabled && !pin.locked && !useMasterPassword);
+  const authentication = useDesktopAuthentication(Boolean(status?.hasVault && !status.unlocked && biometric?.available && biometric.enabled), async () => {
+    setCredential('');
+    await refresh();
+    if (!useVaultStore.getState().status?.unlocked) throw new Error('Vault refresh failed');
+    await navigate({ to: '/vault', replace: true });
+  });
 
-  useEffect(() => {
-    if (biometricAttempted.current || busy || !status?.hasVault || status.unlocked || !biometric?.available || !biometric.enabled) return;
-    biometricAttempted.current = true;
-    void unlockWithBiometrics().then((unlocked) => {
-      if (unlocked) void navigate({ to: '/vault', replace: true });
-    });
-  }, [biometric?.available, biometric?.enabled, busy, navigate, status?.hasVault, status?.unlocked, unlockWithBiometrics]);
+  const busy = storeBusy || authentication.status === 'opening';
 
   const unlockCredential = async (value: string): Promise<void> => {
-    if (busy) return;
+    if (busy || submitting.current) return;
+    submitting.current = true;
     try {
+      // The privileged password/PIN operation independently invalidates native auth.
+      await authentication.cancel().catch(() => {});
       const unlocked = pinPreferred ? await unlockWithPin(value) : await unlockVault(value);
       if (unlocked) {
         void navigate({ to: '/vault', replace: true });
       }
     } finally {
+      submitting.current = false;
       setCredential('');
     }
   };
@@ -51,12 +56,6 @@ export function UnlockPage() {
   const submit = (event: FormEvent): void => {
     event.preventDefault();
     if (!pinPreferred) void unlockCredential(credential);
-  };
-
-  const unlockUsingBiometrics = async (): Promise<void> => {
-    if (await unlockWithBiometrics()) {
-      void navigate({ to: '/vault', replace: true });
-    }
   };
 
   return (
@@ -72,7 +71,20 @@ export function UnlockPage() {
         <CardContent>
           <form id="unlock-vault" onSubmit={submit}>
             <FieldGroup>
-              <ErrorBanner message={error} />
+              {biometric?.enabled && authentication.capability?.supported ? (
+                <div className="flex flex-col items-center gap-2" aria-label="Touch ID 认证">
+                  <div className="relative size-16 shrink-0">
+                    <div ref={authentication.anchor} className="size-16" />
+                    {authentication.status === 'opening' ? <Spinner role="presentation" aria-hidden="true" className="absolute inset-0 m-auto size-8" /> : null}
+                  </div>
+                  <p className="text-sm text-muted-foreground" role="status" aria-label="解锁状态">
+                    {authentication.status === 'opening' ? '指纹验证成功，正在打开保险库…' : authentication.status === 'listening' ? '触碰 Touch ID 解锁，或输入下方密码' : authentication.status === 'failed' ? authentication.error ?? 'Touch ID 验证未完成，可重试或输入密码' : '可重试 Touch ID，或使用密码解锁'}
+                  </p>
+                </div>
+              ) : authentication.capability && !authentication.capability.supported ? (
+                <p className="text-sm text-muted-foreground">{authentication.capability.label}，请使用主密码或 PIN。</p>
+              ) : null}
+              <ErrorBanner message={error || authentication.error} />
               {pinPreferred ? (
                 <Field>
                   <FieldLabel htmlFor="unlock-pin">6 位 PIN</FieldLabel>
@@ -126,10 +138,9 @@ export function UnlockPage() {
               {pinPreferred ? '改用主密码' : pin.locked ? 'PIN 已锁定' : '改用 PIN'}
             </Button>
           ) : null}
-          {biometric?.available && biometric.enabled ? (
-            <Button variant="secondary" type="button" disabled={busy} onClick={() => void unlockUsingBiometrics()}>
-              <FingerprintIcon data-icon="inline-start" />
-              使用 Touch ID
+          {biometric?.available && biometric.enabled && authentication.capability?.supported ? (
+            <Button variant="secondary" type="button" disabled={busy} onClick={authentication.retry}>
+              重试 Touch ID
             </Button>
           ) : null}
         </CardFooter>

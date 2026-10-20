@@ -181,12 +181,12 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 ### REQ-SEC-002 Quick unlock、锁定与剪贴板
 
 - 必须：quick unlock 只包装随机 Vault Key，不保存主密码；锁定撤销授权；剪贴板值按配置过期。
-- 必须：macOS 桌面端已启用 Touch ID 时，每次进入锁定解锁页必须自动发起一次系统 Touch ID；
-  取消或失败后保留手动重试和主密码/PIN fallback，不得因重渲染重复弹出认证。
+- 必须：macOS 主窗口的 UnlockPage 在已启用 Touch ID、可见且激活时通过平台适配器挂载原生嵌入式认证视图，持续等待指纹而不设应用固定超时；等待期间主密码/PIN 始终可提交，不占用全局 busy；指纹通过后到安全摘要就绪前必须显示打开进度。
+- 必须：失焦、隐藏、系统锁定、页面卸载、切换保险库或提交密码/PIN 时取消当前认证；恢复激活可重新等待。取消、凭据变化和旧会话的迟到回调不得解锁；重渲染和重复激活不得创建重复认证。失败保留显式重试和密码/PIN 回退。Windows 适配器首版明确暂不支持，不能隐式调用 macOS 逻辑；MCP 独立认证和超时不变。
 - 必须：PIN/生物识别两项无凭据状态查询作为同一轮并发读取并共用在途事件检查；后台最多接纳两项此类只读查询，仍逐项验证来源、会话、版本、期限和防重放，不能与受控工具写操作并行。解锁、设置及其他特权操作不得借此绕过串行保护。
 - 验收：`CT-SEC-002`、`CT-NATIVE-PRIVILEGED-001`、
   `CT-NATIVE-QUICK-UNLOCK-001`、`CT-NATIVE-CLIPBOARD-001`、`CT-TAURI-DESKTOP-001`、`AT-SEC-001`、
-  `AT-NATIVE-MACOS-003`。
+  `AT-NATIVE-MACOS-003`、`CT-DESKTOP-AUTH-001`、`AT-DESKTOP-AUTH-001`。
 
 ### REQ-SEC-003 Desktop 窗口内容捕获保护
 

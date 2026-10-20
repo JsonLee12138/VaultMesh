@@ -110,6 +110,22 @@ impl BiometricQuickUnlockService {
             return Err("Touch ID 快速解锁对应的保险库不存在。".to_owned());
         }
         prompt_biometric("使用 Touch ID 解锁 VaultMesh")?;
+        self.credential_after_authentication()
+    }
+
+    pub(super) fn credential_binding(&self) -> Result<(PathBuf, String), String> {
+        let record = self.read_record().ok_or("尚未启用 Touch ID 快速解锁。")?;
+        Ok((record.vault_path, record.credential_id))
+    }
+
+    // Only privileged Rust authentication completion may call this, never IPC.
+    pub(super) fn credential_after_authentication(
+        &self,
+    ) -> Result<(PathBuf, Zeroizing<Vec<u8>>), String> {
+        let record = self.read_record().ok_or("尚未启用 Touch ID 快速解锁。")?;
+        if !record.vault_path.is_file() {
+            return Err("保险库不存在。".into());
+        }
         let key = get_credential(self.keyring_service, &record)?;
         if key.len() != KEY_BYTES {
             return Err("Touch ID 快速解锁凭据无效，请使用主密码重新启用。".to_owned());

@@ -249,6 +249,12 @@
           "markdownDescription": "Allows the bundled main window to refresh the idle-lock deadline."
         },
         {
+          "description": "Allows only the main window to manage its non-secret native authentication presentation.",
+          "type": "string",
+          "const": "allow-desktop-authentication",
+          "markdownDescription": "Allows only the main window to manage its non-secret native authentication presentation."
+        },
+        {
           "description": "Allows the bundled main window to invoke the validated VaultMesh dispatcher.",
           "type": "string",
           "const": "allow-desktop-invoke",

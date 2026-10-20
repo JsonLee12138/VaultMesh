@@ -58,8 +58,7 @@ state；credential 缺失或 record 损坏必须 fail closed，不得静默轮�
   best-effort hint。
 - 平台 adapter 可以使用窄 Swift/Objective-C/Win32 调用，但不得复制 core 业务或持久化 secret 到
   非 OS-protected storage。
-- macOS 桌面 Touch ID 已启用时，锁定解锁页必须在状态就绪后自动发起一次系统认证；取消或失败后
-  保留手动 Touch ID 和主密码/PIN fallback，并以页面生命周期 guard 防止重渲染重复提示。
+- 主窗口嵌入认证遵循 REQ-SEC-002 与 ADR-0050：typed command 只绑定 main，Rust coordinator 拥有 generation、当前 Vault/凭据绑定和取消；平台 adapter 独占原生视图/context。凭据读取及 core 解锁必须离开主线程，只有有效会话且窗口仍激活时才能发布授权；MCP 与浏览器认证保持独立。
 - Rust desktop runtime 独占 macOS/Windows 登录项注册与查询；登录项只能传入固定
   `--autostart` 参数。首次默认注册使用 app-data 内的非秘密初始化标记区分用户后续显式关闭，
   renderer 不获得 autostart 插件 capability，也不能提供可执行文件路径或启动参数。

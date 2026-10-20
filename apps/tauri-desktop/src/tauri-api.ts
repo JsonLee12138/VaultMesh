@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
-import type { VaultMeshApi } from './shared/api';
+import type { DesktopAuthenticationEvent, VaultMeshApi } from './shared/api';
 
 const call = async <T>(operation: string, input: unknown = {}): Promise<T> => {
   try {
@@ -19,6 +19,11 @@ const copy = (operation: string, id: string, masterPassword?: string) =>
 export function createTauriVaultMeshApi(): VaultMeshApi {
   return {
     desktop: {
+      authenticationStatus: () => invoke('desktop_authentication_status'),
+      beginAuthentication: (sessionId, bounds) => invoke('desktop_authentication_begin', { sessionId, bounds }),
+      layoutAuthentication: (sessionId, bounds) => invoke('desktop_authentication_layout', { sessionId, bounds }),
+      cancelAuthentication: (sessionId) => invoke('desktop_authentication_cancel', { sessionId }),
+      onAuthentication: (callback) => listen<DesktopAuthenticationEvent>('desktop-authentication', ({ payload }) => callback(payload)),
       startupSettings: () => call('desktop.startup.get'),
       updateStartupSettings: (input) => call('desktop.startup.update', input),
       browserIntegrationStatus: () => call('desktop.browser-integration.get'),
