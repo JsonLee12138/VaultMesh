@@ -1,6 +1,6 @@
 import { DeviceAssistPanel } from "./device-assist-panel";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { REGEXP_ONLY_DIGITS } from "input-otp";
+import { PopupUnlockPage } from "./popup-unlock-page";
 import {
   BracesIcon,
   CheckIcon,
@@ -29,7 +29,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { confirmedDesktopRpc, desktopRpc, DesktopRpcError, getDesktopStatus, getEmailOtpCandidates, pollDesktopEvents, type DesktopState, type EmailOtpCandidate, type FillEvent, type Operation, type WorkspaceSnapshot } from "@/lib/desktop-rpc";
@@ -347,7 +346,7 @@ export function PopupApp({ initialWorkspace = null }: { initialWorkspace?: Initi
   useEffect(() => { if (page !== pagination.page) setPage(pagination.page); }, [page, pagination.page]);
 
   if (desktopState === "locked" && activeTab === "vault") {
-    return <PopupUnlockPage hasVault={hasVault} onUnlocked={() => refreshWorkspace({ assumeUnlocked: true })} />;
+    return <PopupUnlockPage hasVault={hasVault} onUnlocked={() => refreshWorkspace({ assumeUnlocked: true })} notice={(busy) => <PasskeyUnlockNotice disabled={busy} />} />;
   }
 
   function toggleSelection(id: string) {
@@ -817,7 +816,6 @@ function saveFailureReason(code?: string, message?: string): string {
   return code ? `桌面端返回错误 ${code}，请重试。` : "请重试。";
 }
 
-type UnlockPhase = "idle" | "authenticating" | "loading";
 type PasskeyUnlockPrompt = { token: string; operation: "create" | "get"; origin: string | null };
 
 export function parsePasskeyUnlockPrompt(value: unknown): PasskeyUnlockPrompt | null {
@@ -858,62 +856,6 @@ export function passkeyPromptText(prompt: PasskeyUnlockPrompt): string {
     : `${site} 正在请求通行密钥登录。解锁后由 VaultMesh 继续。`;
 }
 
-function PopupUnlockPage({ hasVault, onUnlocked }: { hasVault: boolean; onUnlocked: () => Promise<boolean> }) {
-  const [credential, setCredential] = useState("");
-  const [useMasterPassword, setUseMasterPassword] = useState(false);
-  const [biometric, setBiometric] = useState<{ available: boolean; enabled: boolean } | null>(null);
-  const [pin, setPin] = useState<{ enabled: boolean; locked: boolean; remainingAttempts: number } | null>(null);
-  const [message, setMessage] = useState(hasVault ? "在插件中解锁本机保险库。" : "尚未创建保险库，请先在 VaultMesh 桌面端创建。" );
-  const [phase, setPhase] = useState<UnlockPhase>("idle");
-
-  useEffect(() => {
-    if (!hasVault) return;
-    void Promise.all([desktopRpc("biometric.status"), desktopRpc("pin.status")]).then(([nextBiometric, nextPin]) => { setBiometric(nextBiometric as { available: boolean; enabled: boolean }); setPin(nextPin as { enabled: boolean; locked: boolean; remainingAttempts: number }); }).catch(() => { setBiometric(null); setPin(null); });
-  }, [hasVault]);
-
-  const pinPreferred = Boolean(pin?.enabled && !pin.locked && !useMasterPassword);
-  const busy = phase !== "idle";
-
-  async function unlock(providedValue?: string) {
-    if (busy) return;
-    const value = providedValue ?? credential;
-    setCredential("");
-    setPhase("authenticating");
-    let completed = false;
-    try {
-      if (pinPreferred) await desktopRpc("pin.unlock", { pin: value });
-      else await desktopRpc("vault.unlock", { masterPassword: value });
-      setPhase("loading");
-      completed = await onUnlocked();
-      if (!completed) setMessage("验证已完成，但保险库状态发生变化，请重试。");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "解锁失败，请重试。");
-      if (pinPreferred) void desktopRpc("pin.status").then((next) => setPin(next as typeof pin));
-    } finally {
-      if (!completed) setPhase("idle");
-    }
-  }
-
-  async function unlockWithBiometrics() {
-    if (busy) return;
-    setPhase("authenticating");
-    let completed = false;
-    try {
-      await desktopRpc("biometric.unlock");
-      setPhase("loading");
-      completed = await onUnlocked();
-      if (!completed) setMessage("验证已完成，但保险库状态发生变化，请重试。");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "生物识别解锁失败。");
-    } finally {
-      if (!completed) setPhase("idle");
-    }
-  }
-
-  const progressText = phase === "authenticating" ? "正在安全验证…" : phase === "loading" ? "验证成功，正在读取保险库…" : null;
-
-  return <main className="flex h-full w-full items-center p-3"><Card className="w-full"><CardContent className="flex flex-col gap-3"><span className="grid size-12 place-items-center rounded-xl bg-muted"><LockKeyholeIcon /></span><PasskeyUnlockNotice disabled={busy} /><div><h1 className="text-lg font-semibold">{hasVault ? "解锁 VaultMesh 插件" : "创建 VaultMesh 保险库"}</h1><p className="text-sm text-muted-foreground">{pinPreferred ? `输入 6 位插件 PIN 后自动解锁，还可尝试 ${pin?.remainingAttempts ?? 0} 次。` : pin?.locked ? "插件 PIN 已锁定，请使用主密码解锁。" : message}</p></div>{hasVault ? <>{pinPreferred ? <InputOTP value={credential} maxLength={6} pattern={REGEXP_ONLY_DIGITS} autoComplete="off" pushPasswordManagerStrategy="none" autoFocus disabled={busy} containerClassName="justify-center" aria-label="6 位插件 PIN" onChange={setCredential} onComplete={(value) => void unlock(value)}><InputOTPGroup><InputOTPSlot index={0} mask /><InputOTPSlot index={1} mask /><InputOTPSlot index={2} mask /></InputOTPGroup><InputOTPSeparator /><InputOTPGroup><InputOTPSlot index={3} mask /><InputOTPSlot index={4} mask /><InputOTPSlot index={5} mask /></InputOTPGroup></InputOTP> : <input className="h-10 rounded-md border border-input bg-background px-3 text-sm" type="password" inputMode="text" maxLength={1_024} value={credential} autoFocus onChange={(event) => setCredential(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && credential.length >= 8 && !busy) void unlock(); }} placeholder="主密码（至少 8 位）" />}<div className={`flex min-h-5 items-center justify-center gap-2 text-sm text-muted-foreground transition-opacity duration-150 ${progressText ? "opacity-100" : "opacity-0"}`} role="status" aria-live="polite">{progressText ? <><RefreshCwIcon className="animate-spin" size={16} aria-hidden="true" /><span>{progressText}</span></> : null}</div>{!pinPreferred ? <Button disabled={busy || credential.length < 8} onClick={() => void unlock()}>{phase === "authenticating" ? "正在安全验证…" : phase === "loading" ? "正在读取保险库…" : "使用主密码解锁插件"}</Button> : null}{pin?.enabled && !pin.locked ? <Button variant="secondary" disabled={busy} onClick={() => { setCredential(""); setUseMasterPassword(pinPreferred); }}>{pinPreferred ? "改用主密码" : "改用 PIN"}</Button> : null}{biometric?.available && biometric.enabled ? <Button variant="secondary" disabled={busy} onClick={() => void unlockWithBiometrics()}>{phase === "authenticating" ? "正在等待系统验证…" : "使用生物识别解锁插件"}</Button> : null}</> : null}</CardContent></Card></main>;
-}
 
 function VaultWorkspaceSkeleton() {
   return (

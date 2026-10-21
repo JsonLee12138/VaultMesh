@@ -29,7 +29,7 @@ export const BROWSER_EXTENSION_WORKFLOWS: readonly BrowserExtensionWorkflow[] = 
   { id: 'ssh-recovery', route: 'popup:settings', commands: ['ssh.trash.list', 'ssh.trash.restore', 'ssh.trash.purge', 'ssh.trash.empty', 'ssh.history.list', 'ssh.history.restore', 'ssh.history.clear'], requiresConfirmation: true },
   { id: 'password-security', route: 'popup:settings', commands: ['password.generate', 'browser.generated.copy', 'password.health', 'security.settings.get', 'security.settings.update'], requiresConfirmation: false },
   { id: 'vault-lifecycle', route: 'popup:settings', commands: ['vault.backup', 'vault.restore', 'vault.change-password'], requiresConfirmation: true },
-  { id: 'biometrics', route: 'popup:settings', commands: ['biometric.status', 'biometric.enable', 'biometric.disable', 'biometric.unlock'], requiresConfirmation: false },
+  { id: 'biometrics', route: 'popup:settings', commands: ['biometric.status', 'biometric.enable', 'biometric.disable', 'biometric.unlock', 'biometric.authentication.start', 'biometric.authentication.poll', 'biometric.authentication.cancel'], requiresConfirmation: false },
   { id: 'pin-unlock', route: 'popup:settings', commands: ['pin.status', 'pin.enable', 'pin.disable', 'pin.unlock'], requiresConfirmation: false },
   { id: 'browser-pairing', route: 'popup:settings', commands: ['browser.pairing.status', 'browser.pairing.revoke'], requiresConfirmation: true },
   { id: 'imports', route: 'popup:settings', commands: ['imports.select', 'imports.commit', 'imports.cancel'], requiresConfirmation: true },

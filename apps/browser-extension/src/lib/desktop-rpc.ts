@@ -75,7 +75,7 @@ export class DesktopRpcError extends Error {
 
 export type Operation =
   | "vault.status" | "vault.workspace" | "vault.create" | "vault.unlock" | "vault.unlock-history" | "vault.lock" | "vault.backup" | "vault.restore" | "vault.change-password"
-  | "biometric.status" | "biometric.enable" | "biometric.disable" | "biometric.unlock" | "pin.status" | "pin.enable" | "pin.disable" | "pin.unlock" | "security.settings.get" | "security.settings.update"
+  | "biometric.authentication.start" | "biometric.authentication.poll" | "biometric.authentication.cancel" | "biometric.status" | "biometric.enable" | "biometric.disable" | "biometric.unlock" | "pin.status" | "pin.enable" | "pin.disable" | "pin.unlock" | "security.settings.get" | "security.settings.update"
   | "events.poll" | "browser.pairing.status" | "browser.pairing.revoke" | "confirmation.request"
   | "browser.autofill.candidates" | "browser.autofill.profile" | "browser.autofill.execute" | "browser.card.capture-status" | "browser.login.password-changed" | "browser.fill.record" | "browser.fill.history" | "browser.fill.request"
   | "device.assist.capabilities" | "device.assist.start" | "device.assist.poll" | "device.assist.select" | "device.assist.finish" | "device.assist.cancel"
@@ -88,7 +88,7 @@ export type Operation =
   | "secrets.list" | "secrets.detail" | "secrets.add" | "secrets.update" | "secrets.delete" | "secrets.copy-value"
   | "imports.select" | "imports.commit" | "imports.cancel" | "password.generate" | "browser.generated.copy" | "password.health";
 
-const NO_GESTURE_OPERATIONS = new Set<Operation>(["vault.status", "vault.workspace", "vault.unlock-history", "biometric.status", "pin.status", "security.settings.get", "events.poll", "browser.pairing.status", "browser.autofill.candidates", "browser.autofill.profile", "browser.autofill.execute", "browser.card.capture-status", "browser.login.password-changed", "browser.fill.record", "browser.fill.history", "email.otp.poll", "email.otp.candidates", "passkeys.create", "passkeys.get", "items.list", "items.trash.list", "items.history.list", "cards.list", "cards.detail", "cards.trash.list", "cards.history.list", "identities.list", "identities.detail", "identities.trash.list", "identities.history.list", "ssh.list", "ssh.detail", "ssh.trash.list", "ssh.history.list", "secrets.list", "secrets.detail", "password.health"]);
+const NO_GESTURE_OPERATIONS = new Set<Operation>(["vault.status", "vault.workspace", "vault.unlock-history", "biometric.status", "biometric.authentication.poll", "biometric.authentication.cancel", "pin.status", "security.settings.get", "events.poll", "browser.pairing.status", "browser.autofill.candidates", "browser.autofill.profile", "browser.autofill.execute", "browser.card.capture-status", "browser.login.password-changed", "browser.fill.record", "browser.fill.history", "email.otp.poll", "email.otp.candidates", "passkeys.create", "passkeys.get", "items.list", "items.trash.list", "items.history.list", "cards.list", "cards.detail", "cards.trash.list", "cards.history.list", "identities.list", "identities.detail", "identities.trash.list", "identities.history.list", "ssh.list", "ssh.detail", "ssh.trash.list", "ssh.history.list", "secrets.list", "secrets.detail", "password.health"]);
 
 export async function desktopRpc(operation: Operation, input: Record<string, unknown> = {}, userGestureId?: string): Promise<unknown> {
   const request = createRequest(operation, input, userGestureId);

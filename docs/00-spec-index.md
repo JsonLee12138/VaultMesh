@@ -97,6 +97,7 @@
 - `../adr/0047-device-fill-assist.md`
 
 - `../adr/0050-desktop-platform-authentication.md`
+- `../adr/0051-browser-touchid.md`
 
 ## Change 与 Release 入口
 

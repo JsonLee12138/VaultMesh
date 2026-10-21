@@ -87,6 +87,7 @@ const extensionAction = (browser as unknown as {
 }).action ?? (browser as unknown as { browserAction?: BrowserActionApi }).browserAction;
 
 export default defineBackground(() => {
+  let activeBiometricSession: string | null = null;
   // Listener registration is deliberately synchronous: Chromium requires the
   // WebAuthn proxy handlers to exist as soon as the MV3 worker starts.
   const passkeyProxy = installPasskeyProxy({ openUnlockPrompt: openPasskeyUnlockPrompt });
@@ -94,6 +95,7 @@ export default defineBackground(() => {
   // connection. An open native port also keeps the MV3 worker available.
   persistentNativeConnection.start();
   persistentNativeConnection.onDisconnected(() => {
+    activeBiometricSession = null;
     popupWorkspaceCache.clear();
     stopEmailOtpPolling();
     void cancelDeviceAssists();
@@ -202,11 +204,18 @@ export default defineBackground(() => {
       if (!isTrustedExtensionPage(sender)) {
         return { kind: "vaultmesh.host-status", status: "invalid-message", requestId: message.request.requestId };
       }
+      const authenticationId = message.request.input.sessionId;
+      if (message.request.operation === 'biometric.authentication.start' && typeof authenticationId === 'string') activeBiometricSession = authenticationId;
+      if (message.request.operation === 'biometric.authentication.poll' && (typeof authenticationId !== 'string' || authenticationId !== activeBiometricSession)) {
+        return { kind: "vaultmesh.host-status", status: "invalid-message", requestId: message.request.requestId };
+      }
+      if (message.request.operation === 'biometric.authentication.cancel' && authenticationId === activeBiometricSession) activeBiometricSession = null;
       if (message.request.operation === 'vault.lock' || message.request.operation === 'browser.pairing.revoke') popupWorkspaceCache.clear();
       const response = await persistentNativeConnection.request(message.request);
       popupWorkspaceCache.observeRpcResponse(message.request.operation, response);
-      if (['vault.create', 'vault.unlock', 'biometric.unlock', 'pin.unlock'].includes(message.request.operation)) void passkeyProxy.sync();
-      if (['vault.create', 'vault.unlock', 'biometric.unlock', 'pin.unlock'].includes(message.request.operation)) startEmailOtpPolling();
+      if (message.request.operation === "biometric.authentication.poll" && isBiometricUnlockResponse(response)) activeBiometricSession = null;
+      if (['vault.create', 'vault.unlock', 'biometric.unlock', 'pin.unlock'].includes(message.request.operation) || (message.request.operation === 'biometric.authentication.poll' && isBiometricUnlockResponse(response))) void passkeyProxy.sync();
+      if (['vault.create', 'vault.unlock', 'biometric.unlock', 'pin.unlock'].includes(message.request.operation) || (message.request.operation === 'biometric.authentication.poll' && isBiometricUnlockResponse(response))) startEmailOtpPolling();
       if (message.request.operation === 'vault.lock' || message.request.operation === 'browser.pairing.revoke') {
         stopEmailOtpPolling();
     void cancelDeviceAssists();
@@ -1022,4 +1031,9 @@ function saveCaptureIdForWindow(sender: Browser.runtime.MessageSender): string |
   if (sender.id !== browser.runtime.id || sender.url !== browser.runtime.getURL("/save-confirmation.html")) return null;
   const windowId = sender.tab?.windowId;
   return windowId == null ? null : saveCaptureIdsByWindow.get(windowId) ?? null;
+}
+
+function isBiometricUnlockResponse(response: unknown): boolean {
+  const value = response as { ok?: boolean; result?: { phase?: string } } | null;
+  return value?.ok === true && value.result?.phase === "unlocked";
 }

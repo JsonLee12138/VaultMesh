@@ -158,6 +158,11 @@ pub fn run() {
             let agent_pin = Arc::new(Mutex::new(PinQuickUnlockService::new_agent(
                 app_data.join("agent-pin-unlock.json"),
             )));
+            let desktop_biometric = Arc::new(Mutex::new(BiometricQuickUnlockService::new(
+                biometric_path,
+                "com.vaultmesh.desktop.desktop-biometric",
+                "desktop-biometric",
+            )));
             let agent_biometric = Arc::new(Mutex::new(BiometricQuickUnlockService::new(
                 agent_biometric_path,
                 "com.vaultmesh.desktop.agent-biometric",
@@ -533,6 +538,7 @@ pub fn run() {
                             Arc::clone(&clipboard_value),
                             Arc::clone(&native_dialog_focus),
                             Arc::clone(&email_otp),
+                            Arc::clone(&desktop_biometric),
                         ));
                         BrowserBrokerCore::new_with_platform(vault_path.clone(), secret, platform).ok()
                     })
@@ -554,6 +560,7 @@ pub fn run() {
                 let browser_clipboard_value = Arc::clone(&clipboard_value);
                 let browser_native_dialog_focus = Arc::clone(&native_dialog_focus);
                 let browser_email_otp = Arc::clone(&email_otp);
+                let browser_biometric = Arc::clone(&desktop_biometric);
                 let broker_factory = Arc::new(move || {
                     let secret =
                         BrowserPairingService::new(browser_app_data.join("browser-pairing.json"))
@@ -567,6 +574,7 @@ pub fn run() {
                         Arc::clone(&browser_clipboard_value),
                         Arc::clone(&browser_native_dialog_focus),
                         Arc::clone(&browser_email_otp),
+                        Arc::clone(&browser_biometric),
                     ));
                     BrowserBrokerCore::new_with_platform(
                         browser_vault_path.clone(),
@@ -592,6 +600,7 @@ pub fn run() {
                         app.handle().clone(), app_data.clone(), Arc::clone(&settings),
                         settings_path.clone(), Arc::clone(&clipboard_value),
                         Arc::clone(&native_dialog_focus), Arc::clone(&email_otp),
+                        Arc::clone(&desktop_biometric),
                     ).into_bitwarden_development(&app_data);
                     BrowserBrokerCore::new_with_platform(vault_path.clone(), secret, Arc::new(platform)).ok()
                 }).and_then(|broker| {
@@ -648,11 +657,7 @@ pub fn run() {
                 desktop_authentication: Arc::new(Mutex::new(
                     desktop_authentication::Coordinator::default(),
                 )),
-                biometric: Arc::new(Mutex::new(BiometricQuickUnlockService::new(
-                    biometric_path,
-                    "com.vaultmesh.desktop.desktop-biometric",
-                    "desktop-biometric",
-                ))),
+                biometric: desktop_biometric,
                 pin: Arc::new(Mutex::new(PinQuickUnlockService::new(pin_path))),
                 lan_pairing: Arc::new(Mutex::new(LanPairingService::new(lan_peer_trust_path))),
                 vault_path_record,

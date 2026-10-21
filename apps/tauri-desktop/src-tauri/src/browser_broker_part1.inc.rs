@@ -50,6 +50,9 @@ pub const TAURI_BROWSER_SLICE_OPERATIONS: &[&str] = &[
     "biometric.enable",
     "biometric.disable",
     "biometric.unlock",
+    "biometric.authentication.start",
+    "biometric.authentication.poll",
+    "biometric.authentication.cancel",
     "pin.status",
     "pin.enable",
     "pin.disable",
@@ -169,6 +172,9 @@ fn requires_unlock(operation: &str) -> bool {
             | "vault.unlock-history"
             | "biometric.status"
             | "biometric.unlock"
+            | "biometric.authentication.start"
+            | "biometric.authentication.poll"
+            | "biometric.authentication.cancel"
             | "pin.status"
             | "pin.unlock"
             | "events.poll"
@@ -185,6 +191,8 @@ fn requires_gesture(operation: &str) -> bool {
             | "vault.workspace"
             | "vault.unlock-history"
             | "biometric.status"
+            | "biometric.authentication.poll"
+            | "biometric.authentication.cancel"
             | "pin.status"
             | "security.settings.get"
             | "events.poll"
@@ -290,6 +298,7 @@ pub trait BrowserBrokerPlatform: Send + Sync {
         Ok(false)
     }
 
+    fn cancel_authentication(&self) {}
     fn clear(&self) {}
 }
 
@@ -526,6 +535,9 @@ impl BrowserBrokerCore {
             self.confirmations.clear();
             self.record_event("vault-changed", now_millis);
         }
+        if matches!(request.operation.as_str(), "vault.unlock" | "pin.unlock" | "vault.lock") {
+            self.platform.cancel_authentication();
+        }
         if requires_unlock(&request.operation) && !self.runtime.is_unlocked() {
             return rpc_failure(
                 envelope_request_id,
@@ -731,7 +743,7 @@ impl BrowserBrokerCore {
                     if matches!(
                         operation,
                         "vault.restore" | "pin.unlock" | "biometric.unlock"
-                    ) {
+                    ) || (operation == "biometric.authentication.poll" && result.get("phase").and_then(Value::as_str) == Some("unlocked")) {
                         if let Err(error) = self.platform.after_master_unlock(&mut self.runtime) {
                             self.runtime.lock();
                             return rpc_failure(envelope_request_id, error.code, &error.message);
@@ -752,6 +764,7 @@ impl BrowserBrokerCore {
                         self.record_event("pairing-revoked", now_millis);
                         self.revoked = true;
                         self.runtime.lock();
+                        self.platform.clear();
                         self.confirmations.clear();
                         self.fill.clear();
                         self.pairing_secret.zeroize();

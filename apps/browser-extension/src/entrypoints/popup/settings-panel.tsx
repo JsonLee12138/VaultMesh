@@ -14,7 +14,7 @@ import {
 import { RecoveryPanel, type RecoveryTarget } from "./recovery-panel";
 
 type PinStatus = { enabled: boolean; locked: boolean; failureLimit: number; remainingAttempts: number };
-type BiometricStatus = { available: boolean; enabled: boolean };
+type BiometricStatus = { available: boolean; enabled: boolean; followsDesktop?: boolean };
 type DesktopSecuritySettings = { lockOnBlur: boolean; idleTimeoutMs: number; lockOnSleep: boolean; clipboardClearTimeoutMs: number; copySshPasswordOnLaunch: boolean };
 type SettingsSection = "menu" | "pin" | "security" | "device" | "history" | "recovery";
 
@@ -201,7 +201,7 @@ export function SettingsPanel({ fillHistory, recoveryTargets, onRecoveryChanged,
           <h2 className="text-sm font-semibold">设备验证与配对</h2>
           <p className="text-xs text-muted-foreground">生物识别：{biometric?.available ? biometric.enabled ? "已启用" : "可用" : "不可用"} · 桌面端配对：{paired ? "已配对" : "未配对"}</p>
           <div className="flex flex-wrap gap-2">
-            {biometric?.available ? <Button size="sm" variant="secondary" disabled={busy} onClick={() => void run(() => desktopRpc(biometric.enabled ? "biometric.disable" : "biometric.enable"), `生物识别已${biometric.enabled ? "关闭" : "启用"}。`)}>{biometric.enabled ? "关闭" : "启用"}生物识别</Button> : null}
+            {biometric?.followsDesktop ? <p className="text-xs text-muted-foreground">Touch ID 跟随桌面设置，请在 VaultMesh 桌面端启用或关闭。</p> : biometric?.available ? <Button size="sm" variant="secondary" disabled={busy} onClick={() => void run(() => desktopRpc(biometric.enabled ? "biometric.disable" : "biometric.enable"), `生物识别已${biometric.enabled ? "关闭" : "启用"}。`)}>{biometric.enabled ? "关闭" : "启用"}生物识别</Button> : null}
             {paired ? <Button size="sm" variant="destructive" disabled={busy} onClick={() => { if (window.confirm("撤销插件与桌面端的配对？")) void run(() => confirmedDesktopRpc("browser.pairing.revoke", {}), "插件配对已撤销。"); }}>撤销配对</Button> : null}
           </div>
         </CardContent>
