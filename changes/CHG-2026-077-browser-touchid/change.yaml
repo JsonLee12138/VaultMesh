@@ -1,0 +1,35 @@
+schema: "2"
+id: "CHG-2026-077-browser-touchid"
+title: "插件解锁跟随桌面 Touch ID"
+type: "feature"
+status: "Active"
+spec_revision: "0.1.53-active"
+target_release: null
+goal: "统一桌面生物识别配置并实现可取消的独立 Browser 认证会话，跟踪真实浏览器验收"
+requirements:
+  - "REQ-SEC-002"
+  - "REQ-BROWSER-001"
+  - "REQ-BROWSER-002"
+  - "REQ-BROWSER-003"
+tests:
+  - "CT-BROWSER-001"
+  - "CT-BROWSER-002"
+  - "CT-SEC-002"
+  - "AT-BROWSER-001"
+  - "AT-BROWSER-FIREFOX-001"
+adrs:
+  - "ADR-0051"
+context_refs:
+  - "specs/browser-integration.md"
+  - "docs/06-security-privacy.md"
+  - "docs/07-test-release-plan.md"
+related_changes: []
+boundaries:
+  - "credentials"
+  - "browser-authorization"
+  - "rpc"
+risks:
+  - "本机 macOS 27 的 release proc-macro stripping 触发 LINKEDIT 对齐错误；试用构建需 CARGO_PROFILE_RELEASE_BUILD_OVERRIDE_STRIP=none"
+  - "系统弹窗期间 popup 生命周期必须通过真机验收"
+next:
+  - "在 macOS Chrome/Firefox 安装本机试用包，验收真实指纹、系统弹窗期间 popup 生命周期、取消和 PIN/主密码回退"

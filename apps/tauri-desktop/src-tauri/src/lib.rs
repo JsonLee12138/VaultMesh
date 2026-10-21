@@ -65,6 +65,7 @@ mod agent_vault_access;
 mod app_setup;
 mod app_update;
 mod biometric_service;
+mod browser_authentication;
 mod desktop_authentication;
 use desktop_authentication::{
     desktop_authentication_begin, desktop_authentication_cancel, desktop_authentication_layout,

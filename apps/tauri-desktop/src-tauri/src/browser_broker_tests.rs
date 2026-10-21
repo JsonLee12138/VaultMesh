@@ -534,8 +534,8 @@ fn operation_policy_is_exhaustive_and_confirmation_tokens_are_single_use() {
         .iter()
         .copied()
         .collect::<std::collections::HashSet<_>>();
-    assert_eq!(TAURI_BROWSER_SLICE_OPERATIONS.len(), 119);
-    assert_eq!(operations.len(), 119);
+    assert_eq!(TAURI_BROWSER_SLICE_OPERATIONS.len(), 122);
+    assert_eq!(operations.len(), 122);
     for operation in TAURI_BROWSER_SLICE_OPERATIONS {
         let owners = [
             is_broker_operation(operation),

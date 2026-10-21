@@ -67,6 +67,14 @@ macOS 正式构建每次启动必须从当前 desktop executable 的同目录定
   另一 surface。Rust route/policy 必须与本规格上方的 TypeScript owner 做可执行 parity 校验；
   未覆盖的 operation 必须 fail closed，不能声称 parity。
 
+## Popup Touch ID
+
+当前 WXT 插件必须通过 Rust broker 跟随 desktop 的当前 Vault Touch ID 配置（ADR-0051），不得复制设置或 Vault Key 到 extension。锁定页首次可见且用户尚未选择输入方式时自动触发一次系统弹窗，取消/失败后只允许显式重试。桌面和 Browser 的解锁授权继续独立；主窗口嵌入式认证和 Agent 认证保持各自生命周期。
+
+Rust 必须通过 start/poll/cancel 会话管理原生 LAContext。Start 需要可信 popup 的 fresh gesture，poll/cancel 必须携带本轮随机 session ID 并通过既有连接鉴权；poll 的认证提交不是普通 metadata。会话最长 30 秒，poll 刷新 3 秒租约，关闭/隐藏、回退、断连、系统锁定、撤销或租约到期必须取消。仅有效 poll 可以在重新检查当前 Vault 和 credential ID 后短时读取凭据并提交 Browser unlock；旧回调不得自行读取凭据或发布授权。无活跃 popup 不能靠后台连接保留待提交认证。Background 必须在 Native Host 断连时丢弃当前认证 ID，重连不得继续旧认证轮询；无法发送取消时由 Rust 租约清理原生会话。
+
+旧 WXT 生物识别启用/关闭操作必须安全拒绝并指向桌面设置，旧独立凭据保留以支持代码回滚但不再参与当前认证。实验副本身份仍维持独立凭据，不继承桌面授权或配置。Windows 首版继续明确不支持；PIN 与主密码保留。
+
 ## Extension 偏好与瞬态状态
 
 Extension local storage 只可以保存 schema-validated、renderer-safe 的用户偏好：生成器最后类型与

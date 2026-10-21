@@ -50,6 +50,8 @@ pub struct TauriBrowserPlatform {
     recovery_files: Mutex<RecoveryFileCleanupSessions>,
     pin: Mutex<PinQuickUnlockService>,
     biometric: Mutex<BiometricQuickUnlockService>,
+    desktop_biometric: Option<Arc<Mutex<BiometricQuickUnlockService>>>,
+    authentication: Arc<crate::browser_authentication::Authentication>,
     pairing: BrowserPairingService,
     ssh_directory: PathBuf,
     ssh_scan: Mutex<SshScanService>,
@@ -62,6 +64,7 @@ impl TauriBrowserPlatform {
     /// New OS credential slots and records; never inherits another extension's quick unlock.
     pub fn into_bitwarden_development(mut self, app_data: &std::path::Path) -> Self {
         let directory = app_data.join(crate::browser_development_identity::DIRECTORY);
+        self.desktop_biometric = None;
         self.pin = Mutex::new(PinQuickUnlockService::new_bitwarden_development(
             directory.join("pin-unlock.json"),
         ));
@@ -83,6 +86,7 @@ impl TauriBrowserPlatform {
         clipboard_value: Arc<Mutex<Option<Zeroizing<String>>>>,
         native_dialog_focus: Arc<NativeDialogFocusState>,
         email_otp: Arc<Mutex<EmailOtpService>>,
+        desktop_biometric: Arc<Mutex<BiometricQuickUnlockService>>,
     ) -> Self {
         let ssh_directory = app
             .path()
@@ -105,6 +109,8 @@ impl TauriBrowserPlatform {
                 "com.vaultmesh.desktop.browser-biometric",
                 "browser-biometric",
             )),
+            desktop_biometric: Some(desktop_biometric),
+            authentication: Arc::default(),
             pairing: BrowserPairingService::new(app_data.join("browser-pairing.json")),
             ssh_directory,
             ssh_scan: Mutex::new(SshScanService::default()),
@@ -518,12 +524,96 @@ impl BrowserBrokerPlatform for TauriBrowserPlatform {
                         .map_err(|message| failure(&message))?;
                     Ok(json!({ "cancelled": false, "status": status }))
                 }
-                "biometric.status" => self
-                    .biometric
-                    .lock()
-                    .map(|service| json!(service.status()))
-                    .map_err(|_| failure("Touch ID 快速解锁暂时不可用。")),
+                "biometric.status" => {
+                    let service = self
+                        .desktop_biometric
+                        .as_deref()
+                        .unwrap_or(&self.biometric)
+                        .lock()
+                        .map_err(|_| failure("Touch ID 暂不可用。"))?;
+                    let mut status = json!(service.status());
+                    let current = runtime.current_path().canonicalize().ok();
+                    if service
+                        .credential_binding()
+                        .ok()
+                        .is_none_or(|(path, _)| Some(path) != current)
+                    {
+                        status["enabled"] = json!(false);
+                    }
+                    status["followsDesktop"] = json!(self.desktop_biometric.is_some());
+                    Ok(status)
+                }
+                "biometric.authentication.start" => {
+                    if runtime.is_unlocked() {
+                        return Err(failure("插件已解锁。"));
+                    }
+                    let id = authentication_id(input)?;
+                    let service = self
+                        .desktop_biometric
+                        .as_deref()
+                        .unwrap_or(&self.biometric)
+                        .lock()
+                        .map_err(|_| failure("Touch ID 暂不可用。"))?;
+                    if !service.is_enabled() {
+                        return Err(failure("请先在桌面端启用 Touch ID。"));
+                    }
+                    let (path, credential) =
+                        service.credential_binding().map_err(|e| failure(&e))?;
+                    if runtime.current_path().canonicalize().ok().as_ref() != Some(&path) {
+                        return Err(failure("Touch ID 凭据不属于当前保险库。"));
+                    }
+                    drop(service);
+                    self.authentication
+                        .begin(
+                            &self.app,
+                            id,
+                            crate::browser_authentication::Binding(path, credential),
+                        )
+                        .map_err(|e| failure(&e))?;
+                    Ok(json!({ "phase": "waiting" }))
+                }
+                "biometric.authentication.poll" => {
+                    let id = authentication_id(input)?;
+                    let service = self
+                        .desktop_biometric
+                        .as_deref()
+                        .unwrap_or(&self.biometric)
+                        .lock()
+                        .map_err(|_| failure("Touch ID 暂不可用。"))?;
+                    let current_vault = runtime
+                        .current_path()
+                        .canonicalize()
+                        .map_err(|_| failure("无法定位当前保险库。"))?;
+                    if self.authentication.binding(id).is_none_or(|binding| {
+                        !binding.matches(&current_vault, service.credential_binding().ok())
+                    }) {
+                        self.authentication.cancel(&self.app, Some(id));
+                        return Err(failure("认证已取消或配置已变化，请重新验证。"));
+                    }
+                    let binding = self.authentication.poll(id, std::time::Instant::now());
+                    if !matches!(binding, Ok(None)) {
+                        self.authentication.cancel(&self.app, Some(id));
+                    }
+                    if binding.map_err(|e| failure(&e))?.is_none() {
+                        return Ok(json!({ "phase": "waiting" }));
+                    }
+                    let (path, key) = service
+                        .credential_after_authentication()
+                        .map_err(|e| failure(&e))?;
+                    let status = runtime
+                        .unlock_for_browser_with_biometric_key(path, key.as_slice())
+                        .map_err(runtime_error)?;
+                    Ok(json!({ "phase": "unlocked", "status": status }))
+                }
+                "biometric.authentication.cancel" => {
+                    self.authentication
+                        .cancel(&self.app, Some(authentication_id(input)?));
+                    Ok(json!({ "cancelled": true }))
+                }
                 "biometric.enable" => {
+                    if self.desktop_biometric.is_some() {
+                        return Err(failure("Touch ID 跟随桌面设置，请在桌面端启用。"));
+                    }
                     let (path, key) = runtime.quick_unlock_material().map_err(runtime_error)?;
                     self.biometric
                         .lock()
@@ -531,6 +621,9 @@ impl BrowserBrokerPlatform for TauriBrowserPlatform {
                         .enable(path, key.as_slice())
                         .map(|status| json!(status))
                         .map_err(|message| failure(&message))
+                }
+                "biometric.disable" if self.desktop_biometric.is_some() => {
+                    Err(failure("Touch ID 跟随桌面设置，请在桌面端关闭。"))
                 }
                 "biometric.disable" => self
                     .biometric
@@ -540,6 +633,9 @@ impl BrowserBrokerPlatform for TauriBrowserPlatform {
                     .map(|status| json!(status))
                     .map_err(|message| failure(&message)),
                 "biometric.unlock" => {
+                    if self.desktop_biometric.is_some() {
+                        return Err(failure("请更新插件以使用可取消的 Touch ID 认证。"));
+                    }
                     let (path, key) = self
                         .biometric
                         .lock()
@@ -944,7 +1040,12 @@ impl BrowserBrokerPlatform for TauriBrowserPlatform {
             .blocking_show())
     }
 
+    fn cancel_authentication(&self) {
+        self.authentication.cancel(&self.app, None);
+    }
+
     fn clear(&self) {
+        self.cancel_authentication();
         if let Ok(mut assist) = self.device_assist.lock() { assist.clear(); }
         if let Ok(mut files) = self.recovery_files.lock() {
             files.clear();
@@ -982,6 +1083,9 @@ pub(crate) fn is_platform_operation(operation: &str) -> bool {
             | "biometric.enable"
             | "biometric.disable"
             | "biometric.unlock"
+            | "biometric.authentication.start"
+            | "biometric.authentication.poll"
+            | "biometric.authentication.cancel"
             | "pin.status"
             | "pin.enable"
             | "pin.disable"
@@ -1100,4 +1204,18 @@ fn failure(message: &str) -> BrowserPlatformError {
         code: "operation-failed",
         message: message.to_owned(),
     }
+}
+
+fn authentication_id(input: &Map<String, Value>) -> Result<Uuid, BrowserPlatformError> {
+    if input
+        .keys()
+        .any(|key| !matches!(key.as_str(), "sessionId" | "userGestureId"))
+    {
+        return Err(invalid());
+    }
+    input
+        .get("sessionId")
+        .and_then(Value::as_str)
+        .and_then(|id| Uuid::parse_str(id).ok())
+        .ok_or_else(invalid)
 }

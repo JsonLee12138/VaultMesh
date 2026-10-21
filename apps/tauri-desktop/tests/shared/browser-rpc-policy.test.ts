@@ -17,6 +17,12 @@ function request(operation: BrowserRpcRequest['operation'], input: Record<string
 }
 
 describe('browser RPC command authorization', () => {
+  it('CT-BROWSER-002 requires a gesture to start Touch ID and treats session polling as a bounded mutation', () => {
+    expect(authorizeBrowserRpc(request('biometric.authentication.start', { sessionId: crypto.randomUUID() }), false).authorized).toBe(false);
+    expect(authorizeBrowserRpc(request('biometric.authentication.start', { sessionId: crypto.randomUUID(), userGestureId: crypto.randomUUID() }), false).authorized).toBe(true);
+    expect(BROWSER_RPC_POLICIES['biometric.authentication.poll']).toEqual({ capability: 'mutation', requiresUnlock: false, requiresGesture: false, requiresConfirmation: false });
+    expect(authorizeBrowserRpc(request('biometric.authentication.cancel', { sessionId: crypto.randomUUID() }), false).authorized).toBe(true);
+  });
   it('CT-AUTOFILL-001/CT-BROWSER-003 closes item sources and requires gestures for generated copying', () => {
     expect(NativeItemPlanSchema.safeParse([{ handle: crypto.randomUUID(), source: 'card:number' }]).success).toBe(true);
     for (const source of ['card:pin', 'password', 'identity:secret']) expect(NativeItemPlanSchema.safeParse([{ handle: crypto.randomUUID(), source }]).success).toBe(false);
