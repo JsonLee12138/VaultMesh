@@ -626,7 +626,7 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 
 - 必须：Chromium WebAuthn proxy 的 ES256 私钥保存在加密 secret 中，签名在 main 完成，每次 registration/assertion 显示 native confirmation。
 - 必须：Passkey 创建或导入使用当前 RP/origin 的默认 Login 作为归属提示，并由 desktop 重新验证；无有效默认值时可以唯一用户名匹配，仍不确定时作为 Passkey-only Login，禁止进入普通 Secret/密钥分类。
-- 必须：Chromium 扩展必须在后台启动时即挂载 WebAuthn proxy，并在插件锁定、native 连接重连或桌面端暂时不可达期间保持挂载；此时的 registration/assertion 与平台认证器探测不得绕过 VaultMesh，必须保留请求、打开插件解锁界面并在桌面端可用且解锁后由 VaultMesh 继续。仅当用户在该界面明确选择不解锁时，当前请求以 `NotAllowedError` 结束，proxy 暂时 detach 5 分钟以便网站重试交给浏览器；在此期间解锁则立即重新挂载。页面取消或 5 分钟未完成时请求失败，但不绕过。仅确认未配对时 detach。
+- 必须：Chromium 扩展必须在后台挂载 WebAuthn proxy，并在插件锁定、native 连接重连或桌面端暂时不可达期间保持挂载；此时普通站点的 registration/assertion 与平台认证器探测由 VaultMesh 接管。浏览器原生身份服务（如 Google 账号登录 accounts.google.com 等）以及设置中关闭通行密钥接管时自动直通（detach），不拦截 Chrome 原生 Touch ID / 平台生物识别认证。在受接管站点，仅当用户在解锁界面明确选择不解锁时，当前请求以 `NotAllowedError` 结束，proxy 暂时 detach 5 分钟以便网站重试交给浏览器；在此期间解锁则立即重新挂载。页面取消或 5 分钟未完成时请求失败，但不绕过。仅确认未配对时 detach。
 - 验收：`CT-PASSKEY-001`、`CT-PASSKEY-002`、`AT-PASSKEY-001`。
 
 ## 本地 Agent Capability Broker
