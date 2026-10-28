@@ -178,6 +178,7 @@ pub fn run() {
             let agent_resources = Arc::new(Mutex::new(AgentResourceStore::default()));
             let agent_managed_web = Arc::new(Mutex::new(AgentManagedWebStore::default()));
             let agent_ssh_sessions = Arc::new(Mutex::new(AgentSshSessionStore::default()));
+            let agent_ssh_agent_registry = Arc::new(Mutex::new(crate::agent_ssh_agent::SshAgentRegistry::new()));
             let mut agent_broker_core = AgentBrokerCore::new_with_pairing_proofs(
                 AgentPairingProofs::platform(app_data.join("agent-pairings.json")),
             )
@@ -209,6 +210,7 @@ pub fn run() {
             let cleanup_resources = Arc::clone(&agent_resources);
             let cleanup_managed_web = Arc::clone(&agent_managed_web);
             let cleanup_ssh_sessions = Arc::clone(&agent_ssh_sessions);
+            let cleanup_ssh_agent = Arc::clone(&agent_ssh_agent_registry);
             agent_broker_core.set_resource_cleanup(Arc::new(move |scope| {
                 if let Ok(mut resources) = cleanup_resources.lock() {
                     match scope {
@@ -232,6 +234,11 @@ pub fn run() {
                         AgentCleanupScope::All => sessions.clear(),
                     }
                 }
+                if let Ok(mut registry) = cleanup_ssh_agent.lock() {
+                    if matches!(scope, AgentCleanupScope::All) {
+                        registry.close_all();
+                    }
+                }
                 if let Ok(mut sessions) = cleanup_managed_web.lock() {
                     match scope {
                         AgentCleanupScope::Client(client_id) => {
@@ -241,6 +248,11 @@ pub fn run() {
                             sessions.revoke_session(session_id);
                         }
                         AgentCleanupScope::All => sessions.clear(),
+                    }
+                }
+                if let Ok(mut registry) = cleanup_ssh_agent.lock() {
+                    if matches!(scope, AgentCleanupScope::All) {
+                        registry.close_all();
                     }
                 }
             }));
@@ -414,6 +426,7 @@ pub fn run() {
             let executor_resources = Arc::clone(&agent_resources);
             let executor_managed_web = Arc::clone(&agent_managed_web);
             let executor_ssh_sessions = Arc::clone(&agent_ssh_sessions);
+            let executor_ssh_agent_registry = Arc::clone(&agent_ssh_agent_registry);
             let executor_ssh_directory = ssh_directory.clone();
             let executor_email_otp = Arc::clone(&email_otp);
             let executor_app = app.handle().clone();
@@ -436,6 +449,7 @@ pub fn run() {
                         managed_web: &executor_managed_web,
                         email_otp: &executor_email_otp,
                         ssh_sessions: &executor_ssh_sessions,
+                        ssh_agent_registry: &executor_ssh_agent_registry,
                         ssh_directory: &executor_ssh_directory,
                         app: &executor_app,
                         dialog_focus: &executor_dialog_focus,
@@ -633,6 +647,7 @@ pub fn run() {
                 agent_resources,
                 agent_managed_web,
                 agent_ssh_sessions,
+                agent_ssh_agent_registry,
                 #[cfg(unix)]
                 _agent_listener: agent_listener,
                 #[cfg(target_os = "windows")]
@@ -979,6 +994,9 @@ pub(super) fn cleanup_app_state(handle: &AppHandle) {
     }
     if let Ok(mut sessions) = state.agent_ssh_sessions.lock() {
         sessions.clear();
+    }
+    if let Ok(mut registry) = state.agent_ssh_agent_registry.lock() {
+        registry.close_all();
     }
     if let Ok(mut sessions) = state.agent_managed_web.lock() {
         sessions.clear();

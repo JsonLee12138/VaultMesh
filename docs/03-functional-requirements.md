@@ -720,15 +720,9 @@ Requirement ID 永久稳定。详细机制由 `specs/` 和 ADR 所有；本文�
 ### REQ-AGENT-004 SSH 动作
 
 - 必须：Rust SSH adapter 可以按 exact SSH Vault item 执行 non-PTY exec、SFTP、公钥安装和显式启用的 PTY/tunnel，
-  并逐次执行 host identity、命令/路径、风险、输出配额与生命周期策略。
-- 必须：Agent 可以提交受限 OpenSSH alias，请求 Rust broker 为 exact SSH Vault item 生成专属 ED25519
-  密钥、把生成的密钥自动保存为软件内 SSH key 记录、安装公钥、验证新密钥登录并写入 VaultMesh 管理的
-  本机 SSH config fragment。alias/account/target/Host Key 绑定必须由加密 Vault 记录拥有，本地不得保存
-  `manifest.json`。软件必须在生成的 SSH key 信息卡片上独立显示 `ssh <alias>`，并在编辑表单中以只读字段
-  显示 alias；修改普通名称不得改变 alias，公私钥不得在普通表单中替换或清除。Agent 不得提交或获得
-  host、username、port、算法、私钥、公钥原文或本地路径；既有 alias、key、config、symlink、target 或
-  Host Key 冲突必须拒绝且不得覆盖。该动作属于 R3 exact-only，每次执行必须由原生授权窗口明确提示它会建立
-  不再受 VaultMesh 逐命令 Action Lease 控制的持久本机 OpenSSH authority。
+  并逐次执行 host identity、命令/路径、风险、输出配额与生命周期策略；旧版逐命令代理工具在目录中明确标注为已废弃。
+- 必须：Rust broker 支持通过 `vaultmesh_ssh_agent_open` 为 exact SSH item 创建本地独占的短时 SSH-Agent 协议桥接会话（仅需 Vault 解锁门禁，免二次动作审批；Unix Socket 权限 0600，目录 0700），支持已有私钥及纯密码账号全自动动态密钥签发与直连，仅响应公开身份与内存签名挑战，私钥绝不向 Agent 暴露，并设置硬性 TTL；超时、调用 `vaultmesh_ssh_agent_close` 或 Vault 锁定时立即销毁清理。返回必须附带 targetHost、targetPort、targetUser 与标准直连执行命令。
+- 必须：`vaultmesh_ssh_host_setup` 标记为已废弃；Agent 严禁扫描宿主机 `~/.ssh/config`，严禁使用或生成 Host Alias，必须通过真实 IP/域名直连。早期持久 OpenSSH 配置能力仅作为向下兼容历史保留。
 - 必须：密码、私钥和 passphrase 不进入 shell、PTY、argv、环境或临时 identity 文件；`sudo` 不自动输入密码。
 - 验收：`CT-AGENT-SSH-001`、`CT-AGENT-PTY-001`、`AT-AGENT-SSH-001`。
 

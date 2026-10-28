@@ -57,6 +57,7 @@ mod agent_pairing;
 mod agent_pairing_window;
 mod agent_resources;
 mod agent_ssh_command_policy;
+pub(crate) mod agent_ssh_agent;
 mod agent_ssh_runtime;
 mod agent_ssh_sessions;
 mod agent_tool_executor;
@@ -226,6 +227,7 @@ struct RuntimeState {
     agent_resources: Arc<Mutex<AgentResourceStore>>,
     agent_managed_web: Arc<Mutex<AgentManagedWebStore>>,
     agent_ssh_sessions: Arc<Mutex<AgentSshSessionStore>>,
+    agent_ssh_agent_registry: Arc<Mutex<crate::agent_ssh_agent::SshAgentRegistry>>,
     #[cfg(unix)]
     _agent_listener: Option<Arc<AgentBrokerUnixListener>>,
     #[cfg(target_os = "windows")]
