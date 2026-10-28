@@ -440,10 +440,16 @@ struct AgentLoginDetail {
 #[derive(Debug)]
 struct SshExternalLaunchMaterial {
     target: ssh_external::LaunchTarget,
+    account_label: String,
     private_key: Option<Zeroizing<String>>,
+    passphrase: Option<Zeroizing<String>>,
     password: Option<Zeroizing<String>>,
     password_copy_skipped: bool,
     authentication: &'static str,
+}
+
+fn default_ssh_session_duration_minutes() -> u64 {
+    15
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -454,6 +460,8 @@ struct SecuritySettings {
     lock_on_sleep: bool,
     clipboard_clear_timeout_ms: u64,
     copy_ssh_password_on_launch: bool,
+    #[serde(default = "default_ssh_session_duration_minutes")]
+    ssh_session_duration_minutes: u64,
 }
 
 impl Default for SecuritySettings {
@@ -464,6 +472,7 @@ impl Default for SecuritySettings {
             lock_on_sleep: true,
             clipboard_clear_timeout_ms: 30_000,
             copy_ssh_password_on_launch: true,
+            ssh_session_duration_minutes: 15,
         }
     }
 }
@@ -472,6 +481,7 @@ impl SecuritySettings {
     fn validate(&self) -> bool {
         (60_000..=30 * 60_000).contains(&self.idle_timeout_ms)
             && (10_000..=2 * 60_000).contains(&self.clipboard_clear_timeout_ms)
+            && (1..=60).contains(&self.ssh_session_duration_minutes)
     }
 }
 

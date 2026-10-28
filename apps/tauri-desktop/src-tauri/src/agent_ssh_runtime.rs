@@ -425,22 +425,71 @@ pub(super) fn collect_ssh_external_launch_material(
     let target = ssh_target(&detail).map_err(|_| VAULTMESH_STATUS_INVALID_ARGUMENT)?;
     let target = ssh_external::LaunchTarget::new(&target.host, target.port, &target.username)
         .map_err(|_| DesktopRuntimeError::from(VAULTMESH_STATUS_INVALID_ARGUMENT))?;
-    let can_use_vault_key = client_id == ssh_external::ExternalClientId::SystemTerminal
-        && detail.has_private_key
+    let can_access_secret = (client_id == ssh_external::ExternalClientId::SystemTerminal
+        || client_id == ssh_external::ExternalClientId::Vscode)
         && !detail.master_password_reprompt
         && permits_transient_secret;
-    let private_key = can_use_vault_key
-        .then(|| {
-            runtime.protected_value(
-                VAULTMESH_ITEM_KIND_SSH_CREDENTIAL,
-                VAULTMESH_PROTECTED_FIELD_SSH_PRIVATE_KEY,
-                &detail.id,
-                None,
-            )
-        })
-        .transpose()?;
+
+    let mut private_key: Option<Zeroizing<String>> = None;
+    let mut passphrase: Option<Zeroizing<String>> = None;
+
+    if can_access_secret && detail.has_private_key {
+        let key_material = runtime_private_key(runtime, &detail, None)?;
+        private_key = Some(key_material.private_key);
+        passphrase = key_material.passphrase;
+    } else if can_access_secret && detail.has_password {
+        if let Ok(account_ref) = uuid::Uuid::parse_str(account_id) {
+            let target_endpoint = SshTarget {
+                host: target.host().to_owned(),
+                port: target.port(),
+                username: target.username().to_owned(),
+            };
+            if let Ok(host_key_preview) = ssh_service::inspect_host_key(target_endpoint.clone()) {
+                if let Ok(Some(managed_key)) = runtime.find_managed_ssh_key_for_account(
+                    account_ref,
+                    &host_key_preview.fingerprint,
+                ) {
+                    private_key = Some(managed_key.private_key);
+                } else if let Ok(password) = runtime.protected_value(
+                    VAULTMESH_ITEM_KIND_SSH_CREDENTIAL,
+                    VAULTMESH_PROTECTED_FIELD_SSH_PASSWORD,
+                    &detail.id,
+                    None,
+                ) {
+                    let alias = format!("auto-{}", &account_ref.to_string()[..8]);
+                    if let Ok(identity) = crate::ssh_host_setup::generate_ssh_host_identity(&alias) {
+                        let cancellation = std::sync::atomic::AtomicBool::new(false);
+                        let install_request = PublicKeyInstallRequest {
+                            target: target_endpoint,
+                            expected_host_key_fingerprint: host_key_preview.fingerprint.clone(),
+                            public_key: identity.public_key.clone(),
+                            authentication: AuthenticationMaterial::StoredPassword(password),
+                            verification_key: Some(PrivateKeyMaterial {
+                                public_key: Some(identity.public_key.clone()),
+                                private_key: identity.private_key.clone(),
+                                passphrase: None,
+                            }),
+                        };
+                        if ssh_service::install_public_key_cancellable(install_request, &cancellation).is_ok() {
+                            if let Ok(managed_key) = runtime.add_managed_ssh_host_key(
+                                account_ref,
+                                alias,
+                                host_key_preview.fingerprint,
+                                identity.public_key,
+                                identity.private_key,
+                            ) {
+                                private_key = Some(managed_key.private_key);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let has_key = private_key.is_some();
     let should_copy_password = client_id != ssh_external::ExternalClientId::CopyCommand
-        && !can_use_vault_key
+        && !has_key
         && copy_password
         && detail.has_password;
     let password_copy_skipped =
@@ -455,7 +504,7 @@ pub(super) fn collect_ssh_external_launch_material(
             )
         })
         .transpose()?;
-    let authentication = if can_use_vault_key {
+    let authentication = if has_key {
         "key"
     } else if detail.has_password {
         "password"
@@ -464,7 +513,9 @@ pub(super) fn collect_ssh_external_launch_material(
     };
     Ok(SshExternalLaunchMaterial {
         target,
+        account_label: detail.username.clone(),
         private_key,
+        passphrase,
         password,
         password_copy_skipped,
         authentication,

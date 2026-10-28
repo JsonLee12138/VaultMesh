@@ -179,6 +179,14 @@ pub fn run() {
             let ssh_directory = app.path().home_dir()?.join(".ssh");
             let ssh_launch_directory = ssh_external::launch_root(&app_data);
             ssh_external::clear_launches(&ssh_launch_directory);
+            let session_fragment_dir = ssh_directory.join("vaultmesh").join("config.d");
+            if let Ok(entries) = std::fs::read_dir(&session_fragment_dir) {
+                for entry in entries.flatten() {
+                    if entry.file_name().to_string_lossy().starts_with("session-") {
+                        let _ = std::fs::remove_file(entry.path());
+                    }
+                }
+            }
             let email_otp = Arc::new(Mutex::new(EmailOtpService::new(email_settings_path)));
             let agent_resources = Arc::new(Mutex::new(AgentResourceStore::default()));
             let agent_managed_web = Arc::new(Mutex::new(AgentManagedWebStore::default()));

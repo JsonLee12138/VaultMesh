@@ -43,6 +43,7 @@ pub struct ActiveAgentSession {
     pub socket_path: PathBuf,
     pub expires_at_epoch_ms: u64,
     pub cancelled: Arc<AtomicBool>,
+    pub config_fragment: Option<PathBuf>,
 }
 
 #[derive(Default)]
@@ -164,10 +165,17 @@ impl SshAgentRegistry {
                 socket_path,
                 expires_at_epoch_ms,
                 cancelled,
+                config_fragment: None,
             },
         );
 
         Ok(info)
+    }
+
+    pub fn attach_config_fragment(&mut self, session_ref: &str, fragment_path: PathBuf) {
+        if let Some(session) = self.sessions.get_mut(session_ref) {
+            session.config_fragment = Some(fragment_path);
+        }
     }
 
     pub fn close_session(&mut self, session_ref: &str) -> bool {
@@ -176,6 +184,9 @@ impl SshAgentRegistry {
             #[cfg(unix)]
             {
                 let _ = fs::remove_file(&session.socket_path);
+            }
+            if let Some(fragment) = &session.config_fragment {
+                let _ = fs::remove_file(fragment);
             }
             true
         } else {
@@ -189,6 +200,9 @@ impl SshAgentRegistry {
             #[cfg(unix)]
             {
                 let _ = fs::remove_file(&session.socket_path);
+            }
+            if let Some(fragment) = &session.config_fragment {
+                let _ = fs::remove_file(fragment);
             }
         }
     }

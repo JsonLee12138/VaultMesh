@@ -15,7 +15,7 @@ import { RecoveryPanel, type RecoveryTarget } from "./recovery-panel";
 
 type PinStatus = { enabled: boolean; locked: boolean; failureLimit: number; remainingAttempts: number };
 type BiometricStatus = { available: boolean; enabled: boolean; followsDesktop?: boolean };
-type DesktopSecuritySettings = { lockOnBlur: boolean; idleTimeoutMs: number; lockOnSleep: boolean; clipboardClearTimeoutMs: number; copySshPasswordOnLaunch: boolean };
+type DesktopSecuritySettings = { lockOnBlur: boolean; idleTimeoutMs: number; lockOnSleep: boolean; clipboardClearTimeoutMs: number; copySshPasswordOnLaunch: boolean; sshSessionDurationMinutes?: number };
 type SettingsSection = "menu" | "pin" | "security" | "device" | "history" | "recovery";
 
 const fieldClass = "h-9 rounded-md border border-input bg-background px-3 text-sm";
