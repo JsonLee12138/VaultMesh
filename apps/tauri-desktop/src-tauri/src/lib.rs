@@ -95,6 +95,7 @@ mod desktop_runtime;
 mod desktop_ssh_commands;
 mod desktop_startup;
 mod device_assist;
+pub mod device_credentials;
 mod electron_migration;
 mod email_otp;
 mod import_service;
